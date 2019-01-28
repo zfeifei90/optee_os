@@ -625,20 +625,6 @@ int stpmic1_regulator_voltage_set(const char *name, uint16_t millivolts)
 				       mask);
 }
 
-int stpmic1_regulator_pull_down_set(const char *name)
-{
-	const struct regul_struct *regul = get_regulator_data(name);
-
-	if (regul->pull_down_reg != 0) {
-		return stpmic1_register_update(regul->pull_down_reg,
-					       BIT(regul->pull_down),
-					       LDO_BUCK_PULL_DOWN_MASK <<
-					       regul->pull_down);
-	}
-
-	return 0;
-}
-
 int stpmic1_regulator_mask_reset_set(const char *name)
 {
 	const struct regul_struct *regul = get_regulator_data(name);
@@ -839,7 +825,6 @@ int stpmic1_lp_voltage_cfg(const char *name, uint16_t millivolts,
 
 {
 	uint8_t voltage_index = voltage_to_index(name, millivolts);
-	const struct regul_struct *regul = get_regulator_data(name);
 	uint8_t mask;
 
 	/* Voltage can be set for buck<N> or ldo<N> (except ldo4) regulators */
@@ -852,7 +837,7 @@ int stpmic1_lp_voltage_cfg(const char *name, uint16_t millivolts,
 		return 1;
 	}
 
-	assert(cfg->lp_reg == regul->low_power_reg);
+	assert(cfg->lp_reg == get_regulator_data(name)->low_power_reg);
 	cfg->value = voltage_index << 2;
 	cfg->mask = mask;
 
