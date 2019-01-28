@@ -499,7 +499,8 @@ static bool initialize_pmic_i2c(void)
 
 	ret = stm32_i2c_init(i2c, &i2c_init);
 	if (ret != 0) {
-		EMSG("Cannot initialize I2C %x (%d)\n", i2c->pbase, ret);
+		EMSG("Cannot initialize I2C %" PRIx32 "  (%d)",
+		     i2c_info.base, ret);
 		panic();
 	}
 

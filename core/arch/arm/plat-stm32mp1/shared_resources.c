@@ -264,7 +264,7 @@ static unsigned int decprot2shres(unsigned int decprot_id)
 	return SHRES_INVALID;
 }
 
-static const char *decprot2str(unsigned int decprot_id)
+static const char __maybe_unused *decprot2str(unsigned int decprot_id)
 {
 	size_t i;
 
@@ -279,7 +279,7 @@ static const char *decprot2str(unsigned int decprot_id)
 }
 
 /* GPIOZ bank may have several number of pins */
-#if CFG_DT
+#ifdef CFG_DT
 static int gpioz_nbpin = -1;
 
 static unsigned int get_gpioz_nbpin_unpg(void)
@@ -982,7 +982,7 @@ static TEE_Result stm32mp1_init_drivers(void)
 	registering_locked = true;
 
 	for (id = 0; id < STM32MP1_SHRES_COUNT; id++) {
-		uint8_t *state = &shres_state[id];
+		uint8_t __maybe_unused *state = &shres_state[id];
 
 #if TRACE_LEVEL == TRACE_INFO
 		/* Display only the secure and shared resources */

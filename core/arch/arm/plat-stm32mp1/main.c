@@ -136,7 +136,7 @@ const struct thread_handlers *generic_boot_get_handlers(void)
 #define CONSOLE_WITHOUT_CLOCK_MAGIC	~0UL
 
 static struct stm32_uart_pdata console_data;
-static struct serial_chip *serial_console;
+static struct serial_chip *serial_console __maybe_unused;
 
 void console_init(void)
 {
@@ -202,7 +202,7 @@ void console_flush(void)
 }
 #endif
 
-#if CFG_DT
+#ifdef CFG_DT
 /* Probe console once clocks inits (service_init level) are completed */
 static TEE_Result stm32_uart_console_probe(void)
 {

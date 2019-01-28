@@ -14,17 +14,17 @@ void stm32mp_pmic_apply_lp_config(const char *lp_state);
 void stm32mp_get_pmic(void);
 void stm32mp_put_pmic(void);
 #else
-void stm32mp_pmic_apply_boot_on_config(void)
+static inline void stm32mp_pmic_apply_boot_on_config(void)
 {
 }
-void stm32mp_pmic_apply_lp_config(const char *lp_state)
+static inline void stm32mp_pmic_apply_lp_config(const char *lp_state __unused)
 {
 }
-void stm32mp_get_pmic(void)
+static inline void stm32mp_get_pmic(void)
 {
 	panic();
 }
-void stm32mp_put_pmic(void)
+static inline void stm32mp_put_pmic(void)
 {
 	panic();
 }

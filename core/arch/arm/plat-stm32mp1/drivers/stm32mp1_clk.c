@@ -1069,10 +1069,6 @@ static void stm32mp1_osc_init(void)
 		DMSG("Osc %s frequency: %lu", name[i], stm32mp1_osc[i]);
 	}
 }
-#else
-static void stm32mp1_osc_init(void)
-{
-}
 #endif
 
 /*

@@ -322,7 +322,7 @@ int psci_system_suspend(uintptr_t entry, uint32_t context_id __unused,
 {
 	int ret = PSCI_RET_INVALID_PARAMETERS;
 	uint32_t soc_mode;
-	int pos = get_core_pos();
+	int __maybe_unused pos = get_core_pos();
 
 	DMSG("core %u", pos);
 

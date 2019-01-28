@@ -273,15 +273,16 @@ static struct mobj *teeram_bkp_mobj;
 static void init_retram_resume_resources(void)
 {
 	struct retram_resume_ctx *ctx = get_retram_resume_ctx();
-	const size_t size = (uintptr_t)stm32mp_bkpsram_image_end -
-			    (uintptr_t)stm32mp_bkpsram_resume;
+	size_t __maybe_unused csize;
 	paddr_t __maybe_unused pa;
 
 	COMPILE_TIME_ASSERT(sizeof(struct pm_mailbox) <
 			    BKPSRAM_PM_MAILBOX_SIZE);
 	COMPILE_TIME_ASSERT(sizeof(struct retram_resume_ctx) <
 			    BKPSRAM_PM_CONTEXT_SIZE);
-	assert((sizeof(*ctx) + size) < BKPSRAM_PM_CONTEXT_SIZE);
+	csize = (uintptr_t)stm32mp_bkpsram_image_end -
+		(uintptr_t)stm32mp_bkpsram_resume;
+	assert((sizeof(*ctx) + csize) < BKPSRAM_PM_CONTEXT_SIZE);
 
 	teeram_bkp_mobj = mobj_mm_alloc(mobj_sec_ddr, TEE_RAM_PH_SIZE,
 					&tee_mm_sec_ddr);
