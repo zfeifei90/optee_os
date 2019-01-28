@@ -108,7 +108,7 @@ static bool valid_decprot_id(unsigned int id)
 	return id < (unsigned int)etzpc_dev.num_per_sec;
 }
 
-static bool valid_tzma_id(unsigned int id)
+static bool __maybe_unused valid_tzma_id(unsigned int id)
 {
 	return id < (unsigned int)etzpc_dev.num_tzma;
 }
