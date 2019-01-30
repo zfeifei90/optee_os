@@ -26,3 +26,10 @@ $(foreach f, $(EARLY_TA_PATHS), $(eval $(call process_early_ta,$(f))))
 $(foreach f, $(CFG_IN_TREE_EARLY_TAS), $(eval $(call \
 	process_early_ta,$(out-dir)/ta/$(f).stripped.elf)))
 endif
+
+#
+# Secure device tree support
+#
+ifneq ($(CFG_SECURE_DT),)
+include core/secure_dt.mk
+endif

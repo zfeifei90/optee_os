@@ -52,6 +52,7 @@ static void *mobj_phys_get_va(struct mobj *mobj, size_t offset)
 
 	return (void *)(moph->va + offset);
 }
+KEEP_PAGER(mobj_phys_get_va);
 
 static TEE_Result mobj_phys_get_pa(struct mobj *mobj, size_t offs,
 				   size_t granule, paddr_t *pa)
@@ -230,7 +231,7 @@ static void *mobj_mm_get_va(struct mobj *mobj, size_t offs)
 	return mobj_get_va(to_mobj_mm(mobj)->parent_mobj,
 			   mobj_mm_offs(mobj, offs));
 }
-
+KEEP_PAGER(mobj_mm_get_va);
 
 static TEE_Result mobj_mm_get_pa(struct mobj *mobj, size_t offs,
 				    size_t granule, paddr_t *pa)

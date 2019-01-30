@@ -53,7 +53,15 @@
  *     EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*
+ * Portions copyright (c) 2016-2017, ARM Limited and Contributors.
+ * All rights reserved.
+ */
+
 #ifndef __ASSEMBLY__
+
+#include <libfdt_env.h>
+
 
 struct fdt_header {
 	fdt32_t magic;			 /* magic word FDT_MAGIC */

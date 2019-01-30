@@ -236,10 +236,25 @@ CFG_CORE_SANITIZE_UNDEFINED ?= n
 CFG_CORE_SANITIZE_KADDRESS ?= n
 
 # Device Tree support
-# When enabled, the TEE _start function expects to find the address of a
-# Device Tree Blob (DTB) in register r2. The DT parsing code relies on
-# libfdt.  Currently only used to add the optee node and a reserved-memory
-# node for shared memory.
+#
+# - When CFG_DT is enabled, the libfdt is embedded in the core. It allows
+#   to parse a device tree.
+# - When CFG_STATIC_SECURE_DT is enabled, TEE core embeds a statically linked
+#   device tree blob.
+# - When CFG_SECURE_DT is defined, it defines the base name of the device tree
+#   source file from which a device tree blob is generated at core build.
+#
+# If CFG_DT is enabled and CFG_STATIC_SECURE_DT is disabled, the TEE _start
+# function expects to find the address of a Device Tree Blob (DTB) in
+# register r2 and is currently only used to add the optee node and a
+# reserved-memory node for shared memory.
+ifneq ($(CFG_SECURE_DT),)
+$(call force,CFG_STATIC_SECURE_DT,y)
+endif
+CFG_STATIC_SECURE_DT ?= n
+ifeq ($(CFG_STATIC_SECURE_DT),y)
+$(call force,CFG_DT,y)
+endif
 CFG_DT ?= n
 
 # Maximum size of the Device Tree Blob, has to be large enough to allow

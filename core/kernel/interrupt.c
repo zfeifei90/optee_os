@@ -78,3 +78,13 @@ void itr_set_affinity(size_t it, uint8_t cpu_mask)
 {
 	itr_chip->ops->set_affinity(itr_chip, it, cpu_mask);
 }
+
+uint8_t itr_set_pmr(uint8_t mask)
+{
+	return itr_chip->ops->set_pmr(itr_chip, mask);
+}
+
+uint8_t itr_set_ipriority(size_t it, uint8_t mask)
+{
+	return itr_chip->ops->set_ipriority(itr_chip, it, mask);
+}

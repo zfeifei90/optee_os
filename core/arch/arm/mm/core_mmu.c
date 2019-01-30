@@ -627,6 +627,8 @@ uint32_t core_mmu_type_to_attr(enum teecore_memtypes t)
 		return attr | TEE_MATTR_PRW | cached;
 	case MEM_AREA_RAM_SEC:
 		return attr | TEE_MATTR_SECURE | TEE_MATTR_PRW | cached;
+	case MEM_AREA_ROM_SEC:
+		return attr | TEE_MATTR_SECURE | TEE_MATTR_PR | cached;
 	case MEM_AREA_RES_VASPACE:
 	case MEM_AREA_SHM_VASPACE:
 		return 0;
@@ -1014,6 +1016,7 @@ void core_init_mmu_map(void)
 		case MEM_AREA_IO_SEC:
 		case MEM_AREA_IO_NSEC:
 		case MEM_AREA_RAM_SEC:
+		case MEM_AREA_ROM_SEC:
 		case MEM_AREA_RAM_NSEC:
 		case MEM_AREA_RES_VASPACE:
 		case MEM_AREA_SHM_VASPACE:

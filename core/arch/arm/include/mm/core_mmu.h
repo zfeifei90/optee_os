@@ -101,6 +101,7 @@
  * MEM_AREA_NSEC_SHM: NonSecure shared RAM between NSec and TEE.
  * MEM_AREA_RAM_NSEC: NonSecure RAM storing data
  * MEM_AREA_RAM_SEC:  Secure RAM storing some secrets
+ * MEM_AREA_ROM_SEC:  Secure read only memory storing some secrets
  * MEM_AREA_IO_NSEC:  NonSecure HW mapped registers
  * MEM_AREA_IO_SEC:   Secure HW mapped registers
  * MEM_AREA_RES_VASPACE: Reserved virtual memory space
@@ -121,6 +122,7 @@ enum teecore_memtypes {
 	MEM_AREA_NSEC_SHM,
 	MEM_AREA_RAM_NSEC,
 	MEM_AREA_RAM_SEC,
+	MEM_AREA_ROM_SEC,
 	MEM_AREA_IO_NSEC,
 	MEM_AREA_IO_SEC,
 	MEM_AREA_RES_VASPACE,
@@ -146,6 +148,7 @@ static inline const char *teecore_memtype_name(enum teecore_memtypes type)
 		[MEM_AREA_NSEC_SHM] = "NSEC_SHM",
 		[MEM_AREA_RAM_NSEC] = "RAM_NSEC",
 		[MEM_AREA_RAM_SEC] = "RAM_SEC",
+		[MEM_AREA_ROM_SEC] = "ROM_SEC",
 		[MEM_AREA_IO_NSEC] = "IO_NSEC",
 		[MEM_AREA_IO_SEC] = "IO_SEC",
 		[MEM_AREA_RES_VASPACE] = "RES_VASPACE",

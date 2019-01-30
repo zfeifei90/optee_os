@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: BSD-2-Clause
 /*
+ * Copyright (c) 2015-2018, ARM Limited and Contributors. All rights reserved.
  * Copyright (c) 2016-2017, Linaro Limited
  * Copyright (c) 2014, STMicroelectronics International N.V.
  */
@@ -7,12 +8,14 @@
 #include <arm.h>
 #include <assert.h>
 #include <drivers/gic.h>
+#include <io.h>
 #include <keep.h>
 #include <kernel/interrupt.h>
 #include <kernel/panic.h>
+#include <malloc.h>
 #include <util.h>
-#include <io.h>
 #include <trace.h>
+#include <string.h>
 
 /* Offsets from gic.gicc_base */
 #define GICC_CTLR		(0x000)
@@ -32,8 +35,12 @@
 #define GICD_ICENABLER(n)	(0x180 + (n) * 4)
 #define GICD_ISPENDR(n)		(0x200 + (n) * 4)
 #define GICD_ICPENDR(n)		(0x280 + (n) * 4)
+#define GICD_ISACTIVER(n)	(0x300 + (n) * 4)
+#define GICD_ICACTIVER(n)	(0x380 + (n) * 4)
 #define GICD_IPRIORITYR(n)	(0x400 + (n) * 4)
 #define GICD_ITARGETSR(n)	(0x800 + (n) * 4)
+#define GICD_ICFGR(n)		(0xC00 + (n) * 4)
+#define GICD_NSACR(n)		(0xE00 + (n) * 4)
 #define GICD_SGIR		(0xF00)
 
 #define GICD_CTLR_ENABLEGRP0	(1 << 0)
@@ -74,6 +81,12 @@ static void gic_op_raise_sgi(struct itr_chip *chip, size_t it,
 static void gic_op_set_affinity(struct itr_chip *chip, size_t it,
 			uint8_t cpu_mask);
 
+#if !defined(CFG_ARM_GICV3)
+static uint8_t gic_op_set_pmr(struct itr_chip *chip, uint8_t mask);
+static uint8_t gic_op_set_ipriority(struct itr_chip *chip, size_t it,
+			uint8_t mask);
+#endif
+
 static const struct itr_ops gic_ops = {
 	.add = gic_op_add,
 	.enable = gic_op_enable,
@@ -81,6 +94,10 @@ static const struct itr_ops gic_ops = {
 	.raise_pi = gic_op_raise_pi,
 	.raise_sgi = gic_op_raise_sgi,
 	.set_affinity = gic_op_set_affinity,
+#if !defined(CFG_ARM_GICV3)
+	.set_pmr = gic_op_set_pmr,
+	.set_ipriority = gic_op_set_ipriority,
+#endif
 };
 KEEP_PAGER(gic_ops);
 
@@ -146,11 +163,11 @@ void gic_cpu_init(struct gic_data *gd)
 	 * allow the Non-secure world to adjust the priority mask itself
 	 */
 #if defined(CFG_ARM_GICV3)
-	write_icc_pmr(0x80);
+	write_icc_pmr(GIC_HIGHEST_NS_PRIORITY);
 	write_icc_ctlr(GICC_CTLR_ENABLEGRP0 | GICC_CTLR_ENABLEGRP1 |
 		       GICC_CTLR_FIQEN);
 #else
-	write32(0x80, gd->gicc_base + GICC_PMR);
+	write32(GIC_HIGHEST_NS_PRIORITY, gd->gicc_base + GICC_PMR);
 
 	/* Enable GIC */
 	write32(GICC_CTLR_ENABLEGRP0 | GICC_CTLR_ENABLEGRP1 | GICC_CTLR_FIQEN,
@@ -189,11 +206,11 @@ void gic_init(struct gic_data *gd, vaddr_t gicc_base __maybe_unused,
 	 * allow the Non-secure world to adjust the priority mask itself
 	 */
 #if defined(CFG_ARM_GICV3)
-	write_icc_pmr(0x80);
+	write_icc_pmr(GIC_HIGHEST_NS_PRIORITY);
 	write_icc_ctlr(GICC_CTLR_ENABLEGRP0 | GICC_CTLR_ENABLEGRP1 |
 		       GICC_CTLR_FIQEN);
 #else
-	write32(0x80, gd->gicc_base + GICC_PMR);
+	write32(GIC_HIGHEST_NS_PRIORITY, gd->gicc_base + GICC_PMR);
 
 	/* Enable GIC */
 	write32(GICC_CTLR_ENABLEGRP0 | GICC_CTLR_ENABLEGRP1 | GICC_CTLR_FIQEN,
@@ -254,15 +271,54 @@ static void gic_it_set_prio(struct gic_data *gd, size_t it, uint8_t prio)
 {
 	size_t idx __maybe_unused = it / NUM_INTS_PER_REG;
 	uint32_t mask __maybe_unused = 1 << (it % NUM_INTS_PER_REG);
+	bool group0 = ((read32(gd->gicd_base + GICD_IGROUPR(idx)) & mask) == 0);
 
-	/* Assigned to group0 */
-	assert(!(read32(gd->gicd_base + GICD_IGROUPR(idx)) & mask));
+	/*
+	 * Check priority against ARM recommendation: Group1 interrupts always
+	 * have a lower priority than group0 interrupts.
+	 * Note, lower numerical values have higher priorities so the comparison
+	 * checks below are reversed from what might be expected.
+	 */
+	if (group0) {
+		assert(prio <= GIC_LOWEST_SEC_PRIORITY);
+	} else {
+		assert(prio >= GIC_HIGHEST_NS_PRIORITY &&
+		       prio <= GIC_LOWEST_NS_PRIORITY);
+	}
 
 	/* Set prio it to selected CPUs */
 	DMSG("prio: writing 0x%x to 0x%" PRIxVA,
 		prio, gd->gicd_base + GICD_IPRIORITYR(0) + it);
 	write8(prio, gd->gicd_base + GICD_IPRIORITYR(0) + it);
 }
+
+static uint8_t gic_op_set_pmr(struct itr_chip *chip, uint8_t mask)
+{
+	struct gic_data *gd = container_of(chip, struct gic_data, chip);
+	uint32_t pmr = read32(gd->gicc_base + GICC_PMR);
+
+	/*
+	 * Order memory updates w.r.t. PMR write, and ensure they're visible
+	 * before potential out of band interrupt trigger because of PMR update.
+	 */
+	dsb_ishst();
+	write32(mask, gd->gicc_base + GICC_PMR);
+	dsb_ishst();
+
+	return (uint8_t)pmr;
+}
+
+static uint8_t gic_op_set_ipriority(struct itr_chip *chip, size_t it,
+			uint8_t mask)
+{
+	struct gic_data *gd = container_of(chip, struct gic_data, chip);
+	uint8_t prio = read8(gd->gicd_base + GICD_IPRIORITYR(0) + it);
+
+	gic_it_set_prio(gd, it, mask);
+
+	return prio;
+}
+
 
 static void gic_it_enable(struct gic_data *gd, size_t it)
 {
@@ -471,4 +527,144 @@ static void gic_op_set_affinity(struct itr_chip *chip, size_t it,
 		panic();
 
 	gic_it_set_cpu_mask(gd, it, cpu_mask);
+}
+
+#define IT_PM_GPOUP1_BIT	BIT(0)
+#define IT_PM_ENABLE_BIT	BIT(1)
+#define IT_PM_PENDING_BIT	BIT(2)
+#define IT_PM_ACTIVE_BIT	BIT(3)
+#define IT_PM_CONFIG_MASK	GENMASK_32(1, 0)
+
+struct gic_it_pm {
+	uint16_t it;
+	uint8_t flags;
+	uint8_t iprio;
+	uint8_t itarget;
+	uint8_t icfg;
+};
+
+static void gic_save_it(struct gic_data *gd,
+			unsigned int it, struct gic_it_pm *pm)
+{
+	size_t idx;
+	uint32_t bit_mask = BIT(it % NUM_INTS_PER_REG);
+	uint32_t shift2 = it % (NUM_INTS_PER_REG / 2);
+	uint32_t shift8 = it % (NUM_INTS_PER_REG / 8);
+	uint32_t data32;
+
+	assert(it < UINT16_MAX);
+	pm->it = (uint16_t)it;
+
+	idx = it / NUM_INTS_PER_REG;
+
+	pm->flags = 0;
+	if ((read32(gd->gicd_base + GICD_IGROUPR(idx)) & bit_mask) != 0) {
+		pm->flags |= IT_PM_GPOUP1_BIT;
+	}
+	if ((read32(gd->gicd_base + GICD_ISENABLER(idx)) & bit_mask) != 0) {
+		pm->flags |= IT_PM_ENABLE_BIT;
+	}
+	if ((read32(gd->gicd_base + GICD_ISPENDR(idx)) & bit_mask) != 0) {
+		pm->flags |= IT_PM_PENDING_BIT;
+	}
+	if ((read32(gd->gicd_base + GICD_ISACTIVER(idx)) & bit_mask) != 0) {
+		pm->flags |= IT_PM_ACTIVE_BIT;
+	}
+
+	idx = (8 * it) / NUM_INTS_PER_REG;
+
+	data32 = read32(gd->gicd_base + GICD_IPRIORITYR(idx)) >> shift8;
+	pm->iprio = (uint8_t)data32;
+
+	data32 = read32(gd->gicd_base + GICD_ITARGETSR(idx)) >> shift8;
+	pm->itarget = (uint8_t)data32;
+
+	/* Note: ICFGR is RAO for SPIs and PPIs */
+	idx = (2 * it) / NUM_INTS_PER_REG;
+	data32 = read32(gd->gicd_base + GICD_ICFGR(idx)) >> shift2;
+	pm->icfg = (uint8_t)data32 & IT_PM_CONFIG_MASK;
+}
+
+static void gic_restore_it(struct gic_data *gd, struct gic_it_pm *pm)
+{
+	size_t idx;
+	unsigned int it = (unsigned int)pm->it;
+	uint32_t mask = BIT(it % NUM_INTS_PER_REG);
+	uint32_t shift2 = it % (NUM_INTS_PER_REG / 2);
+	uint32_t shift8 = it % (NUM_INTS_PER_REG / 8);
+
+	idx = it / NUM_INTS_PER_REG;
+
+	io_mask32(gd->gicd_base + GICD_IGROUPR(idx),
+		  (pm->flags & IT_PM_GPOUP1_BIT) != 0 ? mask : 0, mask);
+
+	io_mask32(gd->gicd_base + GICD_ISENABLER(idx),
+		  (pm->flags & IT_PM_ENABLE_BIT) != 0 ? mask : 0, mask);
+
+	io_mask32(gd->gicd_base + GICD_ISPENDR(idx),
+		  (pm->flags & IT_PM_PENDING_BIT) != 0 ? mask : 0, mask);
+
+	io_mask32(gd->gicd_base + GICD_ISACTIVER(idx),
+		  (pm->flags & IT_PM_ACTIVE_BIT) != 0 ? mask : 0, mask);
+
+	idx = (8 * it) / NUM_INTS_PER_REG;
+
+	io_mask32(gd->gicd_base + GICD_IPRIORITYR(idx),
+		  (uint32_t)pm->iprio << shift8, UINT8_MAX << shift8);
+
+	io_mask32(gd->gicd_base + GICD_ITARGETSR(idx),
+		  (uint32_t)pm->itarget << shift8, UINT8_MAX << shift8);
+
+	/* Note: ICFGR is WI for SPIs and PPIs */
+	idx = (2 * it) / NUM_INTS_PER_REG;
+	io_mask32(gd->gicd_base + GICD_ICFGR(idx),
+		  (uint32_t)pm->icfg << shift2, IT_PM_CONFIG_MASK << shift2);
+}
+
+static bool it_is_group0(struct gic_data *gd, unsigned int it)
+{
+	size_t idx = it / NUM_INTS_PER_REG;
+	uint32_t groupr = read32(gd->gicd_base + GICD_IGROUPR(idx));
+	uint32_t bit_mask = BIT(it % NUM_INTS_PER_REG);
+
+	return (groupr & bit_mask) == 0;
+}
+
+/* Save the configuration for interrupts in group0 only */
+void gic_suspend(struct gic_data *gd)
+{
+	struct gic_pm *pm = &gd->pm;
+	unsigned int n;
+	size_t count;
+
+	for (count = 0, n = 0; n <= gd->max_it; n++) {
+		if (it_is_group0(gd, n)) {
+			count++;
+		}
+	}
+	pm->count = count;
+
+	if (count == 0) {
+		return;
+	}
+
+	pm->pm_cfg = realloc(pm->pm_cfg, count * sizeof(*pm->pm_cfg));
+	assert(pm->pm_cfg != NULL);
+
+	for (count = 0, n = 0; n <= gd->max_it; n++) {
+		if (it_is_group0(gd, n)) {
+			gic_save_it(gd, n, &pm->pm_cfg[count]);
+			count++;
+		}
+	}
+}
+
+void gic_resume(struct gic_data *gd)
+{
+	struct gic_pm *pm = &gd->pm;
+	size_t n;
+
+	for (n = 0; n < pm->count; n++) {
+		gic_restore_it(gd, &pm->pm_cfg[n]);
+	}
 }
