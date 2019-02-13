@@ -79,6 +79,11 @@ static const struct stm32mp1_clk_cal csi_calib_config = {
 	.get_trim = csi_get_trimed_cal,
 };
 
+static int get_signed_value(uint8_t val)
+{
+	return ((int8_t)(val << 1)) >> 1;
+}
+
 static void hsi_set_trim(unsigned int cal)
 {
 	int clk_trim = (int)cal - (int)hsi_calib->cal_ref;
@@ -95,7 +100,7 @@ static unsigned int hsi_get_trimed_cal(void)
 	uint32_t utrim = (mmio_read_32(stm32_rcc_base() + RCC_HSICFGR) &
 			  RCC_HSICFGR_HSITRIM_MASK) >>
 			 RCC_HSICFGR_HSITRIM_SHIFT;
-	int trim = (int)utrim - hsi_calib->trim_max;
+	int trim = get_signed_value((uint8_t)utrim);
 
 	if (trim + (int)hsi_calib->cal_ref < 0)
 		return 0;
