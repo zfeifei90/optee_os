@@ -11,16 +11,18 @@
 #include <dt-bindings/clock/stm32mp1-clks.h>
 #include <initcall.h>
 #include <keep.h>
+#include <kernel/delay.h>
 #include <kernel/generic_boot.h>
 #include <kernel/interrupt.h>
 #include <kernel/panic.h>
+#include <limits.h>
 #include <mm/core_memprot.h>
 #include <stm32_util.h>
 #include <stm32mp_dt.h>
 #include <stm32mp_pm.h>
 #include <string.h>
 
-#define CAL_MAX_RETRY		20U
+#define CALIBRATION_TIMEOUT_US	10000U
 
 /* List of forbiden values for HSI and CSI */
 static uint16_t fbv_hsi[] = {
@@ -64,7 +66,7 @@ static const struct stm32mp1_clk_cal hsi_calib_config = {
 	.trim_max = 63,
 	.trim_min = -64,
 	.ref_freq = 0,
-	.freq_margin = 1,
+	.freq_margin = 2,
 	.set_trim = hsi_set_trim,
 	.get_trim = hsi_get_trimed_cal,
 };
@@ -74,7 +76,7 @@ static const struct stm32mp1_clk_cal csi_calib_config = {
 	.trim_max = 15,
 	.trim_min = -16,
 	.ref_freq = 0,
-	.freq_margin = 2,
+	.freq_margin = 4,
 	.set_trim = csi_set_trim,
 	.get_trim = csi_get_trimed_cal,
 };
@@ -189,31 +191,47 @@ static unsigned int trim_decrease(struct stm32mp1_clk_cal *clk_cal,
 
 static void rcc_calibration(struct stm32mp1_clk_cal *clk_cal)
 {
-	unsigned long margin = (clk_cal->ref_freq * clk_cal->freq_margin) / 100;
+	unsigned long margin = (clk_cal->ref_freq *
+				clk_cal->freq_margin) / 1000;
 	unsigned long min = clk_cal->ref_freq - margin;
 	unsigned long max = clk_cal->ref_freq + margin;
 	unsigned long freq = clk_cal->get_freq();
-	int cal = clk_cal->get_trim();
-	unsigned int nb_retries;
+	int trim, new_trim;
+	unsigned long conv;
+	unsigned long min_conv = ULONG_MAX;
+	uint64_t timeout_ref;
 
-	for (nb_retries = 0; nb_retries < CAL_MAX_RETRY; nb_retries++) {
-		if ((freq >= min) && (freq <= max)) {
-			break;
-		}
+	if ((freq >= min) && (freq <= max))
+		return;
 
-		if (freq < min) {
-			cal = trim_increase(clk_cal, cal);
-		} else {
-			cal = trim_decrease(clk_cal, cal);
-		}
+	trim = clk_cal->get_trim();
+	timeout_ref = utimeout_init(CALIBRATION_TIMEOUT_US);
+	do {
+		if (freq < clk_cal->ref_freq)
+			new_trim = trim_increase(clk_cal, trim);
+		else
+			new_trim = trim_decrease(clk_cal, trim);
 
-		clk_cal->set_trim(cal);
-
+		clk_cal->set_trim(new_trim);
 		freq = clk_cal->get_freq();
-	}
+		conv = (clk_cal->ref_freq < freq) ?
+			freq - clk_cal->ref_freq : clk_cal->ref_freq - freq;
+		if (conv < min_conv) {
+			min_conv = conv;
+			trim = new_trim;
+		}
 
+		if (utimeout_elapsed(CALIBRATION_TIMEOUT_US, timeout_ref))
+			break;
+
+	} while (conv == min_conv);
+
+	clk_cal->set_trim(trim);
+	freq = clk_cal->get_freq();
 	if ((freq < min) || (freq > max)) {
-		DMSG("Calibration failed");
+		EMSG("%s Calibration : Freq %lu , trim %i\n",
+		     (clk_cal->set_trim == hsi_set_trim) ? "HSI" : "CSI",
+		     freq, trim);
 		panic("Calibration");
 	}
 }
