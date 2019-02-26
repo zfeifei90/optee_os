@@ -144,7 +144,9 @@
 };
 
 &pwr {
-	pwr-supply = <&vdd>;
+	pwr-regulators {
+		vdd-supply = <&vdd>;
+	};
 };
 
 /* RNG1 is used by non secure at run time and by secure (low power sequences) */
