@@ -251,7 +251,6 @@ static void etzpc_suspend_resume(enum pm_op op, void __unused *handle)
 
 	/* OP-TEE owns the whole in SYSRAM */
 	etzpc_configure_tzma(1, ETZPC_TZMA_ALL_SECURE);
-	etzpc_lock_tzma(1);
 
 	for (n = 0; n < etzpc_dev.num_per_sec; n++) {
 		unsigned int attr = etzpc_dev.periph_cfg[n] & PERIPH_ATTR_MASK;
@@ -328,7 +327,6 @@ static TEE_Result etzpc_init(void)
 
 	/* OP-TEE owns the whole in SYSRAM */
 	etzpc_configure_tzma(1, ETZPC_TZMA_ALL_SECURE);
-	etzpc_lock_tzma(1);
 
 	stm32mp_register_pm_cb(etzpc_suspend_resume, NULL);
 
