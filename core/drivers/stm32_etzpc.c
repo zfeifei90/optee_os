@@ -103,7 +103,7 @@ static uintptr_t etzpc_base(void)
 	return etzpc_dev.base;
 }
 
-static bool valid_decprot_id(unsigned int id)
+static bool __maybe_unused valid_decprot_id(unsigned int id)
 {
 	return id < (unsigned int)etzpc_dev.num_per_sec;
 }
