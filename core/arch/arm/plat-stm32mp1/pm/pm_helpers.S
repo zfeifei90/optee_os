@@ -621,14 +621,14 @@ UNWIND(	.save	{r12, lr})
 	bl	psci_armv7_cpu_off
 
 	write_bpiall
-	isb
 	dsb
+	isb
 	read_sctlr r0
 	bic	r0, r0, #SCTLR_M
 	bic	r0, r0, #SCTLR_I
 	write_sctlr r0
-	isb
 	dsb	sy
+	isb
 
 	pop	{r12, pc}
 UNWIND(	.fnend)
