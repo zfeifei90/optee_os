@@ -115,6 +115,12 @@ static enum itr_return stm32_iwdg_it_handler(struct itr_handler *handler)
 
 	stm32_clock_disable(iwdg->clock);
 
+	/*
+	 * Ack interrupt as we do not return from next call.
+	 * And interrupt is no more considered as pending here.
+	 */
+	stm32mp_gic_set_end_of_interrupt(handler->it);
+
 	stm32_cores_reset();
 
 	return ITRR_HANDLED;

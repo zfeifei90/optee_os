@@ -26,6 +26,7 @@
 #include <kernel/panic.h>
 #include <mm/core_memprot.h>
 #include <platform_config.h>
+#include <sm/psci.h>
 #include <stdbool.h>
 #include <stm32mp_pm.h>
 #include <stm32_util.h>
@@ -236,25 +237,84 @@ void stm32_exit_cstop(void)
 	mmio_clrbits_32(pwr_base + PWR_CR2_OFF, PWR_CR2_BREN | PWR_CR2_RREN);
 }
 
+/*
+ * GIC support required in low power sequences and reset sequences
+ */
+#define GICC_IAR			0x00C
+#define GICC_IT_ID_MASK			0x3ff
+#define GICC_EOIR			0x010
+#define GICC_HPPIR			0x018
+#define GICC_AHPPIR			0x028
+#define GIC_PENDING_G1_INTID		1022U
+#define GIC_SPURIOUS_INTERRUPT		1023U
+#define GIC_NUM_INTS_PER_REG		32
+#define GIC_MAX_SPI_ID			1020
+#define GICD_ICENABLER(n)		(0x180 + (n) * 4)
+
+static void clear_pending_interrupts(void)
+{
+	uint32_t id;
+	uintptr_t gicc_base = get_gicc_base();
+	uintptr_t gicd_base = get_gicd_base();
+
+	do {
+		id = read32(gicc_base + GICC_HPPIR) & GICC_IT_ID_MASK;
+
+		/*
+		 * Find out which interrupt it is under the
+		 * assumption that the GICC_CTLR.AckCtl bit is 0.
+		 */
+		if (id == GIC_PENDING_G1_INTID)
+			id = read32(gicc_base + GICC_AHPPIR) & GICC_IT_ID_MASK;
+
+		if (id < GIC_MAX_SPI_ID) {
+			size_t idx = id / GIC_NUM_INTS_PER_REG;
+			uint32_t mask = 1 << (id % GIC_NUM_INTS_PER_REG);
+
+			write32(id, gicc_base + GICC_EOIR);
+
+			write32(mask, gicd_base + GICD_ICENABLER(idx));
+
+			dsb_ishst();
+		}
+	} while (id < GIC_MAX_SPI_ID);
+}
+
+void stm32mp_gic_set_end_of_interrupt(uint32_t it)
+{
+	uintptr_t gicc_base = get_gicc_base();
+
+	write32(it, gicc_base + GICC_EOIR);
+}
+
+static void __noreturn wait_cpu_reset(void)
+{
+	psci_armv7_cpu_off();
+
+	for ( ; ; ) {
+		clear_pending_interrupts();
+		cpu_wfi();
+	}
+}
+
 static void __noreturn reset_cores(void)
 {
 	uintptr_t rcc_base = stm32_rcc_base();
-	uint32_t reset_mask;
+	uint32_t reset_mask = RCC_MP_GRSTCSETR_MPUP0RST |
+			      RCC_MP_GRSTCSETR_MPUP1RST;
 	uint32_t target_mask;
 
 	if (get_core_pos() == 0) {
-		reset_mask = RCC_MP_GRSTCSETR_MPUP0RST;
 		target_mask = TARGET_CPU1_GIC_MASK;
 	} else {
-		reset_mask = RCC_MP_GRSTCSETR_MPUP1RST;
 		target_mask = TARGET_CPU0_GIC_MASK;
 	}
 
 	itr_raise_sgi(GIC_SEC_SGI_1, target_mask);
-	dcache_op_all(DCACHE_OP_CLEAN_INV);
+
 	write32(reset_mask, rcc_base + RCC_MP_GRSTCSETR);
-	cpu_wfi();
-	panic("Cores reset");
+
+	wait_cpu_reset();
 }
 
 /*
@@ -350,13 +410,6 @@ void stm32_enter_csleep(void)
 	stm32_pm_cpu_wfi();
 }
 
-/*
- * Secure interrupts used in the low power sequences
- */
-#define GICC_IAR		0x00C
-#define GICC_IAR_IT_ID_MASK	0x3ff
-#define GICC_EOIR		0x010
-
 /* RCC Wakeup interrupt is used to wake from suspeneded mode */
 static enum itr_return rcc_wakeup_it_handler(struct itr_handler *hdl __unused)
 {
@@ -374,21 +427,12 @@ KEEP_PAGER(rcc_wakeup_handler);
 /* SGI9 (secure SGI 1) informs targeted CPU it shall reset */
 static enum itr_return sgi9_it_handler(struct itr_handler *handler)
 {
-	uintptr_t rcc_base = stm32_rcc_base();
-	uint32_t reset_mask;
-	uintptr_t gicc_base = get_gicc_base();
+	stm32mp_gic_set_end_of_interrupt(handler->it);
 
-	write32(handler->it, gicc_base + GICC_EOIR);
+	clear_pending_interrupts();
 
-	if (get_core_pos() == 0) {
-		reset_mask = RCC_MP_GRSTCSETR_MPUP0RST;
-	} else {
-		reset_mask = RCC_MP_GRSTCSETR_MPUP1RST;
-	}
+	wait_cpu_reset();
 
-	dcache_op_all(DCACHE_OP_CLEAN_INV);
-	write32(reset_mask, rcc_base + RCC_MP_GRSTCSETR);
-	cpu_wfi();
 	panic("Core reset");
 
 	return ITRR_HANDLED;
@@ -420,11 +464,8 @@ void __noreturn stm32_pm_cpu_power_down_wfi(void)
 	if (get_core_pos() == 0) {
 		void (*reset_ep)(void) = stm32mp_sysram_resume;
 
-		wait_console_flushed();
+		stm32_pm_cpu_wfi();
 
-		dsb();
-		isb();
-		wfi();
 		/* STANDBY not reached: resume from retained SYSRAM */
 		stm32_exit_cstop();
 		stm32mp_cpu_reset_state();

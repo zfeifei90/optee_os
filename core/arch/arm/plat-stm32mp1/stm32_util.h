@@ -31,6 +31,7 @@ uintptr_t stm32_get_stgen_base(void);
 /* Platform util for the GIC */
 uintptr_t get_gicc_base(void);
 uintptr_t get_gicd_base(void);
+void stm32mp_gic_set_end_of_interrupt(uint32_t it);
 
 /* Platform util for clock gating. ID refers to clock DT bindings ID. */
 void stm32_clock_enable(unsigned long id);
