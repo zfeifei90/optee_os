@@ -425,21 +425,25 @@ static void save_teeram_in_ddr(void)
 static void enable_pm_mailbox(unsigned int suspend)
 {
 	struct pm_mailbox *mailbox = get_pm_mailbox();
-	uint32_t magic = BOOT_API_A7_CORE0_MAGIC_NUMBER;
+	uint32_t magic = 0;
 	uint32_t hint = 0;
 
 	assert(stm32_clock_is_enabled(BKPSRAM) &&
 	       stm32_clock_is_enabled(RTCAPB));
 
 	if (suspend) {
+		magic = BOOT_API_A7_CORE0_MAGIC_NUMBER;
+		mailbox->magic = STANDBY_CONTEXT_MAGIC;
+
 		hint = virt_to_phys(&get_retram_resume_ctx()->resume_sequence);
+	} else {
+		mailbox->magic = 0;
 	}
 
 	write32(magic, stm32mp_bkpreg(BCKR_CORE1_MAGIC_NUMBER));
 	write32(hint, stm32mp_bkpreg(BCKR_CORE1_BRANCH_ADDRESS));
 
 	mailbox->core0_resume_ep = hint;
-	mailbox->magic = STANDBY_CONTEXT_MAGIC;
 }
 
 static void gate_pm_context_clocks(bool enable)

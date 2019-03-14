@@ -326,6 +326,25 @@ void __noreturn stm32_cores_reset(void)
 }
 KEEP_PAGER(stm32_cores_reset);
 
+static void reset_other_core(void)
+{
+	uintptr_t rcc_base = stm32_rcc_base();
+	uint32_t reset_mask;
+	uint32_t target_mask;
+
+	if (get_core_pos() == 0) {
+		reset_mask = RCC_MP_GRSTCSETR_MPUP1RST;
+		target_mask = TARGET_CPU1_GIC_MASK;
+	} else {
+		reset_mask = RCC_MP_GRSTCSETR_MPUP0RST;
+		target_mask = TARGET_CPU0_GIC_MASK;
+	}
+
+	itr_raise_sgi(GIC_SEC_SGI_1, target_mask);
+
+	write32(reset_mask, rcc_base + RCC_MP_GRSTCSETR);
+}
+
 /*
  * stm32_enter_cstop_shutdown - Shutdown CPUs to target low power mode
  * @mode - Target low power mode
@@ -345,9 +364,13 @@ void __noreturn stm32_enter_cstop_shutdown(uint32_t mode)
 	case STM32_PM_CSTOP_ALLOW_STANDBY_DDR_OFF:
 #ifdef STM32MP1_USE_MPU0_RESET
 		stm32mp_pm_shutdown_context();
+		reset_other_core();
 		stm32_enter_cstop(mode);
-		cpu_wfi();
-		reset_cores();
+		dsb();
+		isb();
+		for ( ; ; ) {
+			wfi();
+		}
 #else
 		if (stm32mp_with_pmic()) {
 			wait_console_flushed();
@@ -378,14 +401,10 @@ void __noreturn stm32_enter_cstop_reset(uint32_t mode)
 		udelay(100);
 		break;
 	default:
-#ifdef STM32MP1_USE_MPU0_RESET
-		reset_cores();
-#else
 		IMSG("Forced system reset");
 		wait_console_flushed();
 		write32(RCC_MP_GRSTCSETR_MPSYSRST, rcc_base + RCC_MP_GRSTCSETR);
 		udelay(100);
-#endif
 		break;
 	}
 
