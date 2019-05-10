@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * Copyright (c) 2017-2018, STMicroelectronics
+ * Copyright (c) 2017-2019, STMicroelectronics
  */
 
 #include <assert.h>
@@ -644,22 +644,21 @@ bool bsec_wr_lock(uint32_t otp)
 /*
  * bsec_otp_lock: Lock Upper OTP or Global programming or debug enable
  * service: Service to lock see header file.
- * value: Value to write must always set to 1 (only use for debug purpose).
  * return: BSEC_OK if succeed.
  */
-uint32_t bsec_otp_lock(uint32_t service, uint32_t value)
+uint32_t bsec_otp_lock(uint32_t service)
 {
 	uintptr_t reg = bsec_get_base() + BSEC_OTP_LOCK_OFF;
 
 	switch (service) {
 	case BSEC_LOCK_UPPER_OTP:
-		write32(value << BSEC_LOCK_UPPER_OTP, reg);
+		write32(BIT(BSEC_LOCK_UPPER_OTP), reg);
 		break;
 	case BSEC_LOCK_DEBUG:
-		write32(value << BSEC_LOCK_DEBUG, reg);
+		write32(BIT(BSEC_LOCK_DEBUG), reg);
 		break;
 	case BSEC_LOCK_PROGRAM:
-		write32(value << BSEC_LOCK_PROGRAM, reg);
+		write32(BIT(BSEC_LOCK_PROGRAM), reg);
 		break;
 	default:
 		return BSEC_INVALID_PARAM;
