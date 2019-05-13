@@ -135,19 +135,24 @@ static uintptr_t bsec_get_base(void)
 /*
  * bsec_check_error
  * otp : OTP number.
+ * check_disturbed: check only error (false) or all sources (true)
  * return value : BSEC_OK if no error.
  */
-static uint32_t bsec_check_error(uint32_t otp)
+static uint32_t bsec_check_error(uint32_t otp, bool check_disturbed)
 {
 	uint32_t bit = BIT(otp & BSEC_OTP_MASK);
 	uint32_t bank = otp_bank_offset(otp);
 
-	if ((read32(bsec_get_base() + BSEC_DISTURBED_OFF + bank) & bit) != 0U) {
-		return BSEC_DISTURBED;
-	}
-
 	if ((read32(bsec_get_base() + BSEC_ERROR_OFF + bank) & bit) != 0U) {
 		return BSEC_ERROR;
+	}
+
+	if (!check_disturbed) {
+		return BSEC_OK;
+	}
+
+	if ((read32(bsec_get_base() + BSEC_DISTURBED_OFF + bank) & bit) != 0U) {
+		return BSEC_DISTURBED;
 	}
 
 	return BSEC_OK;
@@ -187,7 +192,7 @@ uint32_t bsec_shadow_register(uint32_t otp)
 		;
 	}
 
-	result = bsec_check_error(otp);
+	result = bsec_check_error(otp, true);
 
 	bsec_unlock(exc);
 
@@ -205,22 +210,15 @@ uint32_t bsec_shadow_register(uint32_t otp)
 uint32_t bsec_read_otp(uint32_t *val, uint32_t otp)
 {
 	uint32_t exc;
-	uint32_t result;
 
 	if (otp > stm32mp_get_otp_max()) {
 		return BSEC_INVALID_PARAM;
 	}
 
-	exc = bsec_lock();
-
 	*val = read32(bsec_get_base() + BSEC_OTP_DATA_OFF +
 		      (otp * sizeof(uint32_t)));
 
-	result = bsec_check_error(otp);
-
-	bsec_unlock(exc);
-
-	return result;
+	return BSEC_OK;
 }
 
 /*
@@ -245,12 +243,11 @@ uint32_t bsec_write_otp(uint32_t val, uint32_t otp)
 		IMSG("BSEC: OTP locked, write will be ignored");
 	}
 
+	/* Ensure integrity of each register access sequence */
 	exc = bsec_lock();
 
 	write32(val, bsec_get_base() + BSEC_OTP_DATA_OFF +
 		(otp * sizeof(uint32_t)));
-
-	result = bsec_check_error(otp);
 
 	bsec_unlock(exc);
 
@@ -302,7 +299,7 @@ uint32_t bsec_program_otp(uint32_t val, uint32_t otp)
 	if ((bsec_get_status() & BSEC_MODE_PROGFAIL_MASK) != 0U) {
 		result = BSEC_PROG_FAIL;
 	} else {
-		result = bsec_check_error(otp);
+		result = bsec_check_error(otp, true);
 	}
 
 	bsec_unlock(exc);
@@ -356,7 +353,7 @@ uint32_t bsec_permanent_lock_otp(uint32_t otp)
 	if ((bsec_get_status() & BSEC_MODE_PROGFAIL_MASK) != 0U) {
 		result = BSEC_PROG_FAIL;
 	} else {
-		result = bsec_check_error(otp);
+		result = bsec_check_error(otp, false);
 	}
 
 	bsec_unlock(exc);
