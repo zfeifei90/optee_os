@@ -162,13 +162,15 @@ uint32_t bsec_shadow_register(uint32_t otp)
 {
 	uint32_t result;
 	uint32_t exc;
+	bool value;
 
-	if (otp > stm32mp_get_otp_max()) {
-		return BSEC_INVALID_PARAM;
+	result = bsec_read_sr_lock(otp, &value);
+	if (result != BSEC_OK) {
+		DMSG("BSEC: %u Sticky-read bit read Error %i", otp, result);
+		return result;
 	}
 
-	/* Check if shadowing of OTP is locked */
-	if (bsec_read_sr_lock(otp)) {
+	if (value) {
 		IMSG("BSEC: OTP locked, register will not be refreshed");
 	}
 
@@ -231,13 +233,15 @@ uint32_t bsec_write_otp(uint32_t val, uint32_t otp)
 {
 	uint32_t exc;
 	uint32_t result;
+	bool value;
 
-	if (otp > stm32mp_get_otp_max()) {
-		return BSEC_INVALID_PARAM;
+	result = bsec_read_sw_lock(otp, &value);
+	if (result != BSEC_OK) {
+		DMSG("BSEC: %u Sticky-write bit read Error %i", otp, result);
+		return result;
 	}
 
-	/* Check if programming of OTP is locked */
-	if (bsec_read_sw_lock(otp)) {
+	if (value) {
 		IMSG("BSEC: OTP locked, write will be ignored");
 	}
 
@@ -264,13 +268,15 @@ uint32_t bsec_program_otp(uint32_t val, uint32_t otp)
 {
 	uint32_t result;
 	uint32_t exc;
+	bool value;
 
-	if (otp > stm32mp_get_otp_max()) {
-		return BSEC_INVALID_PARAM;
+	result = bsec_read_sp_lock(otp, &value);
+	if (result != BSEC_OK) {
+		DMSG("BSEC: %u Sticky-prog bit read Error %i", otp, result);
+		return result;
 	}
 
-	/* Check if programming of OTP is locked */
-	if (bsec_read_sp_lock(otp)) {
+	if (value) {
 		IMSG("BSEC: OTP locked, prog will be ignored");
 	}
 
@@ -434,189 +440,135 @@ uint32_t bsec_get_magic_id(void)
 }
 
 /*
- * bsec_write_sr_lock: write shadow-read lock.
+ * bsec_set_sr_lock: set shadow-read lock.
  * otp: OTP number.
- * value: value to write in the register.
- *	Must be always 1.
- * return: true if OTP is locked, else false.
+ * return value: BSEC_OK if no error.
  */
-bool bsec_write_sr_lock(uint32_t otp, uint32_t value)
+uint32_t bsec_set_sr_lock(uint32_t otp)
 {
-	bool result = false;
 	uint32_t bank = otp_bank_offset(otp);
-	uint32_t bank_value;
 	uint32_t otp_mask = BIT(otp & BSEC_OTP_MASK);
 	uint32_t exc;
 
-	exc = bsec_lock();
-
-	bank_value = read32(bsec_get_base() + BSEC_SRLOCK_OFF + bank);
-
-	if ((bank_value & otp_mask) == value) {
-		/*
-		 * In case of write don't need to write,
-		 * the lock is already set.
-		 */
-		if (value != 0U) {
-			result = true;
-		}
-	} else {
-		if (value != 0U) {
-			bank_value = bank_value | otp_mask;
-		} else {
-			bank_value = bank_value & ~otp_mask;
-		}
-
-		/*
-		 * We can write 0 in all other OTP
-		 * if the lock is activated in one of other OTP.
-		 * Write 0 has no effect.
-		 */
-		write32(bank_value, bsec_get_base() + BSEC_SRLOCK_OFF + bank);
-		result = true;
+	if (otp > STM32MP1_OTP_MAX_ID) {
+		return BSEC_INVALID_PARAM;
 	}
 
+	exc = bsec_lock();
+	write32(otp_mask, bsec_get_base() + BSEC_SRLOCK_OFF + bank);
 	bsec_unlock(exc);
 
-	return result;
+	return BSEC_OK;
 }
 
 /*
  * bsec_read_sr_lock: read shadow-read lock.
  * otp: OTP number.
- * return: true if otp is locked, else false.
+ * value: read value (true or false).
+ * return value: BSEC_OK if no error.
  */
-bool bsec_read_sr_lock(uint32_t otp)
+uint32_t bsec_read_sr_lock(uint32_t otp, bool *value)
 {
-	uint32_t bank = otp_bank_offset(otp);
-	uint32_t otp_mask = BIT(otp & BSEC_OTP_MASK);
-	uint32_t bank_value = read32(bsec_get_base() + BSEC_SRLOCK_OFF + bank);
-
-	return (bank_value & otp_mask) != 0U;
-}
-
-/*
- * bsec_write_sw_lock: write shadow-write lock.
- * otp: OTP number.
- * value: Value to write in the register.
- *	Must be always 1.
- * return: true if OTP is locked, else false.
- */
-bool bsec_write_sw_lock(uint32_t otp, uint32_t value)
-{
-	bool result = false;
 	uint32_t bank = otp_bank_offset(otp);
 	uint32_t otp_mask = BIT(otp & BSEC_OTP_MASK);
 	uint32_t bank_value;
-	unsigned int exc;
 
-	exc = bsec_lock();
-
-	bank_value = read32(bsec_get_base() + BSEC_SWLOCK_OFF + bank);
-
-	if ((bank_value & otp_mask) == value) {
-		/*
-		 * In case of write don't need to write,
-		 * the lock is already set.
-		 */
-		if (value != 0U) {
-			result = true;
-		}
-	} else {
-		if (value != 0U) {
-			bank_value = bank_value | otp_mask;
-		} else {
-			bank_value = bank_value & ~otp_mask;
-		}
-
-		/*
-		 * We can write 0 in all other OTP
-		 * if the lock is activated in one of other OTP.
-		 * Write 0 has no effect.
-		 */
-		write32(bank_value, bsec_get_base() + BSEC_SWLOCK_OFF + bank);
-		result = true;
+	if (otp > STM32MP1_OTP_MAX_ID) {
+		return BSEC_INVALID_PARAM;
 	}
 
+	bank_value = read32(bsec_get_base() + BSEC_SRLOCK_OFF + bank);
+	*value = ((bank_value & otp_mask) != 0U);
+
+	return BSEC_OK;
+}
+
+/*
+ * bsec_set_sw_lock: set shadow-write lock.
+ * otp: OTP number.
+ * return value: BSEC_OK if no error.
+ */
+uint32_t bsec_set_sw_lock(uint32_t otp)
+{
+	uint32_t bank = otp_bank_offset(otp);
+	uint32_t otp_mask = BIT(otp & BSEC_OTP_MASK);
+	unsigned int exc;
+
+	if (otp > STM32MP1_OTP_MAX_ID) {
+		return BSEC_INVALID_PARAM;
+	}
+
+	exc = bsec_lock();
+	write32(otp_mask, bsec_get_base() + BSEC_SWLOCK_OFF + bank);
 	bsec_unlock(exc);
 
-	return result;
+	return BSEC_OK;
 }
 
 /*
  * bsec_read_sw_lock: read shadow-write lock.
  * otp: OTP number.
- * return: true if OTP is locked, else false.
+ * value: read value (true or false).
+ * return value: BSEC_OK if no error.
  */
-bool bsec_read_sw_lock(uint32_t otp)
+uint32_t bsec_read_sw_lock(uint32_t otp, bool *value)
 {
 	uint32_t bank = otp_bank_offset(otp);
 	uint32_t otp_mask = BIT(otp & BSEC_OTP_MASK);
-	uint32_t bank_value = read32(bsec_get_base() + BSEC_SWLOCK_OFF + bank);
+	uint32_t bank_value;
 
-	return (bank_value & otp_mask) != 0U;
+	if (otp > STM32MP1_OTP_MAX_ID) {
+		return BSEC_INVALID_PARAM;
+	}
+
+	bank_value = read32(bsec_get_base() + BSEC_SWLOCK_OFF + bank);
+	*value = ((bank_value & otp_mask) != 0U);
+
+	return BSEC_OK;
 }
 
 /*
- * bsec_write_sp_lock: write shadow-program lock.
+ * bsec_set_sp_lock: set shadow-program lock.
  * otp: OTP number.
- * value: Value to write in the register.
- *	Must be always 1.
- * return: true if OTP is locked, else false.
+ * return value: BSEC_OK if no error.
  */
-bool bsec_write_sp_lock(uint32_t otp, uint32_t value)
+uint32_t bsec_set_sp_lock(uint32_t otp)
 {
-	bool result = false;
 	uint32_t bank = otp_bank_offset(otp);
-	uint32_t bank_value;
 	uint32_t otp_mask = BIT(otp & BSEC_OTP_MASK);
 	unsigned int exc;
 
-	exc = bsec_lock();
-
-	bank_value = read32(bsec_get_base() + BSEC_SPLOCK_OFF + bank);
-
-	if ((bank_value & otp_mask) == value) {
-		/*
-		 * In case of write don't need to write,
-		 * the lock is already set.
-		 */
-		if (value != 0U) {
-			result = true;
-		}
-	} else {
-		if (value != 0U) {
-			bank_value = bank_value | otp_mask;
-		} else {
-			bank_value = bank_value & ~otp_mask;
-		}
-
-		/*
-		 * We can write 0 in all other OTP
-		 * if the lock is activated in one of other OTP.
-		 * Write 0 has no effect.
-		 */
-		write32(bank_value, bsec_get_base() + BSEC_SPLOCK_OFF + bank);
-		result = true;
+	if (otp > STM32MP1_OTP_MAX_ID) {
+		return BSEC_INVALID_PARAM;
 	}
 
+	exc = bsec_lock();
+	write32(otp_mask, bsec_get_base() + BSEC_SPLOCK_OFF + bank);
 	bsec_unlock(exc);
 
-	return result;
+	return BSEC_OK;
 }
 
 /*
  * bsec_read_sp_lock: read shadow-program lock.
  * otp: OTP number.
- * return: true if OTP is locked, else false.
+ * value: read value (true or false).
+ * return value: BSEC_OK if no error.
  */
-bool bsec_read_sp_lock(uint32_t otp)
+uint32_t bsec_read_sp_lock(uint32_t otp, bool *value)
 {
 	uint32_t bank = otp_bank_offset(otp);
 	uint32_t otp_mask = BIT(otp & BSEC_OTP_MASK);
-	uint32_t bank_value = read32(bsec_get_base() + BSEC_SPLOCK_OFF + bank);
+	uint32_t bank_value;
 
-	return (bank_value & otp_mask) != 0U;
+	if (otp > STM32MP1_OTP_MAX_ID) {
+		return BSEC_INVALID_PARAM;
+	}
+
+	bank_value = read32(bsec_get_base() + BSEC_SPLOCK_OFF + bank);
+	*value = ((bank_value & otp_mask) != 0U);
+
+	return BSEC_OK;
 }
 
 /*
@@ -636,7 +588,6 @@ uint32_t bsec_read_permanent_lock(uint32_t otp, bool *value)
 	}
 
 	bank_value = read32(bsec_get_base() + BSEC_WRLOCK_OFF + bank);
-
 	*value = ((bank_value & otp_mask) != 0U);
 
 	return BSEC_OK;
@@ -745,7 +696,7 @@ bool bsec_mode_is_closed_device(void)
 		return true;
 	}
 
-	return (value & DATA0_OTP_SECURED) == DATA0_OTP_SECURED;
+	return ((value & DATA0_OTP_SECURED) == DATA0_OTP_SECURED);
 }
 
 /*
