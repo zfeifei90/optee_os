@@ -359,8 +359,6 @@ static const struct tzc_source_ip tzc_source_ip[] = {
 	_TZC_COND(DMA2_R, DMA2, STM32MP1_ETZPC_DMA2_ID),
 };
 
-#define RCC_AHB6RSTSETR_GPURST	BIT(5)
-
 static void __noreturn reset_cores(void)
 {
 	uintptr_t rcc_base = stm32_rcc_base();
