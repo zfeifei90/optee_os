@@ -176,7 +176,7 @@ uint32_t bsec_shadow_register(uint32_t otp)
 	}
 
 	if (value) {
-		IMSG("BSEC: OTP locked, register will not be refreshed");
+		DMSG("BSEC: OTP locked, register will not be refreshed");
 	}
 
 	result = bsec_power_safmem(true);
