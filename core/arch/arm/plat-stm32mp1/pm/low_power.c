@@ -143,9 +143,18 @@ void stm32_pm_cpu_wfi(void)
 	cpu_wfi();
 }
 
-/*If IWDG is not supported, provide a stubbed weak watchdog kicker */
+/* If IWDG is not supported, provide a stubbed weak watchdog kicker */
 void __weak stm32_iwdg_refresh(uint32_t __unused instance)
 {
+}
+
+#define ARM_CNTXCTL_IMASK	BIT(1)
+
+static void stm32mp_mask_timer(void)
+{
+	/* Mask timer interrupts */
+	write_cntp_ctl(read_cntp_ctl() | ARM_CNTXCTL_IMASK);
+	write_cntv_ctl(read_cntv_ctl() | ARM_CNTXCTL_IMASK);
 }
 
 /*
@@ -350,7 +359,6 @@ static const struct tzc_source_ip tzc_source_ip[] = {
 	_TZC_COND(DMA2_R, DMA2, STM32MP1_ETZPC_DMA2_ID),
 };
 
-#define ARM_CNTXCTL_IMASK	BIT(1)
 #define RCC_AHB6RSTSETR_GPURST	BIT(5)
 
 static void __noreturn reset_cores(void)
@@ -362,8 +370,7 @@ static void __noreturn reset_cores(void)
 	uint32_t id;
 
 	/* Mask timer interrupts */
-	write_cntp_ctl(read_cntp_ctl() | ARM_CNTXCTL_IMASK);
-	write_cntv_ctl(read_cntv_ctl() | ARM_CNTXCTL_IMASK);
+	stm32mp_mask_timer();
 
 	for (id = 0U; id < ARRAY_SIZE(tzc_source_ip); id++) {
 		if ((!stm32mp1_clk_is_enabled(tzc_source_ip[id].clock_id)) ||
@@ -527,6 +534,8 @@ KEEP_PAGER(rcc_wakeup_handler);
 /* SGI9 (secure SGI 1) informs targeted CPU it shall reset */
 static enum itr_return sgi9_it_handler(struct itr_handler *handler)
 {
+	stm32mp_mask_timer();
+
 	stm32mp_gic_set_end_of_interrupt(handler->it);
 
 	clear_pending_interrupts();
