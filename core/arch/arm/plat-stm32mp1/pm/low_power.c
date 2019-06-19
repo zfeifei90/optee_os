@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * Copyright (c) 2017-2018, STMicroelectronics - All Rights Reserved
+ * Copyright (c) 2017-2019, STMicroelectronics - All Rights Reserved
  */
 
 #include <arm.h>
@@ -192,6 +192,16 @@ int stm32_enter_cstop(uint32_t mode)
 
 	ddr_in_selfrefresh = (rc == 0);
 
+	if (mode == STM32_PM_CSTOP_ALLOW_STANDBY_DDR_SR) {
+		/* Keep retention and backup RAM content in standby */
+		mmio_setbits_32(pwr_base + PWR_CR2_OFF, PWR_CR2_BREN |
+				PWR_CR2_RREN);
+		while ((mmio_read_32(pwr_base + PWR_CR2_OFF) &
+			(PWR_CR2_BRRDY | PWR_CR2_RRRDY)) == 0U) {
+			;
+		}
+	}
+
 	return rc;
 }
 
@@ -200,6 +210,7 @@ int stm32_enter_cstop(uint32_t mode)
  */
 void stm32_exit_cstop(void)
 {
+	uintptr_t pwr_base = stm32_pwr_base();
 	uintptr_t rcc_base = stm32_rcc_base();
 
 	if (ddr_in_selfrefresh) {
@@ -220,6 +231,9 @@ void stm32_exit_cstop(void)
 
 	dsb();
 	isb();
+
+	/* Disable retention and backup RAM content after stop */
+	mmio_clrbits_32(pwr_base + PWR_CR2_OFF, PWR_CR2_BREN | PWR_CR2_RREN);
 }
 
 static void __noreturn reset_cores(void)
@@ -388,17 +402,11 @@ KEEP_PAGER(sgi9_reset_handler);
 
 static TEE_Result init_low_power(void)
 {
-	uintptr_t pwr_base = stm32_pwr_base();
-
 	itr_add(&rcc_wakeup_handler);
 	itr_enable(rcc_wakeup_handler.it);
 
 	itr_add(&sgi9_reset_handler);
 	itr_enable(sgi9_reset_handler.it);
-
-	/* Enable retention for BKPSRAM and BKPREG */
-	io_mask32(pwr_base + PWR_CR2_OFF,
-		  PWR_CR2_BREN | PWR_CR2_RREN, PWR_CR2_BREN | PWR_CR2_RREN);
 
 	return TEE_SUCCESS;
 }

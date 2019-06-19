@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: BSD-3-Clause */
 /*
- * Copyright (c) 2017-2018, STMicroelectronics
+ * Copyright (c) 2017-2019, STMicroelectronics
  */
 
 #ifndef __STM32MP1_PWR_H__
@@ -24,6 +24,8 @@
 
 #define PWR_CR2_BREN		BIT(0)
 #define PWR_CR2_RREN		BIT(1)
+#define PWR_CR2_BRRDY		BIT(16)
+#define PWR_CR2_RRRDY		BIT(17)
 
 #define PWR_CR3_VBE		BIT(8)
 #define PWR_CR3_VBRS		BIT(9)
