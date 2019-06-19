@@ -32,6 +32,8 @@
 #include <libfdt.h>
 #endif
 
+#define CLKSRC_TIMEOUT_US	200000U
+
 enum stm32mp1_parent_id {
 /* Oscillators are defined in enum stm32mp_osc_id */
 
@@ -602,6 +604,26 @@ static enum stm32mp1_parent_sel stm32mp1_clk_get_sel(int i)
 static enum stm32mp1_parent_id stm32mp1_clk_get_fixed_parent(int i)
 {
 	return (enum stm32mp1_parent_id)gate_ref(i)->fixed;
+}
+
+static int stm32mp1_set_clksrc(unsigned int clksrc)
+{
+	uintptr_t address = stm32_rcc_base() + (clksrc >> 4);
+	uint64_t timeout_ref;
+
+	mmio_clrsetbits_32(address, RCC_SELR_SRC_MASK,
+			   clksrc & RCC_SELR_SRC_MASK);
+
+	timeout_ref = utimeout_init(CLKSRC_TIMEOUT_US);
+	while ((mmio_read_32(address) & RCC_SELR_SRCRDY) == 0U) {
+		if (utimeout_elapsed(CLKSRC_TIMEOUT_US, timeout_ref)) {
+			EMSG("CLKSRC %x start failed @ 0x%x: 0x%x\n",
+			      clksrc, address, mmio_read_32(address));
+			return -1;
+		}
+	}
+
+	return 0;
 }
 
 static int stm32mp1_clk_get_parent(unsigned long id)
@@ -1496,9 +1518,35 @@ static void sync_earlyboot_clocks_state(void)
 	stm32mp_register_clock_parents_secure(CRYP1);
 }
 
+static void _clock_mpu_suspend(void)
+{
+	uintptr_t mpckselr = stm32_rcc_base() + RCC_MPCKSELR;
+
+	if (((mmio_read_32(mpckselr) & RCC_SELR_SRC_MASK)) ==
+	    RCC_MPCKSELR_PLL) {
+		if (stm32mp1_set_clksrc(CLK_MPU_PLL1P_DIV)) {
+			panic();
+		}
+	}
+}
+
+static void _clock_mpu_resume(void)
+{
+	uintptr_t mpckselr = stm32_rcc_base() + RCC_MPCKSELR;
+
+	if (((mmio_read_32(mpckselr) & RCC_SELR_SRC_MASK)) ==
+	    RCC_MPCKSELR_PLL_MPUDIV) {
+		if (stm32mp1_set_clksrc(CLK_MPU_PLL1P)) {
+			panic();
+		}
+	}
+}
+
 static void _clock_resume(void)
 {
 	unsigned int idx;
+
+	_clock_mpu_resume();
 
 	/* Sync secure and shared clocks physical state on functional state */
 	for (idx = 0; idx < NB_GATES; idx++) {
@@ -1522,7 +1570,7 @@ void stm32mp_clock_suspend_resume(enum pm_op op)
 {
 	switch (op) {
 	case PM_OP_SUSPEND:
-		/* Nothing to do */
+		_clock_mpu_suspend();
 		break;
 	case PM_OP_RESUME:
 		_clock_resume();
