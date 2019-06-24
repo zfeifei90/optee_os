@@ -66,7 +66,7 @@ static const struct stm32mp1_clk_cal hsi_calib_config = {
 	.trim_max = 63,
 	.trim_min = -64,
 	.ref_freq = 0,
-	.freq_margin = 2,
+	.freq_margin = 5,
 	.set_trim = hsi_set_trim,
 	.get_trim = hsi_get_trimed_cal,
 };
@@ -76,7 +76,7 @@ static const struct stm32mp1_clk_cal csi_calib_config = {
 	.trim_max = 15,
 	.trim_min = -16,
 	.ref_freq = 0,
-	.freq_margin = 4,
+	.freq_margin = 8,
 	.set_trim = csi_set_trim,
 	.get_trim = csi_get_trimed_cal,
 };
@@ -214,6 +214,11 @@ static void rcc_calibration(struct stm32mp1_clk_cal *clk_cal)
 
 		clk_cal->set_trim(new_trim);
 		freq = clk_cal->get_freq();
+		if (freq == 0U) {
+			/* Calibration will be stopped */
+			clk_cal->ref_freq = 0U;
+			return;
+		}
 		conv = (clk_cal->ref_freq < freq) ?
 			freq - clk_cal->ref_freq : clk_cal->ref_freq - freq;
 		if (conv < min_conv) {
@@ -232,7 +237,6 @@ static void rcc_calibration(struct stm32mp1_clk_cal *clk_cal)
 		EMSG("%s Calibration : Freq %lu , trim %i\n",
 		     (clk_cal->set_trim == hsi_set_trim) ? "HSI" : "CSI",
 		     freq, trim);
-		panic("Calibration");
 	}
 }
 
@@ -410,17 +414,20 @@ int stm32mp_start_clock_calib(unsigned int clock_id)
 	return 0;
 }
 
-static void init_hsi_calibration(void *fdt, int node)
+static int init_hsi_calibration(void *fdt, int node)
 {
 	if (!fdt_getprop(fdt, node, "st,hsi-cal", NULL))
-		return;
+		return 0;
 
 	hsi_calib = calloc(1, sizeof(*hsi_calib));
 	assert(hsi_calib);
 	memcpy(hsi_calib, &hsi_calib_config, sizeof(*hsi_calib));
 
 	stm32_timer_freq_func(&hsi_calib->get_freq, HSI_CAL);
-	assert(hsi_calib->get_freq);
+	if (hsi_calib->get_freq == NULL) {
+		free(hsi_calib);
+		return -1;
+	}
 
 	hsi_calib->ref_freq = stm32mp1_clk_get_rate(CK_HSI);
 
@@ -429,41 +436,41 @@ static void init_hsi_calibration(void *fdt, int node)
 			      RCC_HSICFGR_HSICAL_SHIFT;
 
 	trim_table_init(hsi_calib);
-
 	hsi_calib->set_trim(hsi_calib->cal_ref);
-
 	stm32mp_start_clock_calib(CK_HSI);
+	return 1;
 }
 
-static void init_csi_calibration(void *fdt, int node)
+static int init_csi_calibration(void *fdt, int node)
 {
 	if (!fdt_getprop(fdt, node, "st,csi-cal", NULL))
-		return;
+		return 0;
 
 	csi_calib = calloc(1, sizeof(*csi_calib));
 	assert(csi_calib);
 	memcpy(csi_calib, &csi_calib_config, sizeof(*csi_calib));
 
 	stm32_timer_freq_func(&csi_calib->get_freq, CSI_CAL);
-	assert(csi_calib->get_freq);
+	if (csi_calib->get_freq == NULL) {
+		free(csi_calib);
+		return -1;
+	}
 
 	csi_calib->ref_freq = stm32mp1_clk_get_rate(CK_CSI);
-
 	csi_calib->cal_ref = (mmio_read_32(stm32_rcc_base() + RCC_CSICFGR) &
 			      RCC_CSICFGR_CSICAL_MASK) >>
 			     RCC_CSICFGR_CSICAL_SHIFT;
-
 	trim_table_init(csi_calib);
-
 	csi_calib->set_trim(csi_calib->cal_ref);
-
 	stm32mp_start_clock_calib(CK_CSI);
+	return 1;
 }
 
 static TEE_Result init_stm32mp1_calib(void)
 {
 	void *fdt;
 	int rcc_node = -1;
+	int res_csi, res_hsi;
 
 	fdt = get_dt_blob();
 	if (fdt)
@@ -471,9 +478,14 @@ static TEE_Result init_stm32mp1_calib(void)
 	if (rcc_node < 0)
 		panic();
 
-	init_hsi_calibration(fdt, rcc_node);
-	init_csi_calibration(fdt, rcc_node);
-	init_periodic_calibration(fdt, rcc_node);
+	res_hsi = init_hsi_calibration(fdt, rcc_node);
+	if (res_hsi < 0)
+		panic("HSI calibration init failed");
+	res_csi = init_csi_calibration(fdt, rcc_node);
+	if (res_csi < 0)
+		panic("CSI calibration init failed");
+	if (res_csi || res_hsi)
+		init_periodic_calibration(fdt, rcc_node);
 
 	return TEE_SUCCESS;
 }
