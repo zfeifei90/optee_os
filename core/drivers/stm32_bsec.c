@@ -681,22 +681,6 @@ static uint32_t bsec_power_safmem(bool enable)
 }
 
 /*
- * bsec_mode_is_closed_device: read OTP secure sub-mode.
- * return value: false if open_device and true if closed_device.
- */
-bool bsec_mode_is_closed_device(void)
-{
-	uint32_t value;
-
-	if ((bsec_shadow_register(DATA0_OTP) != BSEC_OK) ||
-	    (bsec_read_otp(&value, DATA0_OTP) != BSEC_OK)) {
-		return true;
-	}
-
-	return ((value & DATA0_OTP_SECURED) == DATA0_OTP_SECURED);
-}
-
-/*
  * bsec_shadow_read_otp: Load OTP from SAFMEM and provide its value.
  * otp_value: read value.
  * word: OTP number.
@@ -732,16 +716,13 @@ uint32_t bsec_check_nsec_access_rights(uint32_t otp)
 	}
 
 	if (otp >= stm32mp_get_otp_upper_start()) {
-		/* Check if BSEC is in OTP-SECURED closed_device state. */
-		if (bsec_mode_is_closed_device()) {
 #ifdef CFG_DT
-			if (!non_secure_can_access(otp)) {
-				return BSEC_ERROR;
-			}
-#else
+		if (!non_secure_can_access(otp)) {
 			return BSEC_ERROR;
-#endif
 		}
+#else
+		return BSEC_ERROR;
+#endif
 	}
 
 	return BSEC_OK;
