@@ -239,7 +239,7 @@ static void _init_stm32_timer(void)
 			}
 		}
 
-		cuint = fdt_getprop(fdt, node, "st,csi_cal-input", NULL);
+		cuint = fdt_getprop(fdt, node, "st,csi-cal-input", NULL);
 		if (cuint != NULL) {
 			timer = &stm32_timer[CSI_CAL];
 			timer->base.pa = dt_timer.base;
