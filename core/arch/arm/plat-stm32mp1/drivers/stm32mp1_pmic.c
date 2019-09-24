@@ -23,15 +23,6 @@
 #include <trace.h>
 #include <util.h>
 
-#define STPMIC1_LDO12356_OUTPUT_MASK	(uint8_t)(GENMASK_32(6, 2))
-#define STPMIC1_LDO12356_OUTPUT_SHIFT	2
-#define STPMIC1_LDO3_MODE		(uint8_t)(BIT(7))
-#define STPMIC1_LDO3_DDR_SEL		31U
-#define STPMIC1_LDO3_1800000		(9U << STPMIC1_LDO12356_OUTPUT_SHIFT)
-
-#define STPMIC1_BUCK_OUTPUT_SHIFT	2
-#define STPMIC1_BUCK3_1V8		(39U << STPMIC1_BUCK_OUTPUT_SHIFT)
-
 #define MODE_STANDBY                    8U
 
 #define STPMIC1_DEFAULT_START_UP_DELAY_MS	1
@@ -47,6 +38,18 @@ bool stm32mp_with_pmic(void)
 static int dt_get_pmic_node(void *fdt)
 {
 	return fdt_node_offset_by_compatible(fdt, -1, "st,stpmic1");
+}
+
+static int dt_get_regulators_node(void *fdt)
+{
+	int node;
+
+	node = dt_get_pmic_node(fdt);
+	if (node < 0) {
+		panic();
+	}
+
+	return fdt_subnode_offset(fdt, node, "regulators");
 }
 
 static int dt_pmic_status(void)
@@ -92,7 +95,7 @@ static size_t regu_bo_count;
 
 static int save_boot_on_config(void)
 {
-	int pmic_node, regulators_node, regulator_node;
+	int regulators_node, subnode;
 	void *fdt;
 
 	assert(!regu_bo_config && !regu_bo_count);
@@ -102,42 +105,37 @@ static int save_boot_on_config(void)
 		panic();
 	}
 
-	pmic_node = dt_get_pmic_node(fdt);
-	if (pmic_node < 0) {
-		panic();
-	}
+	regulators_node = dt_get_regulators_node(fdt);
 
-	regulators_node = fdt_subnode_offset(fdt, pmic_node, "regulators");
-
-	fdt_for_each_subnode(regulator_node, fdt, regulators_node) {
+	fdt_for_each_subnode(subnode, fdt, regulators_node) {
 		const fdt32_t *cuint;
 		const char *name;
 		struct regu_bo_config regu_cfg;
 		uint16_t mv;
 
-		if (fdt_getprop(fdt, regulator_node, "regulator-boot-on",
+		if (fdt_getprop(fdt, subnode, "regulator-boot-on",
 				NULL) == NULL) {
 			continue;
 		}
 
 		memset(&regu_cfg, 0, sizeof(regu_cfg));
-		name = fdt_get_name(fdt, regulator_node, NULL);
+		name = fdt_get_name(fdt, subnode, NULL);
 
 		regu_cfg.flags |= REGU_BO_FLAG_ENABLE_REGU;
 
-		if (fdt_getprop(fdt, regulator_node, "regulator-pull-down",
+		if (fdt_getprop(fdt, subnode, "regulator-pull-down",
 				NULL) != NULL) {
 			stpmic1_bo_pull_down_cfg(name, &regu_cfg.cfg);
 			regu_cfg.flags |= REGU_BO_FLAG_PULL_DOWN;
 		}
 
-		if (fdt_getprop(fdt, regulator_node, "st,mask-reset",
+		if (fdt_getprop(fdt, subnode, "st,mask-reset",
 				NULL) != NULL) {
 			stpmic1_bo_mask_reset_cfg(name, &regu_cfg.cfg);
 			regu_cfg.flags |= REGU_BO_FLAG_MASK_RESET;
 		}
 
-		cuint = fdt_getprop(fdt, regulator_node,
+		cuint = fdt_getprop(fdt, subnode,
 				    "regulator-min-microvolt", NULL);
 		if (cuint != NULL) {
 			/* DT uses microvolts, whereas driver awaits millivolts */
@@ -246,7 +244,7 @@ static unsigned int regu_lp_state2idx(const char *name)
 
 static int save_low_power_config(const char *lp_state)
 {
-	int pmic_node, regulators_node, regulator_node;
+	int regulators_node, subnode;
 	void *fdt;
 	unsigned int state_idx = regu_lp_state2idx(lp_state);
 	struct regu_lp_state *state = &regu_lp_state[state_idx];
@@ -258,14 +256,9 @@ static int save_low_power_config(const char *lp_state)
 		panic();
 	}
 
-	pmic_node = dt_get_pmic_node(fdt);
-	if (pmic_node < 0) {
-		return -FDT_ERR_NOTFOUND;
-	}
+	regulators_node = dt_get_regulators_node(fdt);
 
-	regulators_node = fdt_subnode_offset(fdt, pmic_node, "regulators");
-
-	fdt_for_each_subnode(regulator_node, fdt, regulators_node) {
+	fdt_for_each_subnode(subnode, fdt, regulators_node) {
 		const fdt32_t *cuint;
 		const char *reg_name;
 		int regulator_state_node;
@@ -282,7 +275,7 @@ static int save_low_power_config(const char *lp_state)
 
 		memset(regu_cfg, 0, sizeof(*regu_cfg));
 
-		reg_name = fdt_get_name(fdt, regulator_node, NULL);
+		reg_name = fdt_get_name(fdt, subnode, NULL);
 
 		if (stpmic1_lp_cfg(reg_name, &regu_cfg->cfg) != 0) {
 			EMSG("Invalid regu name %s", reg_name);
@@ -298,7 +291,7 @@ static int save_low_power_config(const char *lp_state)
 
 		/* Then apply configs from regulator_state_node */
 		regulator_state_node = fdt_subnode_offset(fdt,
-							  regulator_node,
+							  subnode,
 							  lp_state);
 		if (regulator_state_node <= 0) {
 			continue;
