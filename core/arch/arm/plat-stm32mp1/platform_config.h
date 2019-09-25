@@ -95,20 +95,11 @@
 
 #define OTP_MAX_SIZE			(STM32MP1_OTP_MAX_ID + 1U)
 
-#define DATA0_OTP			0
-#define PART_NUMBER_OTP			1
-#define MONOTONIC_OTP			4
-#define NAND_OTP			9
-#define UID0_OTP			13
-#define UID1_OTP			14
-#define UID2_OTP			15
-#define HW2_OTP				18
+#define HW2_OTP				"hw2_otp"
 
-#define DATA0_OTP_SECURED		BIT(6)
-
-#define HW2_OTP_IWDG_HW_ENABLE_SHIFT		3
-#define HW2_OTP_IWDG_FZ_STOP_SHIFT		5
-#define HW2_OTP_IWDG_FZ_STANDBY_SHIFT		7
+#define HW2_OTP_IWDG_HW_ENABLE_SHIFT	3
+#define HW2_OTP_IWDG_FZ_STOP_SHIFT	5
+#define HW2_OTP_IWDG_FZ_STANDBY_SHIFT	7
 
 /*
  * GPIO banks: 11 non secure banks (A to K) and 1 secure bank (Z)

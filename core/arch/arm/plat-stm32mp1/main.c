@@ -528,11 +528,17 @@ unsigned long stm32_get_iwdg_otp_config(uintptr_t pbase)
 {
 	unsigned int idx;
 	unsigned long iwdg_cfg = 0;
+	uint32_t otp;
 	uint32_t otp_value;
 
 	idx = stm32mp_iwdg_iomem2instance(pbase);
 
-	if (bsec_read_otp(&otp_value, HW2_OTP) != BSEC_OK) {
+	if (bsec_find_otp_name_in_nvmem_layout(HW2_OTP, &otp, NULL) !=
+	    BSEC_OK) {
+		panic();
+	}
+
+	if (bsec_read_otp(&otp_value, otp) != BSEC_OK) {
 		panic();
 	}
 
