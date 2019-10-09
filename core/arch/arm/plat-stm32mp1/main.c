@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-2-Clause
 /*
- * Copyright (c) 2017-2018, STMicroelectronics
+ * Copyright (c) 2017-2019, STMicroelectronics
  * Copyright (c) 2016-2018, Linaro Limited
  */
 
@@ -526,17 +526,21 @@ unsigned long stm32_get_iwdg_otp_config(uintptr_t pbase)
 
 	idx = stm32mp_iwdg_iomem2instance(pbase);
 
-	if (bsec_read_otp(&otp_value, HW2_OTP))
+	if (bsec_read_otp(&otp_value, HW2_OTP) != BSEC_OK) {
 		panic();
+	}
 
-	if (otp_value & BIT(idx + HW2_OTP_IWDG_HW_ENABLE_SHIFT))
+	if (otp_value & BIT(idx + HW2_OTP_IWDG_HW_ENABLE_SHIFT) != 0U) {
 		iwdg_cfg |= IWDG_HW_ENABLED;
+	}
 
-	if (!(otp_value & BIT(idx + HW2_OTP_IWDG_FZ_STOP_SHIFT)))
-		iwdg_cfg |= IWDG_ENABLE_ON_STOP;
+	if ((otp_value & BIT(idx + HW2_OTP_IWDG_FZ_STOP_SHIFT)) != 0U) {
+		iwdg_cfg |= IWDG_DISABLE_ON_STOP;
+	}
 
-	if (!(otp_value & BIT(idx + HW2_OTP_IWDG_FZ_STANDBY_SHIFT)))
-		iwdg_cfg |= IWDG_ENABLE_ON_STANDBY;
+	if ((otp_value & BIT(idx + HW2_OTP_IWDG_FZ_STANDBY_SHIFT)) != 0U) {
+		iwdg_cfg |= IWDG_DISABLE_ON_STANDBY;
+	}
 
 	return iwdg_cfg;
 }

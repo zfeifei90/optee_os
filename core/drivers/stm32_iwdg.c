@@ -246,14 +246,14 @@ static TEE_Result iwdg_init(void)
 		iwdg.vbase = (uintptr_t)phys_to_virt(iwdg.pbase, memtype);
 
 		/* DT can specify low power cases */
-		if (fdt_getprop(fdt, node, "stm32,enable-on-stop", NULL) !=
+		if (fdt_getprop(fdt, node, "stm32,enable-on-stop", NULL) ==
 		    NULL) {
-			iwdg.flags |= IWDG_ENABLE_ON_STOP;
+			iwdg.flags |= IWDG_DISABLE_ON_STOP;
 		}
 
-		if (fdt_getprop(fdt, node, "stm32,enable-on-standby", NULL) !=
+		if (fdt_getprop(fdt, node, "stm32,enable-on-standby", NULL) ==
 		    NULL) {
-			iwdg.flags |= IWDG_ENABLE_ON_STANDBY;
+			iwdg.flags |= IWDG_DISABLE_ON_STANDBY;
 		}
 
 		hw_init = stm32_get_iwdg_otp_config(iwdg.pbase);
@@ -265,12 +265,12 @@ static TEE_Result iwdg_init(void)
 			iwdg.flags |= IWDG_HW_ENABLED;
 		}
 
-		if ((hw_init & IWDG_ENABLE_ON_STOP) != 0) {
-			iwdg.flags |= IWDG_ENABLE_ON_STOP;
+		if ((hw_init & IWDG_DISABLE_ON_STOP) != 0) {
+			iwdg.flags |= IWDG_DISABLE_ON_STOP;
 		}
 
-		if ((hw_init & IWDG_ENABLE_ON_STANDBY) != 0) {
-			iwdg.flags |= IWDG_ENABLE_ON_STANDBY;
+		if ((hw_init & IWDG_DISABLE_ON_STANDBY) != 0) {
+			iwdg.flags |= IWDG_DISABLE_ON_STANDBY;
 		}
 
 		if (dt_info.status == DT_STATUS_DISABLED) {
