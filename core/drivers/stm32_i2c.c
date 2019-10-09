@@ -14,6 +14,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stm32_util.h>
+#include <stm32mp_dt.h>
 
 /* STM32 I2C registers offsets */
 #define I2C_CR1			0x00U
@@ -558,28 +559,21 @@ int stm32_i2c_get_setup_from_fdt(void *fdt, int node,
 				 struct stm32_pinctrl **pinctrl,
 				 size_t *pinctrl_count)
 {
-	const fdt32_t *cuint;
+	uint32_t read_val;
 	int count;
 
-	cuint = fdt_getprop(fdt, node, "i2c-scl-rising-time-ns", NULL);
-	if (cuint == NULL) {
-		init->rise_time = STM32_I2C_RISE_TIME_DEFAULT;
-	} else {
-		init->rise_time = fdt32_to_cpu(*cuint);
-	}
+	init->rise_time = fdt_read_uint32_default(fdt, node,
+						  "i2c-scl-rising-time-ns",
+						  STM32_I2C_RISE_TIME_DEFAULT);
 
-	cuint = fdt_getprop(fdt, node, "i2c-scl-falling-time-ns", NULL);
-	if (cuint == NULL) {
-		init->fall_time = STM32_I2C_FALL_TIME_DEFAULT;
-	} else {
-		init->fall_time = fdt32_to_cpu(*cuint);
-	}
+	init->fall_time = fdt_read_uint32_default(fdt, node,
+						  "i2c-scl-falling-time-ns",
+						  STM32_I2C_FALL_TIME_DEFAULT);
 
-	cuint = fdt_getprop(fdt, node, "clock-frequency", NULL);
-	if (cuint == NULL) {
-		init->speed_mode = STM32_I2C_SPEED_DEFAULT;
-	} else {
-		switch (fdt32_to_cpu(*cuint)) {
+	read_val = fdt_read_uint32_default(fdt, node, "clock-frequency",
+					  STM32_I2C_SPEED_DEFAULT);
+
+	switch (read_val) {
 		case STANDARD_RATE:
 			init->speed_mode = I2C_SPEED_STANDARD;
 			break;
@@ -592,7 +586,6 @@ int stm32_i2c_get_setup_from_fdt(void *fdt, int node,
 		default:
 			init->speed_mode = STM32_I2C_SPEED_DEFAULT;
 			break;
-		}
 	}
 
 	count = stm32_pinctrl_fdt_get_pinctrl(fdt, node, NULL, 0);
