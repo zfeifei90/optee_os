@@ -1984,10 +1984,7 @@ static void sync_earlyboot_clocks_state(void)
 	stm32mp_register_clock_parents_secure(BKPSRAM);
 
 	stm32mp_register_clock_parents_secure(RTCAPB);
-
-#if CFG_TEE_CORE_NB_CORE > 1
 	stm32mp1_clk_enable_secure(RTCAPB);
-#endif
 
 	/* The low power sequences mandates RNG1 and CRYP1 support */
 	stm32mp_register_clock_parents_secure(RNG1_K);
