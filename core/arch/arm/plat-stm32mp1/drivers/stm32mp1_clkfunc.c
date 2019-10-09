@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * Copyright (c) 2017-2018, STMicroelectronics - All Rights Reserved
+ * Copyright (c) 2017-2019, STMicroelectronics - All Rights Reserved
  */
 
 #include <dt-bindings/clock/stm32mp1-clksrc.h>
@@ -55,6 +55,11 @@ int fdt_osc_read_freq(void *fdt, const char *name, uint32_t *freq)
 		if (strncmp(cchar, name, (size_t)ret) == 0) {
 			const fdt32_t *cuint;
 
+			if (_fdt_get_status(fdt, subnode) ==
+			    DT_STATUS_DISABLED) {
+				goto exit;
+			}
+
 			cuint = fdt_getprop(fdt, subnode, "clock-frequency",
 					    &ret);
 			if (cuint == NULL) {
@@ -67,7 +72,8 @@ int fdt_osc_read_freq(void *fdt, const char *name, uint32_t *freq)
 		}
 	}
 
-	/* Oscillator not found, freq=0 */
+exit:
+	/* Oscillator not found or disabled, freq=0 */
 	*freq = 0;
 	return 0;
 }
