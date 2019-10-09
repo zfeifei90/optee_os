@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * Copyright (c) 2017-2018, STMicroelectronics - All Rights Reserved
+ * Copyright (c) 2017-2019, STMicroelectronics - All Rights Reserved
  * Copyright (c) 2017-2018, ARM Limited and Contributors. All rights reserved.
  */
 
@@ -202,13 +202,14 @@ static int stm32_iwdg_conf_etimeout(void *fdt, int node,
 void stm32_iwdg_refresh(uint32_t instance)
 {
 	struct stm32_iwdg_instance *iwdg = get_iwdg(instance);
-	uintptr_t iwdg_base = get_base(iwdg);
 
-	assert(iwdg);
+	if (iwdg == NULL) {
+		return;
+        }
 
 	stm32_clock_enable(iwdg->clock);
 
-	write32(IWDG_KR_RELOAD_KEY, iwdg_base + IWDG_KR_OFFSET);
+	write32(IWDG_KR_RELOAD_KEY, get_base(iwdg) + IWDG_KR_OFFSET);
 
 	stm32_clock_disable(iwdg->clock);
 }
