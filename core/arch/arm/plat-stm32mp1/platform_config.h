@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: BSD-2-Clause */
 /*
- * Copyright (c) 2017-2018, STMicroelectronics
+ * Copyright (c) 2017-2019, STMicroelectronics
  */
 
 #ifndef PLATFORM_CONFIG_H
@@ -153,6 +153,7 @@
 /* SoC revision */
 #define STM32MP1_REV_A			0x00001000
 #define STM32MP1_REV_B			0x00002000
+#define STM32MP1_REV_Z			0x00002001
 
 /* DBGMCU resources */
 #define DBGMCU_IDC			0x0
