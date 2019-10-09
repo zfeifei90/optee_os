@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: BSD-3-Clause */
 /*
- * Copyright (c) 2017-2018, STMicroelectronics
+ * Copyright (c) 2017-2019, STMicroelectronics
  */
 
 #ifndef __STM32_UTIL_H__
@@ -16,7 +16,7 @@
 #include <stdbool.h>
 
 /* SoC versioning */
-uint32_t stm32mp1_dbgmcu_get_chip_version(void);
+int stm32mp1_dbgmcu_get_chip_version(uint32_t *chip_version);
 
 /* SiP & OEM platform services */
 bool stm32_sip_service(struct sm_ctx *ctx,

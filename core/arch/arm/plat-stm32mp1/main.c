@@ -361,14 +361,20 @@ bool sm_platform_handler(struct sm_ctx *ctx)
 }
 
 /* SoC versioning util */
-uint32_t stm32mp1_dbgmcu_get_chip_version(void)
+int stm32mp1_dbgmcu_get_chip_version(uint32_t *chip_version)
 {
 	uintptr_t base = DBGMCU_BASE;
 
-	if (cpu_mmu_enabled())
-		base = (uintptr_t)phys_to_virt(DBGMCU_BASE, MEM_AREA_IO_SEC);
+	assert(chip_version != NULL);
 
-	return read32(base + DBGMCU_IDC) >> 16;
+	if (cpu_mmu_enabled()) {
+		base = (uintptr_t)phys_to_virt(DBGMCU_BASE, MEM_AREA_IO_SEC);
+	}
+
+	*chip_version = (read32(base + DBGMCU_IDC) &
+			 DBGMCU_IDC_REV_ID_MASK) >> DBGMCU_IDC_REV_ID_SHIFT;
+
+	return 0;
 }
 
 static uintptr_t stm32_tamp_base(void)

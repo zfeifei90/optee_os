@@ -157,6 +157,8 @@
 
 /* DBGMCU resources */
 #define DBGMCU_IDC			0x0
+#define DBGMCU_IDC_REV_ID_MASK		GENMASK_32(31, 16)
+#define DBGMCU_IDC_REV_ID_SHIFT		16
 
 /* BKPSRAM layout */
 #define BKPSRAM_SIZE			SMALL_PAGE_SIZE
