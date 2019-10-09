@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+ OR BSD-3-Clause
 /*
- * Copyright (c) 2016-2018, STMicroelectronics - All Rights Reserved
+ * Copyright (c) 2016-2019, STMicroelectronics - All Rights Reserved
  */
 
 #include <arm32.h>
@@ -121,6 +121,9 @@ static const struct i2c_spec_s i2c_specs[] = {
 		.h_min = 260,
 	},
 };
+
+static uint32_t saved_timing;
+static unsigned long saved_frequency;
 
 static int i2c_request_memory_write(struct i2c_handle_s *hi2c,
 				    uint16_t dev_addr, uint16_t mem_addr,
@@ -454,12 +457,21 @@ static int i2c_setup_timing(struct i2c_handle_s *hi2c,
 			    uint32_t *timing)
 {
 	int rc = 0;
-	uint32_t clock_src;
+	unsigned long clock_src;
 
 	clock_src = stm32_clock_get_rate(hi2c->clock);
 	if (clock_src == 0U) {
 		EMSG("I2C clock rate is 0\n");
 		return -1;
+	}
+
+	/*
+	 * If the timing has already been computed, and the frequency is the
+	 * same as when it was computed, then use the saved timing.
+	 */
+	if (clock_src == saved_frequency) {
+		*timing = saved_timing;
+		return 0;
 	}
 
 	do {
@@ -481,12 +493,15 @@ static int i2c_setup_timing(struct i2c_handle_s *hi2c,
 		return rc;
 	}
 
-	DMSG("I2C Speed Mode(%i), Freq(%i), Clk Source(%i)\n",
+	DMSG("I2C Speed Mode(%i), Freq(%i), Clk Source(%li)\n",
 	     init->speed_mode, i2c_specs[init->speed_mode].rate, clock_src);
 	DMSG("I2C Rise(%i) and Fall(%i) Time\n",
 	     init->rise_time, init->fall_time);
 	DMSG("I2C Analog Filter(%s), DNF(%i)\n",
 	     (init->analog_filter ? "On" : "Off"), init->digital_filter_coef);
+
+	saved_timing = *timing;
+	saved_frequency = clock_src;
 
 	return 0;
 }
