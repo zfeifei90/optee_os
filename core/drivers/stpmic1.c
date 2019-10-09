@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * Copyright (c) 2016-2018, STMicroelectronics - All Rights Reserved
+ * Copyright (c) 2016-2019, STMicroelectronics - All Rights Reserved
  */
 
 #include <drivers/stpmic1.h>
@@ -582,17 +582,19 @@ int stpmic1_regulator_enable(const char *name)
 {
 	const struct regul_struct *regul = get_regulator_data(name);
 
-	return stpmic1_register_update(regul->control_reg, BIT(0), BIT(0));
+	return stpmic1_register_update(regul->control_reg, LDO_BUCK_ENABLE_MASK,
+				       LDO_BUCK_ENABLE_MASK);
 }
 
 int stpmic1_regulator_disable(const char *name)
 {
 	const struct regul_struct *regul = get_regulator_data(name);
 
-	return stpmic1_register_update(regul->control_reg, 0, BIT(0));
+	return stpmic1_register_update(regul->control_reg, 0,
+				       LDO_BUCK_ENABLE_MASK);
 }
 
-uint8_t stpmic1_is_regulator_enabled(const char *name)
+bool stpmic1_is_regulator_enabled(const char *name)
 {
 	uint8_t val;
 	const struct regul_struct *regul = get_regulator_data(name);
@@ -601,7 +603,7 @@ uint8_t stpmic1_is_regulator_enabled(const char *name)
 		panic();
 	}
 
-	return (val & 0x1U);
+	return (val & LDO_BUCK_ENABLE_MASK) == LDO_BUCK_ENABLE_MASK;
 }
 
 int stpmic1_regulator_voltage_set(const char *name, uint16_t millivolts)
