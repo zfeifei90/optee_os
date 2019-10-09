@@ -112,6 +112,19 @@
 #define FREQ_30_45_MHZ			0x2
 #define FREQ_45_67_MHZ			0x3
 
+#ifdef CFG_DT
+uint32_t bsec_find_otp_name_in_nvmem_layout(const char *name, uint32_t *otp,
+					    uint32_t *otp_bit_len);
+#else
+static inline uint32_t bsec_find_otp_name_in_nvmem_layout(
+						const char *name __unused,
+						uint32_t *otp __unused,
+						uint32_t *otp_bit_len __unused)
+{
+	return BSEC_ERROR;
+}
+#endif
+
 uint32_t bsec_shadow_register(uint32_t otp);
 uint32_t bsec_read_otp(uint32_t *val, uint32_t otp);
 uint32_t bsec_write_otp(uint32_t val, uint32_t otp);
