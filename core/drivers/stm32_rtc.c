@@ -236,17 +236,8 @@ static uint32_t stm32_rtc_get_second_fraction(struct stm32_rtc_calendar *cal)
 static unsigned long long stm32_rtc_diff_frac(struct stm32_rtc_calendar *cur,
 					      struct stm32_rtc_calendar *ref)
 {
-	unsigned long long val_r;
-	unsigned long long val_c;
-
-	val_r = stm32_rtc_get_second_fraction(ref);
-	val_c = stm32_rtc_get_second_fraction(cur);
-
-	if (val_c >= val_r) {
-		return val_c - val_r;
-	} else {
-		return 1000U - val_r + val_c;
-	}
+	return stm32_rtc_get_second_fraction(cur) -
+		stm32_rtc_get_second_fraction(ref);
 }
 
 /*******************************************************************************
@@ -254,10 +245,9 @@ static unsigned long long stm32_rtc_diff_frac(struct stm32_rtc_calendar *cur,
  * It includes seconds, minutes and hours.
  * Here again the returned value is in milliseconds.
  ******************************************************************************/
-static unsigned long long stm32_rtc_diff_time(struct stm32_rtc_time *current,
-					      struct stm32_rtc_time *ref)
+static signed long long stm32_rtc_diff_time(struct stm32_rtc_time *current,
+					    struct stm32_rtc_time *ref)
 {
-	signed long long diff_in_s;
 	signed long long curr_s;
 	signed long long ref_s;
 
@@ -269,12 +259,7 @@ static unsigned long long stm32_rtc_diff_time(struct stm32_rtc_time *current,
 		(((signed long long)ref->min +
 		 (((signed long long)ref->hour * 60))) * 60);
 
-	diff_in_s = curr_s - ref_s;
-	if (diff_in_s < 0) {
-		diff_in_s += 24 * 60 * 60;
-	}
-
-	return (unsigned long long)diff_in_s * 1000U;
+	return (curr_s - ref_s) * 1000U;
 }
 
 /*******************************************************************************
@@ -292,8 +277,8 @@ static bool stm32_is_a_leap_year(uint32_t year)
  * It includes days, months, years, with exceptions.
  * Here again the returned value is in milliseconds.
  ******************************************************************************/
-static unsigned long long stm32_rtc_diff_date(struct stm32_rtc_time *current,
-					      struct stm32_rtc_time *ref)
+static signed long long stm32_rtc_diff_date(struct stm32_rtc_time *current,
+					    struct stm32_rtc_time *ref)
 {
 	uint32_t diff_in_days = 0;
 	uint32_t m;
@@ -367,7 +352,7 @@ static unsigned long long stm32_rtc_diff_date(struct stm32_rtc_time *current,
 		}
 	}
 
-	return (24ULL * 60U * 60U * 1000U) * (unsigned long long)diff_in_days;
+	return (24 * 60 * 60 * 1000) * (signed long long)diff_in_days;
 }
 
 /*******************************************************************************
@@ -377,7 +362,7 @@ static unsigned long long stm32_rtc_diff_date(struct stm32_rtc_time *current,
 unsigned long long stm32_rtc_diff_calendar(struct stm32_rtc_calendar *cur,
 					   struct stm32_rtc_calendar *ref)
 {
-	unsigned long long diff_in_ms = 0;
+	signed long long diff_in_ms = 0;
 	struct stm32_rtc_time curr_t;
 	struct stm32_rtc_time ref_t;
 
@@ -394,7 +379,7 @@ unsigned long long stm32_rtc_diff_calendar(struct stm32_rtc_calendar *cur,
 
 	stm32_clock_disable(rtc_dev.clock);
 
-	return diff_in_ms;
+	return (unsigned long long)diff_in_ms;
 }
 
 /*******************************************************************************
