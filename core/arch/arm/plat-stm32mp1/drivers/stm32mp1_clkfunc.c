@@ -202,7 +202,7 @@ uint32_t fdt_rcc_read_addr(void *fdt)
  ******************************************************************************/
 int fdt_get_rcc_node(void *fdt)
 {
-	return fdt_node_offset_by_compatible(fdt, -1, DT_RCC_CLK_COMPAT);
+	return fdt_get_node_by_compatible(fdt, DT_RCC_CLK_COMPAT);
 }
 
 /*******************************************************************************
@@ -278,8 +278,6 @@ const fdt32_t *fdt_rcc_read_prop(void *fdt, const char *prop_name, int *lenp)
  ******************************************************************************/
 uintptr_t get_stgen_base(void)
 {
-	int node;
-	const fdt32_t *cuint;
 	void *fdt;
 
 	fdt = get_dt_blob();
@@ -287,17 +285,7 @@ uintptr_t get_stgen_base(void)
 		return 0;
 	}
 
-	node = fdt_node_offset_by_compatible(fdt, -1, DT_STGEN_COMPAT);
-	if (node < 0) {
-		return 0;
-	}
-
-	cuint = fdt_getprop(fdt, node, "reg", NULL);
-	if (cuint == NULL) {
-		return 0;
-	}
-
-	return fdt32_to_cpu(*cuint);
+	return fdt_get_peripheral_base(fdt, DT_STGEN_COMPAT);
 }
 
 /*******************************************************************************
@@ -311,36 +299,22 @@ unsigned long get_uart_clock_freq(uint32_t instance)
 {
 	int node;
 	void *fdt;
+	int clk_id;
 
 	fdt = get_dt_blob();
 	if (fdt == NULL) {
 		return 0;
 	}
 
-	/* Check for UART nodes */
-	node = fdt_node_offset_by_compatible(fdt, -1, DT_UART_COMPAT);
-	while (node != -FDT_ERR_NOTFOUND) {
-		const fdt32_t *cuint;
-
-		cuint = fdt_getprop(fdt, node, "reg", NULL);
-		if (cuint == NULL)
-			goto next;
-
-		if ((uint32_t)fdt32_to_cpu(*cuint) == instance) {
-			unsigned long clk_id;
-
-			cuint = fdt_getprop(fdt, node, "clocks", NULL);
-			if (cuint == NULL)
-				goto next;
-
-			cuint++;
-			clk_id = (unsigned long)(fdt32_to_cpu(*cuint));
-
-			return stm32mp1_clk_get_rate(clk_id);
-		}
-next:
-		node = fdt_node_offset_by_compatible(fdt, node, DT_UART_COMPAT);
+	node = fdt_match_instance_by_compatible(fdt, DT_UART_COMPAT, instance);
+	if (node < 0) {
+		return 0;
 	}
 
-	return 0;
+	clk_id = fdt_get_clock_id(fdt, node);
+	if (clk_id < 0) {
+		return 0;
+	}
+
+	return stm32mp1_clk_get_rate((unsigned long)clk_id);
 }

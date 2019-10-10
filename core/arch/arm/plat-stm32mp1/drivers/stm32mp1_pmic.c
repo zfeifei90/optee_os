@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * Copyright (c) 2017-2018, STMicroelectronics - All Rights Reserved
+ * Copyright (c) 2017-2019, STMicroelectronics - All Rights Reserved
  */
 
 #include <kernel/delay.h>
@@ -37,7 +37,7 @@ bool stm32mp_with_pmic(void)
 
 static int dt_get_pmic_node(void *fdt)
 {
-	return fdt_node_offset_by_compatible(fdt, -1, "st,stpmic1");
+	return fdt_get_node_by_compatible(fdt, "st,stpmic1");
 }
 
 static int dt_get_regulators_node(void *fdt)

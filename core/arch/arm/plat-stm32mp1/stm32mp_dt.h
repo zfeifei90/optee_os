@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: BSD-3-Clause */
 /*
- * Copyright (c) 2018, STMicroelectronics - All Rights Reserved
+ * Copyright (c) 2018-2019, STMicroelectronics - All Rights Reserved
  * Copyright (c) 2017-2018, ARM Limited and Contributors. All rights reserved.
  */
 
@@ -28,6 +28,10 @@ void fdt_fill_device_info(void *fdt, struct dt_node_info *info, int node);
 int fdt_get_node(void *fdt, struct dt_node_info *info, int offset,
 		 const char *compat);
 int fdt_get_stdout_node_offset(void *fdt);
+int fdt_get_node_by_compatible(void *fdt, const char *compatible);
+int fdt_match_instance_by_compatible(void *fdt, const char *compatible,
+				    uintptr_t address);
+uintptr_t fdt_get_peripheral_base(void *fdt, const char *compatible);
 uint32_t fdt_get_ddr_size(void *fdt);
 const char *fdt_get_board_model(void *fdt);
 

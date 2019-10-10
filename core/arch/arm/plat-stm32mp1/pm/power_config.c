@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * Copyright (c) 2017-2018, STMicroelectronics - All Rights Reserved
+ * Copyright (c) 2017-2019, STMicroelectronics - All Rights Reserved
  */
 
 #include <assert.h>
@@ -57,7 +57,7 @@ bool need_to_backup_cpu_context(unsigned int soc_mode)
 #ifdef CFG_DT
 static int dt_get_pwr_node(void *fdt)
 {
-	return fdt_node_offset_by_compatible(fdt, -1, DT_PWR_COMPAT);
+	return fdt_get_node_by_compatible(fdt, DT_PWR_COMPAT);
 }
 #endif
 

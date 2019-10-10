@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * Copyright (c) 2018, STMicroelectronics - All Rights Reserved
+ * Copyright (c) 2018-2019, STMicroelectronics - All Rights Reserved
  * Copyright (c) 2017-2018, ARM Limited and Contributors. All rights reserved.
  */
 
@@ -230,6 +230,74 @@ int fdt_get_stdout_node_offset(void *fdt)
 }
 
 /*******************************************************************************
+ * This function returns the offset of the first matching compatible node
+ * in the DT. It should be used only for single instanced peripherals.
+ * Returns node on success and a negative FDT error code on failure.
+ ******************************************************************************/
+int fdt_get_node_by_compatible(void *fdt, const char *compatible)
+{
+	int node = fdt_node_offset_by_compatible(fdt, -1, compatible);
+
+	if (node < 0) {
+		DMSG("Cannot find %s node in DT", compatible);
+	}
+
+	return node;
+}
+
+/*******************************************************************************
+ * This function returns the node offset matching compatible string in the DT,
+ * and also matching the reg property with the given address.
+ * Returns node on success and a negative FDT error code on failure.
+ ******************************************************************************/
+int fdt_match_instance_by_compatible(void *fdt, const char *compatible,
+				    uintptr_t address)
+{
+	int node;
+
+	for (node = fdt_node_offset_by_compatible(fdt, -1, compatible);
+	     node != -FDT_ERR_NOTFOUND;
+	     node = fdt_node_offset_by_compatible(fdt, node, compatible)) {
+		const fdt32_t *cuint;
+
+		cuint = fdt_getprop(fdt, node, "reg", NULL);
+		if (cuint == NULL) {
+			continue;
+		}
+
+		if ((uintptr_t)fdt32_to_cpu(*cuint) == address) {
+			return node;
+		}
+	}
+
+	return -FDT_ERR_NOTFOUND;
+}
+
+/*******************************************************************************
+ * This function returns the peripheral base address information from the
+ * first matching compatible string in the DT. It should be used only for
+ * single instanced peripherals.
+ * Returns non null base address on success, and 0 on failure.
+ ******************************************************************************/
+uintptr_t fdt_get_peripheral_base(void *fdt, const char *compatible)
+{
+	int node;
+	const fdt32_t *cuint;
+
+	node = fdt_get_node_by_compatible(fdt, compatible);
+	if (node < 0) {
+		return 0;
+	}
+
+	cuint = fdt_getprop(fdt, node, "reg", NULL);
+	if (cuint == NULL) {
+		return 0;
+	}
+
+	return fdt32_to_cpu(*cuint);
+}
+
+/*******************************************************************************
  * This function gets DDR size information from the DT.
  * Returns value in bytes if success, and STM32MP1_DDR_SIZE_DFLT else.
  ******************************************************************************/
@@ -237,9 +305,8 @@ uint32_t fdt_get_ddr_size(void *fdt)
 {
 	int node;
 
-	node = fdt_node_offset_by_compatible(fdt, -1, DT_DDR_COMPAT);
+	node = fdt_get_node_by_compatible(fdt, DT_DDR_COMPAT);
 	if (node < 0) {
-		IMSG("%s: Cannot read DDR node in DT\n", __func__);
 		return STM32MP1_DDR_SIZE_DFLT;
 	}
 
