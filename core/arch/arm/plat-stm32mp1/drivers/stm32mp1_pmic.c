@@ -37,7 +37,13 @@ bool stm32mp_with_pmic(void)
 
 static int dt_get_pmic_node(void *fdt)
 {
-	return fdt_get_node_by_compatible(fdt, "st,stpmic1");
+	static int node = -FDT_ERR_BADOFFSET;
+
+	if (node == -FDT_ERR_BADOFFSET) {
+		node = fdt_get_node_by_compatible(fdt, "st,stpmic1");
+	}
+
+	return node;
 }
 
 static int dt_get_regulators_node(void *fdt)
