@@ -119,8 +119,10 @@ static int save_boot_on_config(void)
 		struct regu_bo_config regu_cfg;
 		uint16_t mv;
 
-		if (fdt_getprop(fdt, subnode, "regulator-boot-on",
-				NULL) == NULL) {
+		if ((fdt_getprop(fdt, subnode, "regulator-boot-on", NULL) ==
+		     NULL) &&
+		    (fdt_getprop(fdt, subnode, "regulator-always-on", NULL) ==
+		     NULL)) {
 			continue;
 		}
 
@@ -128,6 +130,7 @@ static int save_boot_on_config(void)
 		name = fdt_get_name(fdt, subnode, NULL);
 
 		regu_cfg.flags |= REGU_BO_FLAG_ENABLE_REGU;
+		stpmic1_bo_enable_cfg(name, &regu_cfg.cfg);
 
 		if (fdt_getprop(fdt, subnode, "regulator-pull-down",
 				NULL) != NULL) {
