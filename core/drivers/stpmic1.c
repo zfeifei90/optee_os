@@ -638,9 +638,19 @@ int stpmic1_regulator_mask_reset_set(const char *name)
 				       regul->mask_reset);
 }
 
+int stpmic1_bo_enable_cfg(const char *name, struct stpmic1_bo_cfg *cfg)
+{
+	const struct regul_struct *regul = get_regulator_data(name);
+
+	cfg->ctrl_reg = regul->control_reg;
+
+	return 0;
+}
+
 int stpmic1_bo_enable_unpg(struct stpmic1_bo_cfg *cfg)
 {
-	return stpmic1_register_update(cfg->ctrl_reg, BIT(0), BIT(0));
+	return stpmic1_register_update(cfg->ctrl_reg, LDO_BUCK_ENABLE_MASK,
+				       LDO_BUCK_ENABLE_MASK);
 }
 
 /* Returns 1 if no configuration are expected applied at runtime, 0 otherwise */
