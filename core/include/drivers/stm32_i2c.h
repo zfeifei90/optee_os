@@ -262,6 +262,8 @@ struct i2c_handle_s {
 	enum i2c_state_e i2c_state;		/* Communication state */
 	enum i2c_mode_e i2c_mode;		/* Communication mode */
 	uint32_t i2c_err;			/* Error code */
+	uint32_t saved_timing;			/* Saved timing value */
+	uint32_t saved_frequency;		/* Saved frequency value */
 	struct stm32_pinctrl *pinctrl;		/* PINCTRLs configuration for the I2C PINs */
 	size_t pinctrl_count;			/* Number of PINCTRLs elements */
 	struct i2c_cfg sec_cfg;			/* Context for secure usage */
