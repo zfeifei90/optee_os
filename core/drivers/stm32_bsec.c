@@ -101,10 +101,21 @@ static int bsec_dt_otp_nsec_access(void *fdt, int bsec_node)
 						       sizeof(uint32_t)) /
 					       sizeof(uint32_t);
 
-			if (otp_end > STM32MP1_UPPER_OTP_START)
-				panic("OTP range crosses Lower/Upper boundary");
+			if (otp_end > STM32MP1_UPPER_OTP_START) {
+				/*
+				 * OTP crosses Lower/Upper boundary, consider
+				 * only the upper part.
+				 */
+				otp = STM32MP1_UPPER_OTP_START;
+				length -= (STM32MP1_UPPER_OTP_START *
+					   sizeof(uint32_t)) - offset;
+				offset = STM32MP1_UPPER_OTP_START *
+					 sizeof(uint32_t);
 
-			continue;
+				IMSG("OTP crosses Lower/Upper boundary");
+			} else {
+				continue;
+			}
 		}
 
 		if ((fdt_getprop(fdt, bsec_subnode,
