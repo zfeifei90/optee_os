@@ -58,7 +58,7 @@ static int dt_get_regulators_node(void *fdt)
 	return fdt_subnode_offset(fdt, node, "regulators");
 }
 
-static int dt_pmic_status(void)
+int stm32mp_dt_pmic_status(void)
 {
 	void *fdt = get_dt_blob();
 
@@ -75,7 +75,7 @@ static int dt_pmic_status(void)
 
 static bool dt_pmic_is_secure(void)
 {
-	int status = dt_pmic_status();
+	int status = stm32mp_dt_pmic_status();
 
 	return ((unsigned)status == DT_STATUS_OK_SEC) &&
 	       (i2c_handle.dt_status == DT_STATUS_OK_SEC);
