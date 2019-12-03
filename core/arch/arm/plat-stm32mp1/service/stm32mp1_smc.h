@@ -182,6 +182,21 @@
 #define STM32_SIP_PD_MAX_PM_DOMAIN		0x3
 
 /*
+ * SIP function STM32_SIP_FUNC_RCC_OPP.
+ *
+ * Argument a0: (input) SMCC ID.
+ *		(output) Status return code.
+ * Argument a1: (input) Service ID (STM32_SIP_RCC_OPP_xxx).
+ *		(output) Rounded frequency, if applicable.
+ * Argument a2: (input) Requested frequency.
+ */
+#define STM32_SIP_FUNC_RCC_OPP			0x1009
+
+/* Service ID for STM32_SIP_FUNC_RCC_OPP */
+#define STM32_SIP_RCC_OPP_SET			0x0
+#define STM32_SIP_RCC_OPP_ROUND			0x1
+
+/*
  * OEM Functions
  */
 #define STM32_OEM_SVC_VERSION_MAJOR		0x0

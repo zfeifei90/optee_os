@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * Copyright (c) 2017-2018, STMicroelectronics
+ * Copyright (c) 2017-2019, STMicroelectronics
  */
 
 #include <drivers/stm32mp1_clk.h>
@@ -435,6 +435,34 @@ uint32_t rcc_scv_handler(uint32_t x1, uint32_t x2, uint32_t x3)
 
 	/* RCC controls for non secure resource may be accessed straight */
 	raw_allowed_access_request(request, offset, value);
+
+	return STM32_SIP_OK;
+}
+
+uint32_t rcc_opp_scv_handler(uint32_t x1, uint32_t x2, uint32_t *res)
+{
+	uint32_t cmd = x1;
+	uint32_t opp = x2 / 1000U; /* KHz */
+
+	switch (cmd) {
+	case STM32_SIP_RCC_OPP_SET:
+		if (stm32mp1_set_opp_khz(opp) != 0) {
+			return STM32_SIP_FAILED;
+		}
+		break;
+
+	case STM32_SIP_RCC_OPP_ROUND:
+		if(stm32mp1_round_opp_khz(&opp) != 0) {
+			return STM32_SIP_FAILED;
+		}
+
+		if (MUL_OVERFLOW(opp, 1000, res))
+			return STM32_SIP_FAILED;
+		break;
+
+	default:
+		return STM32_SIP_INVALID_PARAMS;
+	}
 
 	return STM32_SIP_OK;
 }

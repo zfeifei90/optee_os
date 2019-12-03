@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * Copyright (c) 2017-2018, STMicroelectronics
+ * Copyright (c) 2017-2019, STMicroelectronics
  */
 
 #include <arm.h>
@@ -69,6 +69,9 @@ bool stm32_sip_service(struct sm_ctx __unused *ctx,
 #ifdef CFG_STM32_RCC_SIP
 	case STM32_SIP_FUNC_RCC:
 		*a0 = rcc_scv_handler(*a1, *a2, *a3);
+		break;
+	case STM32_SIP_FUNC_RCC_OPP:
+		*a0 = rcc_opp_scv_handler(*a1, *a2, a1);
 		break;
 #endif
 #ifdef CFG_STM32_CLOCKSRC_CALIB
