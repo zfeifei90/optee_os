@@ -6,3 +6,4 @@ srcs-$(CFG_STPMIC1) += stm32mp1_pmic.c
 srcs-y += stm32mp1_clk.c
 srcs-$(CFG_DT) += stm32mp1_clkfunc.c
 srcs-y += stm32mp1_ddrc.c
+srcs-y += stm32mp1_syscfg.c

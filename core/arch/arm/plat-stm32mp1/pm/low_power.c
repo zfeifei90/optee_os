@@ -170,6 +170,8 @@ int stm32_enter_cstop(uint32_t mode)
 	uintptr_t rcc_base = stm32_rcc_base();
 	int rc;
 
+	stm32mp1_syscfg_disable_io_compensation();
+
 	stm32_apply_pmic_suspend_config(mode);
 
 	if (stm32mp_with_pmic() && (mode == STM32_PM_CSTOP_ALLOW_LP_STOP)) {
@@ -247,6 +249,8 @@ void stm32_exit_cstop(void)
 
 	/* Disable retention and backup RAM content after stop */
 	mmio_clrbits_32(pwr_base + PWR_CR2_OFF, PWR_CR2_BREN | PWR_CR2_RREN);
+
+	stm32mp1_syscfg_enable_io_compensation();
 }
 
 /*

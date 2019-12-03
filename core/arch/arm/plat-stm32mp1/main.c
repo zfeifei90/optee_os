@@ -47,6 +47,7 @@ register_phys_mem(MEM_AREA_IO_NSEC, RNG1_BASE, SMALL_PAGE_SIZE);
 register_phys_mem(MEM_AREA_IO_NSEC, IWDG1_BASE, SMALL_PAGE_SIZE);
 register_phys_mem(MEM_AREA_IO_NSEC, IWDG2_BASE, SMALL_PAGE_SIZE);
 register_phys_mem(MEM_AREA_IO_NSEC, RTC_BASE, SMALL_PAGE_SIZE);
+register_phys_mem(MEM_AREA_IO_NSEC, SYSCFG_BASE, SMALL_PAGE_SIZE);
 #ifdef CFG_WITH_NSEC_UARTS
 register_phys_mem(MEM_AREA_IO_NSEC, USART1_BASE, SMALL_PAGE_SIZE);
 register_phys_mem(MEM_AREA_IO_NSEC, USART2_BASE, SMALL_PAGE_SIZE);
@@ -422,6 +423,19 @@ uintptr_t stm32_get_stgen_base(void)
 
 	if (!va)
 		va = (uintptr_t)phys_to_virt(STGEN_BASE, MEM_AREA_IO_SEC);
+
+	return va;
+}
+
+uintptr_t stm32_get_syscfg_base(void)
+{
+	static uintptr_t va;
+
+	if (!cpu_mmu_enabled())
+		return SYSCFG_BASE;
+
+	if (!va)
+		va = (uintptr_t)phys_to_virt(SYSCFG_BASE, MEM_AREA_IO_NSEC);
 
 	return va;
 }

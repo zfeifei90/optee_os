@@ -28,6 +28,9 @@ bool stm32_oem_service(struct sm_ctx *ctx,
 /* Platform util for the STGEN driver */
 uintptr_t stm32_get_stgen_base(void);
 
+/* Platform util for the SYSCFG driver */
+uintptr_t stm32_get_syscfg_base(void);
+
 /* Platform util for the GIC */
 uintptr_t get_gicc_base(void);
 uintptr_t get_gicd_base(void);
@@ -118,6 +121,13 @@ void stm32mp_platform_reset(int cpu);
 
 /* Clock calibration */
 int stm32mp_start_clock_calib(unsigned int clock_id);
+
+/*
+ * SYSCFG IO compensation.
+ * These functions assume non-secure world is suspended.
+ */
+void stm32mp1_syscfg_enable_io_compensation(void);
+void stm32mp1_syscfg_disable_io_compensation(void);
 
 /*
  * Shared reference counter: increments by 2 on secure increment

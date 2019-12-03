@@ -1,6 +1,6 @@
 // SPDX-License-Identifier:	GPL-2.0+	BSD-3-Clause
 /*
- * Copyright (C) 2017-2018, STMicroelectronics - All Rights Reserved
+ * Copyright (C) 2017-2019, STMicroelectronics - All Rights Reserved
  */
 
 #include <assert.h>
@@ -364,6 +364,7 @@ static const struct stm32mp1_clk_gate stm32mp1_clk_gate[] = {
 	_CLK_SELEC(RCC_DBGCFGR, 8, CK_DBG, _UNKNOWN_SEL),
 	_CLK_SC_FIXED(RCC_MP_APB1ENSETR, 6, TIM12_K, _PCLK1),
 	_CLK_SC_FIXED(RCC_MP_APB2ENSETR, 2, TIM15_K, _PCLK2),
+	_CLK_SC_FIXED(RCC_MP_APB3ENSETR, 11, SYSCFG, _UNKNOWN_ID),
 	_CLK_SC_SELEC(RCC_MP_AHB6ENSETR, 0, MDMA, _UNKNOWN_SEL),
 	_CLK_SC_SELEC(RCC_MP_AHB6ENSETR, 5, GPU, _UNKNOWN_SEL),
 	_CLK_SC_FIXED(RCC_MP_AHB6ENSETR, 10, ETHMAC, _ACLK),
