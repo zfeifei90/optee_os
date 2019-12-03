@@ -2140,6 +2140,34 @@ int stm32mp1_set_opp_khz(uint32_t freq_khz)
 	return 0;
 }
 
+int stm32mp1_round_opp_khz(uint32_t *freq_khz)
+{
+	int i;
+	uint32_t round_opp = 0U;
+
+	if (!stm32mp1_clk_pll1_settings_are_valid()) {
+		/*
+		 * No OPP table in DT, or an error occurred during PLL1
+		 * settings computation, system can only work on current
+		 * operating point, so return current CPU frequency.
+		 */
+		*freq_khz = current_opp_khz;
+
+		return 0;
+	}
+
+	for (i = 0; i < PLAT_MAX_OPP_NB; i++) {
+		if ((pll1_settings.freq[i] <= *freq_khz) &&
+		    (pll1_settings.freq[i] > round_opp)) {
+			round_opp = pll1_settings.freq[i];
+		}
+	}
+
+	*freq_khz = round_opp;
+
+	return 0;
+}
+
 static void _clock_mpu_suspend(void)
 {
 	uintptr_t mpckselr = stm32_rcc_base() + RCC_MPCKSELR;
