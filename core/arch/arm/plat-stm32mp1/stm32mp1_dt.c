@@ -315,6 +315,127 @@ uint32_t fdt_get_ddr_size(void *fdt)
 }
 
 /*******************************************************************************
+ * This function gets OPP table node from the DT.
+ * Returns node offset on success and a negative FDT error code on failure.
+ ******************************************************************************/
+static int fdt_get_opp_table_node(void *fdt)
+{
+	return fdt_get_node_by_compatible(fdt, DT_OPP_COMPAT);
+}
+
+/*******************************************************************************
+ * This function gets OPP parameters (frequency in KHz and voltage in mV) from
+ * an OPP table subnode. Platform HW support capabilities are also checked.
+ * Returns 0 on success and a negative FDT error code on failure.
+ ******************************************************************************/
+static int fdt_get_opp_freqvolt_from_subnode(void *fdt, int subnode,
+					     uint32_t *freq_khz,
+					     uint32_t *voltage_mv)
+{
+	const fdt64_t *cuint64;
+	const fdt32_t *cuint32;
+	uint64_t read_freq_64;
+	uint32_t read_voltage_32;
+
+	assert(freq_khz != NULL);
+	assert(voltage_mv != NULL);
+
+	cuint32 = fdt_getprop(fdt, subnode, "opp-supported-hw", NULL);
+	if (cuint32 != NULL) {
+		if (!stm32mp_supports_cpu_opp(fdt32_to_cpu(*cuint32))) {
+			DMSG("Invalid opp-supported-hw 0x%"PRIx32,
+			     fdt32_to_cpu(*cuint32));
+			return -FDT_ERR_BADVALUE;
+		}
+	}
+
+	cuint64 = fdt_getprop(fdt, subnode, "opp-hz", NULL);
+	if (cuint64 == NULL) {
+		DMSG("Missing opp-hz");
+		return -FDT_ERR_NOTFOUND;
+	}
+
+	/* Frequency value expressed in KHz must fit on 32 bits */
+	read_freq_64 = fdt64_to_cpu(*cuint64) / 1000ULL;
+	if (read_freq_64 > (uint64_t)UINT32_MAX) {
+		DMSG("Invalid opp-hz %"PRIu64, read_freq_64);
+		return -FDT_ERR_BADVALUE;
+	}
+
+	cuint32 = fdt_getprop(fdt, subnode, "opp-microvolt", NULL);
+	if (cuint32 == NULL) {
+		DMSG("Missing opp-microvolt");
+		return -FDT_ERR_NOTFOUND;
+	}
+
+	/* Millivolt value must fit on 16 bits */
+	read_voltage_32 = fdt32_to_cpu(*cuint32) / 1000U;
+	if (read_voltage_32 > UINT16_MAX) {
+		DMSG("Invalid opp-microvolt %"PRIu32, read_voltage_32);
+		return -FDT_ERR_BADVALUE;
+	}
+
+	*freq_khz = (uint32_t)read_freq_64;
+
+	*voltage_mv = read_voltage_32;
+
+	return 0;
+}
+
+/*******************************************************************************
+ * This function parses OPP table in DT and finds all parameters supported by
+ * the HW platform.
+ * If found, the corresponding frequency and voltage values are respectively
+ * stored in @*freq_khz_array and @*voltage_mv_array.
+ * Note that @*count has to be set by caller to the effective size allocated
+ * for both tables. Its value is then replaced by the number of filled elements.
+ * Returns 0 on success and a negative FDT error code on failure.
+ ******************************************************************************/
+int fdt_get_all_opp_freqvolt(void *fdt, uint32_t *count,
+			     uint32_t *freq_khz_array,
+			     uint32_t *voltage_mv_array)
+{
+	int node;
+	int subnode;
+	uint32_t idx = 0U;
+
+	assert(count != NULL);
+	assert(freq_khz_array != NULL);
+	assert(voltage_mv_array != NULL);
+
+	node = fdt_get_opp_table_node(fdt);
+	if (node < 0) {
+		return node;
+	}
+
+	fdt_for_each_subnode(subnode, fdt, node) {
+		uint32_t read_freq;
+		uint32_t read_voltage;
+
+		if (fdt_get_opp_freqvolt_from_subnode(fdt, subnode, &read_freq,
+						      &read_voltage) != 0) {
+			continue;
+		}
+
+		if (idx >= *count) {
+			return -FDT_ERR_NOSPACE;
+		}
+
+		freq_khz_array[idx] = read_freq;
+		voltage_mv_array[idx] = read_voltage;
+		idx++;
+	}
+
+	if (idx == 0U) {
+		return -FDT_ERR_NOTFOUND;
+	}
+
+	*count = idx;
+
+	return 0;
+}
+
+/*******************************************************************************
  * This function retrieves board model from DT.
  * Returns string taken from model node, NULL otherwise
  ******************************************************************************/

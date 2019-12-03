@@ -11,6 +11,7 @@
 #include <stdint.h>
 
 #define DT_DDR_COMPAT		"st,stm32mp1-ddr"
+#define DT_OPP_COMPAT		"operating-points-v2"
 
 struct dt_node_info {
 	uint32_t base;
@@ -33,6 +34,9 @@ int fdt_match_instance_by_compatible(void *fdt, const char *compatible,
 				    uintptr_t address);
 uintptr_t fdt_get_peripheral_base(void *fdt, const char *compatible);
 uint32_t fdt_get_ddr_size(void *fdt);
+int fdt_get_all_opp_freqvolt(void *fdt, uint32_t *count,
+			     uint32_t *freq_khz_array,
+			     uint32_t *voltage_mv_array);
 const char *fdt_get_board_model(void *fdt);
 
 int fdt_get_clock_id(void *fdt, int node);
