@@ -33,13 +33,14 @@
 
 #define MAX_NBYTE_SIZE		255U
 
-#define I2C_NSEC_PER_SEC	1000000000L
+#define I2C_NSEC_PER_SEC	1000000000UL
+
+/* Effective rate cannot be lower than 80% target rate */
+#define RATE_MIN(rate)	(((rate) * 80U) / 100U)
 
 /*
  * struct i2c_spec_s - Private I2C timing specifications.
  * @rate: I2C bus speed (Hz)
- * @rate_min: 80% of I2C bus speed (Hz)
- * @rate_max: 120% of I2C bus speed (Hz)
  * @fall_max: Max fall time of both SDA and SCL signals (ns)
  * @rise_max: Max rise time of both SDA and SCL signals (ns)
  * @hddat_min: Min data hold time (ns)
@@ -50,8 +51,6 @@
  */
 struct i2c_spec_s {
 	uint32_t rate;
-	uint32_t rate_min;
-	uint32_t rate_max;
 	uint32_t fall_max;
 	uint32_t rise_max;
 	uint32_t hddat_min;
@@ -84,11 +83,11 @@ struct i2c_timing_s {
  *
  * [1] https://www.nxp.com/docs/en/user-guide/UM10204.pdf
  */
+/* This table must be sorted in increasing value for field @rate */
 static const struct i2c_spec_s i2c_specs[] = {
-	[I2C_SPEED_STANDARD] = {
+	/* Standard - 100KHz */
+	{
 		.rate = STANDARD_RATE,
-		.rate_min = (STANDARD_RATE * 80) / 100,
-		.rate_max = (STANDARD_RATE * 120) / 100,
 		.fall_max = 300,
 		.rise_max = 1000,
 		.hddat_min = 0,
@@ -97,10 +96,9 @@ static const struct i2c_spec_s i2c_specs[] = {
 		.l_min = 4700,
 		.h_min = 4000,
 	},
-	[I2C_SPEED_FAST] = {
+	/* Fast - 400KHz */
+	{
 		.rate = FAST_RATE,
-		.rate_min = (FAST_RATE * 80) / 100,
-		.rate_max = (FAST_RATE * 120) / 100,
 		.fall_max = 300,
 		.rise_max = 300,
 		.hddat_min = 0,
@@ -109,10 +107,9 @@ static const struct i2c_spec_s i2c_specs[] = {
 		.l_min = 1300,
 		.h_min = 600,
 	},
-	[I2C_SPEED_FAST_PLUS] = {
+	/* FastPlus - 1MHz */
+	{
 		.rate = FAST_PLUS_RATE,
-		.rate_min = (FAST_PLUS_RATE * 80) / 100,
-		.rate_max = (FAST_PLUS_RATE * 120) / 100,
 		.fall_max = 100,
 		.rise_max = 120,
 		.hddat_min = 0,
@@ -188,6 +185,19 @@ static void notif_i2c_timeout(struct i2c_handle_s *hi2c)
 	hi2c->i2c_state = I2C_STATE_READY;
 }
 
+static const struct i2c_spec_s *get_specs(uint32_t rate)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(i2c_specs); i++) {
+		if (rate <= i2c_specs[i].rate) {
+			return &i2c_specs[i];
+		}
+	}
+
+	return NULL;
+}
+
 static void save_cfg(struct i2c_handle_s *hi2c, struct i2c_cfg *cfg)
 {
 	uintptr_t base = get_base(hi2c);
@@ -226,11 +236,11 @@ static void restore_cfg(struct i2c_handle_s *hi2c, struct i2c_cfg *cfg)
 
 static void __maybe_unused dump_cfg(struct i2c_cfg *cfg __maybe_unused)
 {
-	DMSG("CR1:  %x", (unsigned)cfg->cr1);
-	DMSG("CR2:  %x", (unsigned)cfg->cr2);
-	DMSG("OAR1: %x", (unsigned)cfg->oar1);
-	DMSG("OAR2: %x", (unsigned)cfg->oar2);
-	DMSG("TIM:  %x", (unsigned)cfg->timingr);
+	DMSG("CR1:  %"PRIx32, cfg->cr1);
+	DMSG("CR2:  %"PRIx32, cfg->cr2);
+	DMSG("OAR1: %"PRIx32, cfg->oar1);
+	DMSG("OAR2: %"PRIx32, cfg->oar2);
+	DMSG("TIM:  %"PRIx32, cfg->timingr);
 }
 
 static void __maybe_unused dump_i2c(struct i2c_handle_s *hi2c)
@@ -239,11 +249,11 @@ static void __maybe_unused dump_i2c(struct i2c_handle_s *hi2c)
 
 	stm32_clock_enable(hi2c->clock);
 
-	DMSG("CR1:  %x", (unsigned)mmio_read_32(base + I2C_CR1));
-	DMSG("CR2:  %x", (unsigned)mmio_read_32(base + I2C_CR2));
-	DMSG("OAR1: %x", (unsigned)mmio_read_32(base + I2C_OAR1));
-	DMSG("OAR2: %x", (unsigned)mmio_read_32(base + I2C_OAR2));
-	DMSG("TIM:  %x", (unsigned)mmio_read_32(base + I2C_TIMINGR));
+	DMSG("CR1:  %"PRIx32, mmio_read_32(base + I2C_CR1));
+	DMSG("CR2:  %"PRIx32, mmio_read_32(base + I2C_CR2));
+	DMSG("OAR1: %"PRIx32, mmio_read_32(base + I2C_OAR1));
+	DMSG("OAR2: %"PRIx32, mmio_read_32(base + I2C_OAR2));
+	DMSG("TIM:  %"PRIx32, mmio_read_32(base + I2C_TIMINGR));
 
 	stm32_clock_disable(hi2c->clock);
 }
@@ -258,7 +268,7 @@ static void __maybe_unused dump_i2c(struct i2c_handle_s *hi2c)
 static int i2c_compute_timing(struct stm32_i2c_init_s *init,
 			      uint32_t clock_src, uint32_t *timing)
 {
-	enum i2c_speed_e mode = init->speed_mode;
+	const struct i2c_spec_s *specs;
 	uint32_t speed_freq;
 	uint32_t i2cclk = UDIV_ROUND_NEAREST(I2C_NSEC_PER_SEC, clock_src);
 	uint32_t i2cbus;
@@ -281,31 +291,26 @@ static int i2c_compute_timing(struct stm32_i2c_init_s *init,
 	int s = -1;
 	struct i2c_timing_s solutions[I2C_TIMINGR_PRESC_MAX];
 
-	switch (mode) {
-	case I2C_SPEED_STANDARD:
-	case I2C_SPEED_FAST:
-	case I2C_SPEED_FAST_PLUS:
-		break;
-	default:
-		EMSG("I2C speed out of bound {%d/%d}\n",
-		     mode, I2C_SPEED_FAST_PLUS);
+	specs = get_specs(init->bus_rate);
+	if (specs == NULL) {
+		EMSG("I2C speed out of bound: %"PRId32"Hz", init->bus_rate);
 		return -1;
 	}
 
-	speed_freq = i2c_specs[mode].rate;
+	speed_freq = specs->rate;
 	i2cbus = UDIV_ROUND_NEAREST(I2C_NSEC_PER_SEC, speed_freq);
 	clk_error_prev = INT_MAX;
 
-	if ((init->rise_time > i2c_specs[mode].rise_max) ||
-	    (init->fall_time > i2c_specs[mode].fall_max)) {
-		EMSG(" I2C timings out of bound Rise{%d>%d}/Fall{%d>%d}\n",
-		     init->rise_time, i2c_specs[mode].rise_max,
-		     init->fall_time, i2c_specs[mode].fall_max);
+	if ((init->rise_time > specs->rise_max) ||
+	    (init->fall_time > specs->fall_max)) {
+		EMSG(" I2C timings out of bound Rise{%"PRId32">%"PRId32"}/Fall{%"PRId32">%"PRId32"}",
+		     init->rise_time, specs->rise_max,
+		     init->fall_time, specs->fall_max);
 		return -1;
 	}
 
 	if (init->digital_filter_coef > STM32_I2C_DIGITAL_FILTER_MAX) {
-		EMSG("DNF out of bound %d/%d\n",
+		EMSG("DNF out of bound %"PRId8"/%d",
 		     init->digital_filter_coef, STM32_I2C_DIGITAL_FILTER_MAX);
 		return -1;
 	}
@@ -317,19 +322,19 @@ static int i2c_compute_timing(struct stm32_i2c_init_s *init,
 			STM32_I2C_ANALOG_FILTER_DELAY_MAX : 0);
 	dnf_delay = init->digital_filter_coef * i2cclk;
 
-	sdadel_min = i2c_specs[mode].hddat_min + init->fall_time;
+	sdadel_min = specs->hddat_min + init->fall_time;
 	delay = af_delay_min - ((init->digital_filter_coef + 3) * i2cclk);
 	if (SUB_OVERFLOW(sdadel_min, delay ,&sdadel_min))
 		sdadel_min = 0;
 
-	sdadel_max = i2c_specs[mode].vddat_max - init->rise_time;
+	sdadel_max = specs->vddat_max - init->rise_time;
 	delay = af_delay_max - ((init->digital_filter_coef + 4) * i2cclk);
 	if (SUB_OVERFLOW(sdadel_max, delay ,&sdadel_max))
 		sdadel_max = 0;
 
-	scldel_min = init->rise_time + i2c_specs[mode].sudat_min;
+	scldel_min = init->rise_time + specs->sudat_min;
 
-	DMSG("I2C SDADEL(min/max): %u/%u, SCLDEL(Min): %u\n",
+	DMSG("I2C SDADEL(min/max): %u/%u, SCLDEL(Min): %u",
 	     sdadel_min, sdadel_max, scldel_min);
 
 	memset(&solutions, 0, sizeof(solutions));
@@ -364,13 +369,13 @@ static int i2c_compute_timing(struct stm32_i2c_init_s *init,
 	}
 
 	if (p_prev == I2C_TIMINGR_PRESC_MAX) {
-		EMSG(" I2C no Prescaler solution\n");
+		EMSG(" I2C no Prescaler solution");
 		return -1;
 	}
 
 	tsync = af_delay_min + dnf_delay + (2 * i2cclk);
-	clk_max = I2C_NSEC_PER_SEC / i2c_specs[mode].rate_min;
-	clk_min = I2C_NSEC_PER_SEC / i2c_specs[mode].rate_max;
+	clk_max = I2C_NSEC_PER_SEC / RATE_MIN(specs->rate);
+	clk_min = I2C_NSEC_PER_SEC / specs->rate;
 
 	/*
 	 * Among prescaler possibilities discovered above figures out SCL Low
@@ -392,7 +397,7 @@ static int i2c_compute_timing(struct stm32_i2c_init_s *init,
 		for (l = 0; l < I2C_TIMINGR_SCLL_MAX; l++) {
 			uint32_t tscl_l = ((l + 1) * prescaler) + tsync;
 
-			if ((tscl_l < i2c_specs[mode].l_min) ||
+			if ((tscl_l < specs->l_min) ||
 			    (i2cclk >=
 			     ((tscl_l - af_delay_min - dnf_delay) / 4))) {
 				continue;
@@ -405,7 +410,7 @@ static int i2c_compute_timing(struct stm32_i2c_init_s *init,
 						init->fall_time;
 
 				if ((tscl >= clk_min) && (tscl <= clk_max) &&
-				    (tscl_h >= i2c_specs[mode].h_min) &&
+				    (tscl_h >= specs->h_min) &&
 				    (i2cclk < tscl_h)) {
 					int clk_error = tscl - i2cbus;
 
@@ -425,7 +430,7 @@ static int i2c_compute_timing(struct stm32_i2c_init_s *init,
 	}
 
 	if (s < 0) {
-		EMSG(" I2C no solution at all\n");
+		EMSG(" I2C no solution at all");
 		return -1;
 	}
 
@@ -436,13 +441,47 @@ static int i2c_compute_timing(struct stm32_i2c_init_s *init,
 		   I2C_SET_TIMINGR_SCLH(solutions[s].sclh) |
 		   I2C_SET_TIMINGR_SCLL(solutions[s].scll);
 
-	DMSG("I2C TIMINGR (PRESC/SCLDEL/SDADEL): %i/%i/%i\n",
+	DMSG("I2C TIMINGR (PRESC/SCLDEL/SDADEL): %i/%"PRIu8"/%"PRIu8"",
 		s, solutions[s].scldel, solutions[s].sdadel);
-	DMSG("I2C TIMINGR (SCLH/SCLL): %i/%i\n",
+	DMSG("I2C TIMINGR (SCLH/SCLL): %"PRIu8"/%"PRIu8"",
 		solutions[s].sclh, solutions[s].scll);
-	DMSG("I2C TIMINGR: 0x%x\n", *timing);
+	DMSG("I2C TIMINGR: 0x%"PRIx32"", *timing);
 
 	return 0;
+}
+
+
+/* i2c_specs[] must be sorted by increasing rate */
+static bool __maybe_unused i2c_specs_is_consistent(void)
+{
+	int i;
+
+	COMPILE_TIME_ASSERT(ARRAY_SIZE(i2c_specs));
+
+	for (i = 1; i < ARRAY_SIZE(i2c_specs); i++)
+		if (i2c_specs[i - 1].rate >= i2c_specs[i].rate)
+			return false;
+
+	return true;
+}
+
+/*
+ * @brief  From requested rate, get the closest I2C rate without exceeding it,
+ *         within I2C specification values defined in @i2c_specs.
+ * @param  rate: The requested rate.
+ * @retval Found rate, else the lowest value supported by platform.
+ */
+static uint32_t get_lower_rate(uint32_t rate)
+{
+	int i;
+
+	for (i = ARRAY_SIZE(i2c_specs) - 1; i >= 0; i--) {
+		if (rate > i2c_specs[i].rate) {
+			return i2c_specs[i].rate;
+		}
+	}
+
+	return i2c_specs[0].rate;
 }
 
 /*
@@ -458,11 +497,13 @@ static int i2c_setup_timing(struct i2c_handle_s *hi2c,
 			    uint32_t *timing)
 {
 	int rc = 0;
-	unsigned long clock_src;
+	uint32_t clock_src;
 
-	clock_src = stm32_clock_get_rate(hi2c->clock);
+	assert(i2c_specs_is_consistent());
+
+	clock_src = (uint32_t)stm32_clock_get_rate(hi2c->clock);
 	if (clock_src == 0U) {
-		EMSG("I2C clock rate is 0\n");
+		EMSG("I2C clock rate is 0");
 		return -1;
 	}
 
@@ -478,11 +519,11 @@ static int i2c_setup_timing(struct i2c_handle_s *hi2c,
 	do {
 		rc = i2c_compute_timing(init, clock_src, timing);
 		if (rc != 0) {
-			EMSG("Failed to compute I2C timings\n");
-			if (init->speed_mode > I2C_SPEED_STANDARD) {
-				init->speed_mode--;
-				IMSG("Downgrade I2C speed to %uHz)\n",
-				     i2c_specs[init->speed_mode].rate);
+			EMSG("Failed to compute I2C timings");
+			if (init->bus_rate > STANDARD_RATE) {
+				init->bus_rate = get_lower_rate(init->bus_rate);
+				IMSG("Downgrade I2C speed to %"PRIu32"Hz)",
+				     init->bus_rate);
 			} else {
 				break;
 			}
@@ -490,15 +531,15 @@ static int i2c_setup_timing(struct i2c_handle_s *hi2c,
 	} while (rc != 0);
 
 	if (rc != 0) {
-		EMSG("Impossible to compute I2C timings\n");
+		EMSG("Impossible to compute I2C timings");
 		return rc;
 	}
 
-	DMSG("I2C Speed Mode(%i), Freq(%i), Clk Source(%li)\n",
-	     init->speed_mode, i2c_specs[init->speed_mode].rate, clock_src);
-	DMSG("I2C Rise(%i) and Fall(%i) Time\n",
+	DMSG("I2C Freq(%"PRIu32"Hz), Clk Source(%"PRId32")",
+	     init->bus_rate, clock_src);
+	DMSG("I2C Rise(%"PRId32") and Fall(%"PRId32") Time",
 	     init->rise_time, init->fall_time);
-	DMSG("I2C Analog Filter(%s), DNF(%i)\n",
+	DMSG("I2C Analog Filter(%s), DNF(%"PRId8")",
 	     (init->analog_filter ? "On" : "Off"), init->digital_filter_coef);
 
 	saved_timing = *timing;
@@ -571,22 +612,14 @@ int stm32_i2c_get_setup_from_fdt(void *fdt, int node,
 						  STM32_I2C_FALL_TIME_DEFAULT);
 
 	read_val = fdt_read_uint32_default(fdt, node, "clock-frequency",
-					  STM32_I2C_SPEED_DEFAULT);
-
-	switch (read_val) {
-		case STANDARD_RATE:
-			init->speed_mode = I2C_SPEED_STANDARD;
-			break;
-		case FAST_RATE:
-			init->speed_mode = I2C_SPEED_FAST;
-			break;
-		case FAST_PLUS_RATE:
-			init->speed_mode = I2C_SPEED_FAST_PLUS;
-			break;
-		default:
-			init->speed_mode = STM32_I2C_SPEED_DEFAULT;
-			break;
+					   STANDARD_RATE);
+	if (read_val > FAST_PLUS_RATE) {
+		EMSG("Invalid bus speed (%"PRIu32" > %i)",
+		     read_val, FAST_PLUS_RATE);
+		return -FDT_ERR_BADVALUE;
 	}
+
+	init->bus_rate = read_val;
 
 	count = stm32_pinctrl_fdt_get_pinctrl(fdt, node, NULL, 0);
 	if (count <= 0) {
@@ -699,7 +732,7 @@ int stm32_i2c_init(struct i2c_handle_s *hi2c,
 						I2C_ANALOGFILTER_ENABLE :
 						I2C_ANALOGFILTER_DISABLE);
 	if (rc != 0) {
-		EMSG("Cannot initialize I2C analog filter (%d)\n", rc);
+		EMSG("Cannot initialize I2C analog filter (%d)", rc);
 		stm32_clock_disable(hi2c->clock);
 		return rc;
 	}

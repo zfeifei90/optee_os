@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0+ OR BSD-3-Clause */
 /*
- * Copyright (c) 2016-2018, STMicroelectronics - All Rights Reserved
+ * Copyright (c) 2016-2019, STMicroelectronics - All Rights Reserved
  */
 
 #ifndef __STM32_I2C_H
@@ -134,15 +134,9 @@
 #define I2C_ICR_TIMOUTCF		BIT(12)
 #define I2C_ICR_ALERTCF			BIT(13)
 
-enum i2c_speed_e {
-	I2C_SPEED_STANDARD,	/* 100 kHz */
-	I2C_SPEED_FAST,		/* 400 kHz */
-	I2C_SPEED_FAST_PLUS,	/* 1 MHz   */
-};
-
-#define STANDARD_RATE				100000
-#define FAST_RATE				400000
-#define FAST_PLUS_RATE				1000000
+#define STANDARD_RATE			100000
+#define FAST_RATE			400000
+#define FAST_PLUS_RATE			1000000
 
 struct stm32_i2c_init_s {
 	uint32_t own_address1;		/*
@@ -204,12 +198,7 @@ struct stm32_i2c_init_s {
 					 * time in nanoseconds.
 					 */
 
-	enum i2c_speed_e speed_mode;	/*
-					 * Specifies the I2C clock source
-					 * frequency mode.
-					 * This parameter can be a value of @ref
-					 * i2c_speed_mode_e.
-					 */
+	uint32_t bus_rate;		/* Specifies the I2C clock frequency */
 
 	int analog_filter;		/*
 					 * Specifies if the I2C analog noise
@@ -335,7 +324,6 @@ struct i2c_handle_s {
 /* STM32 specific defines */
 #define STM32_I2C_RISE_TIME_DEFAULT		25	/* ns */
 #define STM32_I2C_FALL_TIME_DEFAULT		10	/* ns */
-#define STM32_I2C_SPEED_DEFAULT			I2C_SPEED_STANDARD
 #define STM32_I2C_ANALOG_FILTER_DELAY_MIN	50	/* ns */
 #define STM32_I2C_ANALOG_FILTER_DELAY_MAX	260	/* ns */
 #define STM32_I2C_DIGITAL_FILTER_MAX		16
