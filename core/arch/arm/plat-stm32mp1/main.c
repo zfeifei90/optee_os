@@ -361,19 +361,37 @@ bool sm_platform_handler(struct sm_ctx *ctx)
 	}
 }
 
+static uintptr_t stm32_dbgmcu_base(void)
+{
+	static void *va;
+
+	if (!cpu_mmu_enabled())
+		return DBGMCU_BASE;
+
+	if (!va)
+		va = phys_to_virt(DBGMCU_BASE, MEM_AREA_IO_SEC);
+
+	return (uintptr_t)va;
+}
+
 /* SoC versioning util */
 int stm32mp1_dbgmcu_get_chip_version(uint32_t *chip_version)
 {
-	uintptr_t base = DBGMCU_BASE;
-
 	assert(chip_version != NULL);
 
-	if (cpu_mmu_enabled()) {
-		base = (uintptr_t)phys_to_virt(DBGMCU_BASE, MEM_AREA_IO_SEC);
-	}
-
-	*chip_version = (read32(base + DBGMCU_IDC) &
+	*chip_version = (read32(stm32_dbgmcu_base() + DBGMCU_IDC) &
 			 DBGMCU_IDC_REV_ID_MASK) >> DBGMCU_IDC_REV_ID_SHIFT;
+
+	return 0;
+}
+
+/* SoC device ID util */
+int stm32mp1_dbgmcu_get_chip_dev_id(uint32_t *chip_dev_id)
+{
+	assert(chip_dev_id != NULL);
+
+	*chip_dev_id = read32(stm32_dbgmcu_base() + DBGMCU_IDC) &
+		       DBGMCU_IDC_DEV_ID_MASK;
 
 	return 0;
 }
@@ -569,6 +587,71 @@ unsigned long stm32_get_iwdg_otp_config(uintptr_t pbase)
 	}
 
 	return iwdg_cfg;
+}
+
+static int get_part_number(uint32_t *part_nb)
+{
+	uint32_t part_number;
+	uint32_t dev_id;
+	uint32_t otp;
+	uint32_t otp_value;
+	size_t bit_len;
+
+	assert(part_nb != NULL);
+
+	if (stm32mp1_dbgmcu_get_chip_dev_id(&dev_id) != 0) {
+		return -1;
+	}
+
+	if (bsec_find_otp_name_in_nvmem_layout(PART_NUMBER_OTP, &otp,
+					       &bit_len) != BSEC_OK) {
+		return -1;
+	}
+
+	assert(bit_len == 8);
+
+	if (bsec_read_otp(&part_number, otp) != BSEC_OK) {
+		return -1;
+	}
+
+	part_number = (part_number & PART_NUMBER_OTP_PART_MASK) >>
+		      PART_NUMBER_OTP_PART_SHIFT;
+
+	*part_nb = part_number | (dev_id << 16);
+
+	return 0;
+}
+
+bool stm32mp_supports_cpu_opp(uint32_t opp_id)
+{
+	uint32_t part_number;
+	uint32_t id;
+
+	if (get_part_number(&part_number) != 0) {
+		DMSG("Cannot get part number");
+		panic();
+	}
+
+	switch (opp_id) {
+	case PLAT_OPP_ID1:
+	case PLAT_OPP_ID2:
+		id = opp_id;
+		break;
+	default:
+		return false;
+	}
+
+	switch (part_number) {
+	case STM32MP157F_PART_NB:
+	case STM32MP157D_PART_NB:
+	case STM32MP153F_PART_NB:
+	case STM32MP153D_PART_NB:
+	case STM32MP151F_PART_NB:
+	case STM32MP151D_PART_NB:
+		return true;
+	default:
+		return id == PLAT_OPP_ID1;
+	}
 }
 
 uintptr_t stm32mp_get_etzpc_base(void)

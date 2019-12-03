@@ -15,8 +15,12 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-/* SoC versioning */
+/* SoC versioning and device ID */
 int stm32mp1_dbgmcu_get_chip_version(uint32_t *chip_version);
+int stm32mp1_dbgmcu_get_chip_dev_id(uint32_t *chip_dev_id);
+
+/* OPP service */
+bool stm32mp_supports_cpu_opp(uint32_t opp_id);
 
 /* SiP & OEM platform services */
 bool stm32_sip_service(struct sm_ctx *ctx,
