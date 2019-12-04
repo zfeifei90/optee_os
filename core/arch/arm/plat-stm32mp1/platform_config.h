@@ -167,6 +167,8 @@
 /* OPP */
 #define PLAT_OPP_ID1			1U
 #define PLAT_OPP_ID2			2U
+#define PLAT_MAX_OPP_NB			2U
+#define PLAT_MAX_PLLCFG_NB		6U
 
 /* DBGMCU resources */
 #define DBGMCU_IDC			0x0
