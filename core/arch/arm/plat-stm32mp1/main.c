@@ -13,7 +13,9 @@
 #include <drivers/stm32_iwdg.h>
 #include <drivers/stm32_uart.h>
 #include <drivers/stm32mp1_clk.h>
+#include <drivers/stm32mp1_pmic.h>
 #include <drivers/stm32mp1_rcc.h>
+#include <drivers/stpmic1.h>
 #include <dt-bindings/etzpc/stm32-etzpc.h>
 #include <dt-bindings/clock/stm32mp1-clks.h>
 #include <io.h>
@@ -238,6 +240,38 @@ static TEE_Result stm32_uart_console_probe(void)
 	return TEE_SUCCESS;
 }
 service_init_late(stm32_uart_console_probe);
+
+/* Compute PLL1 settings once PMIC init is completed */
+static TEE_Result initialize_pll1_settings(void)
+{
+	uint32_t vddcore_voltage = 0U;
+	int ret;
+
+	if (stm32mp1_clk_pll1_settings_are_valid()) {
+		return TEE_SUCCESS;
+	}
+
+	if (stm32mp_dt_pmic_status() > 0) {
+		stm32mp_get_pmic();
+
+		ret = stpmic1_regulator_voltage_get("buck1");
+		if (ret < 0) {
+			panic();
+		}
+
+		vddcore_voltage = (uint32_t)ret;
+
+		stm32mp_put_pmic();
+	}
+
+	if (stm32mp1_clk_compute_all_pll1_settings(vddcore_voltage) != 0) {
+		panic();
+	}
+
+	return TEE_SUCCESS;
+}
+driver_init_late(initialize_pll1_settings);
+
 #endif
 
 /*
