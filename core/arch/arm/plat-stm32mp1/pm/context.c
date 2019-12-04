@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * Copyright (c) 2018, STMicroelectronics - All Rights Reserved
+ * Copyright (c) 2018-2019, STMicroelectronics - All Rights Reserved
  * Copyright (c) 2017-2018, ARM Limited and Contributors. All rights reserved.
  */
 
@@ -32,7 +32,28 @@
 
 #define TRAINING_AREA_SIZE		64
 
-#define STANDBY_CONTEXT_MAGIC		(0x00010000 + TRAINING_AREA_SIZE)
+/*
+ * STANDBY_CONTEXT_MAGIC0:
+ * Context provides magic, resume entry, zq0cr0 zdata and DDR training buffer.
+ *
+ * STANDBY_CONTEXT_MAGIC1:
+ * Context provides magic, resume entry, zq0cr0 zdata, DDR training buffer
+ * and PLL1 dual OPP settings structure (86 bytes).
+ */
+#define STANDBY_CONTEXT_MAGIC0		(0x0001 << 16)
+#define STANDBY_CONTEXT_MAGIC1		(0x0002 << 16)
+
+#define STANDBY_CONTEXT_MAGIC		(STANDBY_CONTEXT_MAGIC1 | \
+					 TRAINING_AREA_SIZE)
+
+#if (PLAT_MAX_OPP_NB != 2) || (PLAT_MAX_PLLCFG_NB != 6)
+#error STANDBY_CONTEXT_MAGIC1 does not support expected PLL1 settings
+#endif
+
+/* pll_settings structure size definitions (reference to clock driver) */
+#define PLL1_SETTINGS_SIZE		(((PLAT_MAX_OPP_NB * \
+					  (PLAT_MAX_PLLCFG_NB + 3)) + 1) * \
+					 sizeof(uint32_t))
 
 /*
  * Context saved in TEE RAM during lower power sequence.
@@ -58,11 +79,12 @@ static struct pm_context plat_ctx;
  * @zq0cr0_zdata: DDRPHY configuration to be restored.
  * @ddr_training_backup: DDR area saved at suspend and backed up at resume
  */
-struct pm_mailbox {
+struct __attribute__((__packed__)) pm_mailbox {
 	uint32_t magic;
 	uint32_t core0_resume_ep;
 	uint32_t zq0cr0_zdata;
 	uint8_t ddr_training_backup[TRAINING_AREA_SIZE];
+	uint8_t pll1_settings[PLL1_SETTINGS_SIZE];
 };
 
 /*
@@ -323,6 +345,21 @@ static void save_ddr_training_area(void)
 	mobj_free(mobj);
 }
 
+/*
+ * When returning from STANDBY, warm boot boot stage needs to access to PLL1
+ * settings. This avoids to re-compute them and optimizes performances. This
+ * structure must then be saved before going to STANDBY in the PM mailbox
+ * shared with the warm boot boot stage.
+ */
+static void save_pll1_settings(void)
+{
+	struct pm_mailbox *mailbox = get_pm_mailbox();
+	size_t size = sizeof(mailbox->pll1_settings);
+	uint8_t *data = &mailbox->pll1_settings[0];
+
+	stm32mp1_clk_lp_save_opp_pll1_settings(data, size);
+}
+
 static void load_earlyboot_pm_mailbox(void)
 {
 	struct pm_mailbox *mailbox = get_pm_mailbox();
@@ -337,6 +374,8 @@ static void load_earlyboot_pm_mailbox(void)
 	mailbox->zq0cr0_zdata = get_ddrphy_calibration();
 
 	save_ddr_training_area();
+
+	save_pll1_settings();
 }
 
 #ifdef CFG_STM32_RNG
