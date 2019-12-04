@@ -60,6 +60,8 @@ void stm32mp_register_clock_parents_secure(unsigned long id);
 
 void stm32mp_update_earlyboot_clocks_state(void);
 
+int stm32mp1_set_opp_khz(uint32_t freq_khz);
+
 void stm32mp1_clock_suspend(void);
 void stm32mp1_clock_resume(void);
 
