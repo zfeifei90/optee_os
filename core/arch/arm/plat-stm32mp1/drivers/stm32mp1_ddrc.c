@@ -177,6 +177,9 @@ static int ddr_sw_self_refresh_in(void)
 			   DDRPHYC_ACIOCR_CSPDD_MASK,
 			   DDRPHYC_ACIOCR_CSPDD_0);
 
+	/* Disable command/address output driver */
+	mmio_clrbits_32(ddrphy_base + DDRPHYC_ACIOCR, DDRPHYC_ACIOCR_ACOE);
+
 	mmio_setbits_32(ddrphy_base + DDRPHYC_DXCCR, DDRPHYC_DXCCR_DXPDD);
 
 	mmio_setbits_32(ddrphy_base + DDRPHYC_DXCCR, DDRPHYC_DXCCR_DXPDR);
@@ -320,6 +323,9 @@ int ddr_sw_self_refresh_exit(void)
 
 	/* Enable pad drivers */
 	mmio_clrbits_32(ddrphy_base + DDRPHYC_ACIOCR, DDRPHYC_ACIOCR_ACPDD);
+
+	/* Enable command/address output driver */
+	mmio_setbits_32(ddrphy_base + DDRPHYC_ACIOCR, DDRPHYC_ACIOCR_ACOE);
 
 	mmio_clrbits_32(ddrphy_base + DDRPHYC_ACIOCR,
 			DDRPHYC_ACIOCR_CKPDD_MASK);
