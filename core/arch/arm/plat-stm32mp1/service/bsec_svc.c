@@ -48,6 +48,10 @@ uint32_t bsec_main(uint32_t x1, uint32_t x2, uint32_t x3, uint32_t *out)
 		result = bsec_write_otp(tmp, x2);
 		FMSG("read @%" PRIx32 " = %" PRIx32, x2, *out);
 		break;
+	case STM32_SIP_BSEC_WRLOCK_OTP:
+		FMSG("permanent write lock @%" PRIx32, x2);
+		result = bsec_permanent_lock_otp(x2);
+		break;
 	default:
 		EMSG("Invalid %" PRIx32, x1);
 		result = BSEC_ERROR;
