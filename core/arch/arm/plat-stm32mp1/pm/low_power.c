@@ -172,6 +172,8 @@ int stm32_enter_cstop(uint32_t mode)
 
 	stm32mp1_syscfg_disable_io_compensation();
 
+	ddr_sr_mode_ssr();
+
 	stm32_apply_pmic_suspend_config(mode);
 
 	if (stm32mp_with_pmic() && (mode == STM32_PM_CSTOP_ALLOW_LP_STOP)) {
@@ -234,6 +236,8 @@ void stm32_exit_cstop(void)
 		}
 		ddr_in_selfrefresh = false;
 	}
+
+	ddr_sr_mode_asr();
 
 	restore_rcc_it_priority(gicd_rcc_wakeup, gicc_pmr);
 
