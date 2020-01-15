@@ -102,6 +102,14 @@ static void do_sw_ack(void)
 	}
 }
 
+static bool ddr_supports_ssr_asr(void)
+{
+	uintptr_t ddrctrl_base = get_ddrctrl_base();
+	uint32_t mstr = mmio_read_32(ddrctrl_base + DDRCTRL_MSTR);
+
+	return (mstr & DDRCTRL_MSTR_LPDDR2) != 0U;
+}
+
 static int ddr_sw_self_refresh_in(void)
 {
 	uint64_t to_ref;
@@ -404,6 +412,9 @@ void ddr_sr_mode_ssr(void)
 	uintptr_t rcc_ddritfcr = stm32_rcc_base() + RCC_DDRITFCR;
 	uintptr_t ddrctrl_base = get_ddrctrl_base();
 
+	if (!ddr_supports_ssr_asr())
+		return;
+
 	mmio_setbits_32(rcc_ddritfcr, RCC_DDRITFCR_DDRC1LPEN);
 
 	mmio_setbits_32(rcc_ddritfcr, RCC_DDRITFCR_DDRC2LPEN);
@@ -451,6 +462,9 @@ void ddr_sr_mode_asr(void)
 {
 	uintptr_t rcc_ddritfcr = stm32_rcc_base() + RCC_DDRITFCR;
 	uintptr_t ddrctrl_base = get_ddrctrl_base();
+
+	if (!ddr_supports_ssr_asr())
+		return;
 
 	mmio_setbits_32(rcc_ddritfcr, RCC_DDRITFCR_AXIDCGEN);
 
