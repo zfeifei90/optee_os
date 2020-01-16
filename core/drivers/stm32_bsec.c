@@ -289,10 +289,6 @@ uint32_t bsec_find_otp_name_in_nvmem_layout(const char *name, uint32_t *otp,
 					    uint32_t *otp_bit_len)
 {
 	size_t i;
-	void *fdt;
-	int node;
-	int index, len;
-	const fdt32_t *cuint;
 
 	if (name == NULL) {
 		return BSEC_INVALID_PARAM;
@@ -370,11 +366,8 @@ uint32_t bsec_shadow_register(uint32_t otp)
  */
 uint32_t bsec_read_otp(uint32_t *val, uint32_t otp)
 {
-	uint32_t exc;
-
-	if (otp > stm32mp_get_otp_max()) {
+	if (otp > stm32mp_get_otp_max())
 		return BSEC_INVALID_PARAM;
-	}
 
 	*val = read32(bsec_get_base() + BSEC_OTP_DATA_OFF +
 		      (otp * sizeof(uint32_t)));
