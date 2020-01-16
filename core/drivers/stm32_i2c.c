@@ -184,7 +184,7 @@ static void notif_i2c_timeout(struct i2c_handle_s *hi2c)
 
 static const struct i2c_spec_s *get_specs(uint32_t rate)
 {
-	int i;
+	size_t i;
 
 	for (i = 0; i < ARRAY_SIZE(i2c_specs); i++) {
 		if (rate <= i2c_specs[i].rate) {
@@ -451,7 +451,7 @@ static int i2c_compute_timing(struct stm32_i2c_init_s *init,
 /* i2c_specs[] must be sorted by increasing rate */
 static bool __maybe_unused i2c_specs_is_consistent(void)
 {
-	int i;
+	size_t i;
 
 	COMPILE_TIME_ASSERT(ARRAY_SIZE(i2c_specs));
 
@@ -472,11 +472,9 @@ static uint32_t get_lower_rate(uint32_t rate)
 {
 	int i;
 
-	for (i = ARRAY_SIZE(i2c_specs) - 1; i >= 0; i--) {
-		if (rate > i2c_specs[i].rate) {
+	for (i = (int)ARRAY_SIZE(i2c_specs) - 1; i >= 0; i--)
+		if (rate > i2c_specs[i].rate)
 			return i2c_specs[i].rate;
-		}
-	}
 
 	return i2c_specs[0].rate;
 }
