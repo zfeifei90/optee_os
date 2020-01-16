@@ -599,26 +599,20 @@ unsigned long stm32_get_iwdg_otp_config(uintptr_t pbase)
 
 	idx = stm32mp_iwdg_iomem2instance(pbase);
 
-	if (bsec_find_otp_name_in_nvmem_layout(HW2_OTP, &otp, NULL) !=
-	    BSEC_OK) {
+	if (bsec_find_otp_name_in_nvmem_layout(HW2_OTP, &otp, NULL))
 		panic();
-	}
 
-	if (bsec_read_otp(&otp_value, otp) != BSEC_OK) {
+	if (bsec_read_otp(&otp_value, otp))
 		panic();
-	}
 
-	if (otp_value & BIT(idx + HW2_OTP_IWDG_HW_ENABLE_SHIFT) != 0U) {
+	if (otp_value & BIT(idx + HW2_OTP_IWDG_HW_ENABLE_SHIFT))
 		iwdg_cfg |= IWDG_HW_ENABLED;
-	}
 
-	if ((otp_value & BIT(idx + HW2_OTP_IWDG_FZ_STOP_SHIFT)) != 0U) {
+	if (otp_value & BIT(idx + HW2_OTP_IWDG_FZ_STOP_SHIFT))
 		iwdg_cfg |= IWDG_DISABLE_ON_STOP;
-	}
 
-	if ((otp_value & BIT(idx + HW2_OTP_IWDG_FZ_STANDBY_SHIFT)) != 0U) {
+	if (otp_value & BIT(idx + HW2_OTP_IWDG_FZ_STANDBY_SHIFT))
 		iwdg_cfg |= IWDG_DISABLE_ON_STANDBY;
-	}
 
 	return iwdg_cfg;
 }
