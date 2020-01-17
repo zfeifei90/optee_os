@@ -7,6 +7,7 @@
 #include <kernel/delay.h>
 #include <stm32_util.h>
 #include <trace.h>
+#include <types_ext.h>
 
 /*
  * SYSCFG register offsets (base relative)
@@ -58,7 +59,7 @@ void stm32mp1_syscfg_enable_io_compensation(void)
 
 	mmio_clrbits_32(syscfg_base + SYSCFG_CMPCR, SYSCFG_CMPCR_SW_CTRL);
 
-	DMSG("[0x"PRIxPTR"] SYSCFG.cmpcr = 0x"PRIx32,
+	DMSG("[0x%"PRIxPTR"] SYSCFG.cmpcr = 0x%"PRIx32,
 	     syscfg_base + SYSCFG_CMPCR,
 	     mmio_read_32(syscfg_base + SYSCFG_CMPCR));
 }
@@ -85,7 +86,7 @@ void stm32mp1_syscfg_disable_io_compensation(void)
 
 	mmio_write_32(syscfg_base + SYSCFG_CMPCR, value | SYSCFG_CMPCR_SW_CTRL);
 
-	DMSG("[0x"PRIxPTR"] SYSCFG.cmpcr = 0x"PRIx32,
+	DMSG("[0x%"PRIxPTR"] SYSCFG.cmpcr = 0x%"PRIx32,
 	     syscfg_base + SYSCFG_CMPCR,
 	     mmio_read_32(syscfg_base + SYSCFG_CMPCR));
 
