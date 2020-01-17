@@ -420,7 +420,7 @@ void __noreturn stm32_cores_reset(void)
 }
 KEEP_PAGER(stm32_cores_reset);
 
-static void reset_other_core(void)
+static void __maybe_unused reset_other_core(void)
 {
 	uintptr_t rcc_base = stm32_rcc_base();
 	uint32_t reset_mask;
