@@ -1368,7 +1368,7 @@ static int clk_compute_pll1_settings(unsigned long input_freq, int idx)
 static int clk_get_pll1_settings(uint32_t clksrc, int index)
 {
 	unsigned long input_freq;
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < PLAT_MAX_OPP_NB; i++) {
 		if (pll1_settings.freq[i] == pll1_settings.freq[index]) {
@@ -1419,7 +1419,7 @@ static int clk_save_current_pll1_settings(uint32_t buck1_voltage)
 	const struct stm32mp1_clk_pll *pll = pll_ref(_PLL1);
 	uint32_t rcc_base = stm32_rcc_base();
 	uint32_t freq;
-	int i;
+	unsigned int i;
 
 	freq = UDIV_ROUND_NEAREST(stm32mp1_clk_get_rate(CK_MPU), 1000L);
 
@@ -1486,7 +1486,7 @@ static uint32_t stm32mp1_clk_get_pll1_current_clksrc(void)
 
 int stm32mp1_clk_compute_all_pll1_settings(uint32_t buck1_voltage)
 {
-	int i;
+	unsigned int i;
 	int ret;
 	int index;
 	uint32_t count = PLAT_MAX_OPP_NB;
@@ -1516,14 +1516,12 @@ int stm32mp1_clk_compute_all_pll1_settings(uint32_t buck1_voltage)
 	clksrc = stm32mp1_clk_get_pll1_current_clksrc();
 
 	for (i = 0; i < count; i++) {
-		if (i == index) {
+		if ((index >= 0) && (i == (unsigned int)index))
 			continue;
-		}
 
 		ret = clk_get_pll1_settings(clksrc, i);
-		if (ret != 0) {
+		if (ret)
 			return ret;
-		}
 	}
 
 	pll1_settings.valid_id = PLL1_SETTINGS_VALID_ID;
@@ -2037,7 +2035,7 @@ static int is_pll_config_on_the_fly(enum stm32mp1_pll_id pll_id,
 /* Configure PLL1 from input frequency OPP parameters */
 static int pll1_config_from_opp_khz(uint32_t freq_khz)
 {
-	int i;
+	unsigned int i;
 	int ret;
 	int config_on_the_fly = -1;
 
@@ -2139,7 +2137,7 @@ int stm32mp1_set_opp_khz(uint32_t freq_khz)
 
 int stm32mp1_round_opp_khz(uint32_t *freq_khz)
 {
-	int i;
+	unsigned int i;
 	uint32_t round_opp = 0U;
 
 	if (!stm32mp1_clk_pll1_settings_are_valid()) {
