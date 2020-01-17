@@ -531,7 +531,7 @@ static const uint8_t stm32mp1_axi_div[8] = {
 	1, 2, 3, 4, 4, 4, 4, 4
 };
 
-#if TRACE_LEVEL >= TRACE_DEBUG
+#if TRACE_LEVEL >= TRACE_FLOW
 static const char *const __maybe_unused stm32mp1_clk_parent_name[_PARENT_NB] = {
 	[_HSI] = "HSI",
 	[_HSE] = "HSE",
