@@ -64,6 +64,36 @@
 #define CRYP_SR_IFNF			BIT(1)
 #define CRYP_SR_IFEM			BIT(0)
 
+/*
+ * Enable TRACE_SYSRAM_RESTORE to get some UART console traces
+ * at resume time.
+ */
+#if defined(TRACE_SYSRAM_RESTORE)
+
+#define UART_BASE			UART4_BASE
+#define UART_ISR_OFF			0x1c
+#define UART_TDR_OFF			0x28
+#define USART_ISR_TXE_TXFNF		(1<< 7)
+
+	.macro PRINT_CHAR _reg0, _reg1, _char
+		/* Trace only at resume when MMU is OFF */
+		read_sctlr \_reg0
+		ands	\_reg0, #SCTLR_M
+	101:
+		bne	102f
+		mov_imm	\_reg0, UART4_BASE
+		ldr	\_reg1, [\_reg0, #UART_ISR_OFF]
+		ands	\_reg1, #USART_ISR_TXE_TXFNF
+		beq 101b
+		mov_imm	\_reg1, (\_char)
+		str	\_reg1, [\_reg0, #UART_TDR_OFF]
+	102:
+	.endm
+#else
+	.macro PRINT_CHAR _reg0, _reg1, _char
+	.endm
+#endif
+
 	/* Bound of the binary image loaded in retained memory */
 	.global stm32mp_bkpsram_image_end
 
@@ -80,6 +110,9 @@
 FUNC stm32mp_bkpsram_resume , :
 UNWIND(	.fnstart)
 UNWIND(	.cantunwind)
+
+	PRINT_CHAR r0, r1, '0'
+
 	/*
 	 * Almost all sequences here expect PM context structure base address
 	 * from CPU register r11.
@@ -105,6 +138,11 @@ UNWIND(	.cantunwind)
 	cmp	r0, #0
 	bne	_failed
 
+	PRINT_CHAR r0, r1, 'T'
+	PRINT_CHAR r0, r1, 'a'
+	PRINT_CHAR r0, r1, 'g'
+	PRINT_CHAR r0, r1, '\n'
+
 	/* Compare the generated and reference tags */
 	add	r8, r11, #PM_CTX_CCM_TAG
 	add	r9, r11, #PM_CTX_CCM_REF_TAG
@@ -123,11 +161,18 @@ UNWIND(	.cantunwind)
 	bne	_failed
 	bl	_save_resume_time
 
+	PRINT_CHAR r1, r2, 'O'
+	PRINT_CHAR r1, r2, 'k'
+	PRINT_CHAR r1, r2, '\n'
+
 	/* Resume into the restored TEE RAM */
 	ldr	r1, [r11, #PM_CTX_RESUME_PA]
 	bx	r1
 
 _failed:
+	PRINT_CHAR r0, r12, 'F'
+	PRINT_CHAR r0, r12, '\n'
+
 	/* Clear context including key and reference tag */
 	mov	r0, #0xa5
 	mov_imm	r12, BKPSRAM_PM_CONTEXT_SIZE
@@ -279,15 +324,22 @@ _ccm_arm_8ms_timeout:
 	moveq	r0, #1
 	ldr	r1, [r1, #CNTCVL_OFFSET]
 	adds	r0, r0, r1
-	bcs	_ccm_failed
+	bcs	_ccm_failed_on_timeout
 	bx	lr
 
 _ccm_fail_on_timeout:
+
 	ldr	r1, [r11, #PM_CTX_STGEN_BASE]
 	ldr	r1, [r1, #CNTCVL_OFFSET]
 	cmp	r1, r0
-	bge	_ccm_failed
+	bge	_ccm_failed_on_timeout
 	bx	lr
+
+_ccm_failed_on_timeout:
+	PRINT_CHAR r0, r1, 'T'
+	PRINT_CHAR r0, r1, 'o'
+	PRINT_CHAR r0, r1, '\n'
+	b	_ccm_failed
 
 	/*
 	 * Macro WAIT_FLAG_TIMEOUT compares timeout threshold (r0) with
@@ -346,7 +398,11 @@ stm32mp_ccm_teeram:
 	mov	r7, r2
 	mov	r6, r3
 
+	PRINT_CHAR r0, r1, '1'
+
 	bl	_setup_cryp1
+
+	PRINT_CHAR r0, r1, '2'
 
 	mov_imm	r0, (CRYP_CR_ALGOMODE(ALGOMODE_AES_CCM) | \
 		     CRYP_CR_DATATYPE_8BIT | CRYP_CR_FFLUSH | \
@@ -355,6 +411,8 @@ stm32mp_ccm_teeram:
 	orrne	r0, r0, #CRYP_CR_ALGODIR_DECRYPT
 	str	r0, [r10, #CRYP_CR]
 
+	PRINT_CHAR r0, r1, '3'
+
 	/* Check data alignment (addresses and size) */
 	ands	r0, r7, #0x0F
 	bne	_ccm_failed
@@ -362,6 +420,8 @@ stm32mp_ccm_teeram:
 	bne	_ccm_failed
 	ands	r0, r9, #0x03
 	bne	_ccm_failed
+
+	PRINT_CHAR r0, r1, '4'
 
 	ldr	r0, [r11, #PM_CTX_CCM_KEY]
 	str	r0, [r10, #CRYP_KEYR_BASE]
@@ -404,6 +464,8 @@ stm32mp_ccm_teeram:
 	ldr	r0, [r11, #(PM_CTX_CCM_B0 + 12)]
 	str	r0, [r10, #CRYP_DIN]
 
+	PRINT_CHAR r0, r1, '5'
+
 	WAIT_FLAG_TIMEOUT CRYP_CR, CRYP_CR_CRYPEN, 0
 
 	/* Setup CRYP for the CCM Payload phase */
@@ -414,7 +476,11 @@ stm32mp_ccm_teeram:
 	str	r0, [r10, #CRYP_CR]
 	ldr	r0, [r10, #CRYP_CR]
 
+	PRINT_CHAR r0, r1, '\n'
+
 _next_block:
+	PRINT_CHAR r0, r1, 'b'
+
 	WAIT_FLAG_TIMEOUT CRYP_SR, CRYP_SR_IFEM, CRYP_SR_IFEM
 
 	/* Feed input data, r8 stores the current source buffer */
@@ -451,6 +517,9 @@ _next_block:
 	subs	r7, r7, #16
 	bne	_next_block;
 
+	PRINT_CHAR r0, r1, '\n'
+	PRINT_CHAR r0, r1, '6'
+
 	WAIT_FLAG_TIMEOUT CRYP_SR, CRYP_SR_BUSY, 0
 
 	/*
@@ -460,6 +529,8 @@ _next_block:
 	ldr	r0, [r10, #CRYP_SR]
 	cmp	r0, #(CRYP_SR_IFEM | CRYP_SR_IFNF)
 	bne	_ccm_failed
+
+	PRINT_CHAR r0, r1, '7'
 
 	/* Setup CRYP1 for the CCM Final Phase */
 	ldr	r0, [r10, #CRYP_CR]
@@ -483,6 +554,8 @@ _next_block:
 	ldr	r0, [r11, #(PM_CTX_CCM_CTR0 + 12)]
 	str	r0, [r10, #CRYP_DIN]
 
+	PRINT_CHAR r0, r1, '8'
+
 	WAIT_FLAG_TIMEOUT CRYP_SR, CRYP_SR_OFNE, CRYP_SR_OFNE
 
 	/* Store generated tag in the PM_CTX structure */
@@ -503,12 +576,18 @@ _next_block:
 	ands	r0, r0, #CRYP_SR_OFNE
 	bne	_ccm_failed
 
+	PRINT_CHAR r0, r1, '9'
+
 	/* Successful return */
 	bl	_reset_cryp1
 	mov	r0, #0
 	bx	r12
 
 _ccm_failed:
+
+	PRINT_CHAR r0, r1, 'K'
+	PRINT_CHAR r0, r1, 'O'
+
 	bl	_reset_cryp1
 	mov	r0, #1
 	bx	r12
