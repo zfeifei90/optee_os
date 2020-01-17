@@ -808,7 +808,7 @@ static int stm32mp1_set_clksrc(unsigned int clksrc)
 	timeout_ref = utimeout_init(CLKSRC_TIMEOUT_US);
 	while ((mmio_read_32(address) & RCC_SELR_SRCRDY) == 0U) {
 		if (utimeout_elapsed(CLKSRC_TIMEOUT_US, timeout_ref)) {
-			EMSG("CLKSRC %x start failed @ 0x%x: 0x%x\n",
+			EMSG("CLKSRC %x start failed @%"PRIxPTR": 0x%"PRIx32"\n",
 			      clksrc, address, mmio_read_32(address));
 			return -1;
 		}
