@@ -656,24 +656,50 @@ FUNC stm32mp_sysram_resume, :
 UNWIND(	.fnstart)
 UNWIND(	.cantunwind)
 	/* Invalidate the data cache */
-	mov     r0, #0	@ ; write the cache size selection register to be
-	write_csselr r0	@ ; sure we address the data cache
-	isb		@ ; isb to sync the change to the cachesizeid reg
 
-	mov     r0, #0	@ ; set way number to 0
-_inv_nextway:
-	mov     r1, #0	@ ; set line number (=index) to 0
-_inv_nextline:
-	orr     r2, r0, r1	@ ; construct way/index value
-	write_dcisw r2		@ ; inval data or unified cache line by set/way
-	add     r1, r1, #1 << LINE_FIELD_OFFSET	@ ; increment the index
-	cmp     r1, #1 << LINE_FIELD_OVERFLOW	@ ; overflow out of set field?
-	bne     _inv_nextline
-	add     r0, r0, #1 << WAY_FIELD_OFFSET	@ ; increment the way number
-	cmp     r0, #0				@ ; overflow out of way field?
-	bne     _inv_nextway
+	read_clidr r2
+	ubfx	r3, r2, #CLIDR_LOC_SHIFT, #CLIDR_FIELD_WIDTH
+	lsl	r3, r3, #CSSELR_LEVEL_SHIFT
+	mov	r1, #0
 
-	dsb
+loop1:
+	add	r10, r1, r1, LSR #1	// Work out 3x current cache level
+	mov	r12, r2, LSR r10	// extract cache type bits from clidr
+	and	r12, r12, #7   		// mask the bits for current cache only
+	cmp	r12, #2			// see what cache we have at this level
+	blo	level_done      	// no cache or only instruction cache at this level
+
+	write_csselr r1			// select current cache level in csselr
+	isb				// isb to sych the new cssr&csidr
+	read_ccsidr r12			// read the new ccsidr
+	and	r10, r12, #7   		// extract the length of the cache lines
+	add	r10, r10, #4        	// add 4 (r10 = line length offset)
+	ubfx	r4, r12, #3, #10	// r4 = maximum way number (right aligned)
+	clz	r5, r4            	// r5 = the bit position of the way size increment
+	mov	r9, r4			// r9 working copy of the aligned max way number
+
+loop2:
+	ubfx	r7, r12, #13, #15	// r7 = max set number (right aligned)
+
+loop3:
+	orr	r0, r1, r9, LSL r5	// factor in the way number and cache level into r0
+	orr	r0, r0, r7, LSL r10	// factor in the set number
+
+	write_dcisw r0
+
+	subs	r7, r7, #1              // decrement the set number
+	bhs	loop3
+	subs	r9, r9, #1              // decrement the way number
+	bhs	loop2
+level_done:
+	add	r1, r1, #2		// increment the cache number
+	cmp	r3, r1
+	dsb	sy			// ensure completion of previous cache maintenance instruction
+	bhi	loop1
+
+	mov	r6, #0
+	write_csselr r6			//select cache level 0 in csselr
+	dsb	sy
 	isb
 
 	/* Resume sequence executes in Monitor mode */
