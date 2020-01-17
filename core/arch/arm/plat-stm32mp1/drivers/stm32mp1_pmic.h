@@ -29,7 +29,7 @@ static inline void stm32mp_put_pmic(void)
 {
 	panic();
 }
-int stm32mp_dt_pmic_status(void)
+static inline int stm32mp_dt_pmic_status(void)
 {
 	return -1;
 }
