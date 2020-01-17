@@ -622,7 +622,6 @@ static int get_part_number(uint32_t *part_nb)
 	uint32_t part_number;
 	uint32_t dev_id;
 	uint32_t otp;
-	uint32_t otp_value;
 	size_t bit_len;
 
 	assert(part_nb != NULL);
