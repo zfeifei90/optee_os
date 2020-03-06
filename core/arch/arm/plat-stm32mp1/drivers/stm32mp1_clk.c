@@ -932,7 +932,7 @@ static unsigned long stm32mp1_read_pll_freq(enum stm32mp1_pll_id pll_id,
 
 static unsigned long get_clock_rate(int p)
 {
-	uint32_t reg, clkdiv;
+	uint32_t reg = 0;
 	unsigned long clock = 0;
 	uintptr_t rcc_base = stm32_rcc_base();
 
@@ -951,13 +951,9 @@ static unsigned long get_clock_rate(int p)
 			clock = stm32mp1_read_pll_freq(_PLL1, _DIV_P);
 			break;
 		case RCC_MPCKSELR_PLL_MPUDIV:
-			clock = stm32mp1_read_pll_freq(_PLL1, _DIV_P);
-
 			reg = mmio_read_32(rcc_base + RCC_MPCKDIVR);
-			clkdiv = reg & RCC_MPUDIV_MASK;
-			if (clkdiv != 0U) {
-				clock /= stm32mp1_mpu_div[clkdiv];
-			}
+			clock = stm32mp1_read_pll_freq(_PLL1, _DIV_P) >>
+				stm32mp1_mpu_div[reg & RCC_MPUDIV_MASK];
 			break;
 		default:
 			break;
