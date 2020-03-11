@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * Copyright (c) 2017-2019, STMicroelectronics - All Rights Reserved
+ * Copyright (c) 2017-2020, STMicroelectronics - All Rights Reserved
  */
 
 #include <kernel/delay.h>
@@ -112,6 +112,8 @@ static int save_boot_on_config(void)
 	}
 
 	regulators_node = dt_get_regulators_node(fdt);
+	if (regulators_node < 0)
+		panic();
 
 	fdt_for_each_subnode(subnode, fdt, regulators_node) {
 		const fdt32_t *cuint;
@@ -266,6 +268,8 @@ static int save_low_power_config(const char *lp_state)
 	}
 
 	regulators_node = dt_get_regulators_node(fdt);
+	if (regulators_node < 0)
+		panic();
 
 	fdt_for_each_subnode(subnode, fdt, regulators_node) {
 		const fdt32_t *cuint;
