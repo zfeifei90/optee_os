@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * Copyright (c) 2017-2019, STMicroelectronics - All Rights Reserved
+ * Copyright (c) 2017-2020, STMicroelectronics - All Rights Reserved
  */
 
 #include <arm.h>
@@ -172,7 +172,8 @@ int stm32_enter_cstop(uint32_t mode)
 
 	stm32mp1_syscfg_disable_io_compensation();
 
-	ddr_sr_mode_ssr();
+	/* Save Self-Refresh (SR) mode and switch to Software SR mode */
+	ddr_save_sr_mode(DDR_SSR_MODE);
 
 	stm32_apply_pmic_suspend_config(mode);
 
@@ -237,7 +238,8 @@ void stm32_exit_cstop(void)
 		ddr_in_selfrefresh = false;
 	}
 
-	ddr_sr_mode_asr();
+	/* Restore Self-Refresh mode saved in stm32_enter_cstop() */
+	ddr_restore_sr_mode();
 
 	restore_rcc_it_priority(gicd_rcc_wakeup, gicc_pmr);
 

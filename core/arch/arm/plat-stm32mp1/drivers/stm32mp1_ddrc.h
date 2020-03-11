@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: BSD-3-Clause */
 /*
- * Copyright (c) 2017-2018, STMicroelectronics - All Rights Reserved
+ * Copyright (c) 2017-2020, STMicroelectronics - All Rights Reserved
  */
 
 #ifndef __STM32MP1_DDRC_H__
@@ -195,12 +195,19 @@
 #define DDRPHYC_DXNDLLCR_SDPHASE_MASK		GENMASK(17, 14)
 #define DDRPHYC_DXNDLLCR_SDPHASE_SHIFT		14
 
+enum stm32mp1_ddr_sr_mode {
+	DDR_SR_MODE_INVALID = 0,
+	DDR_SSR_MODE,
+	DDR_HSR_MODE,
+	DDR_ASR_MODE,
+};
+
+void ddr_save_sr_mode(enum stm32mp1_ddr_sr_mode mode);
+void ddr_restore_sr_mode(void);
+
 uint32_t get_ddrphy_calibration(void);
 
 int ddr_sw_self_refresh_exit(void);
 int ddr_standby_sr_entry(uint32_t *zq0cr0_zdata);
-void ddr_sr_mode_ssr(void);
-void ddr_sr_mode_asr(void);
-void ddr_sr_mode_hsr(void);
 
 #endif /*__STM32MP1_DDRC_H__*/
