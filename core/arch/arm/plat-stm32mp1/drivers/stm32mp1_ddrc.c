@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * Copyright (c) 2017, STMicroelectronics - All Rights Reserved
+ * Copyright (c) 2017-2020, STMicroelectronics - All Rights Reserved
  * Copyright (c) 2017, ARM Limited and Contributors. All rights reserved.
  */
 
@@ -100,14 +100,6 @@ static void do_sw_ack(void)
 			panic();
 		}
 	}
-}
-
-static bool ddr_supports_ssr_asr(void)
-{
-	uintptr_t ddrctrl_base = get_ddrctrl_base();
-	uint32_t mstr = mmio_read_32(ddrctrl_base + DDRCTRL_MSTR);
-
-	return (mstr & DDRCTRL_MSTR_LPDDR2) != 0U;
 }
 
 static int ddr_sw_self_refresh_in(void)
@@ -412,9 +404,6 @@ void ddr_sr_mode_ssr(void)
 	uintptr_t rcc_ddritfcr = stm32_rcc_base() + RCC_DDRITFCR;
 	uintptr_t ddrctrl_base = get_ddrctrl_base();
 
-	if (!ddr_supports_ssr_asr())
-		return;
-
 	mmio_setbits_32(rcc_ddritfcr, RCC_DDRITFCR_DDRC1LPEN);
 
 	mmio_setbits_32(rcc_ddritfcr, RCC_DDRITFCR_DDRC2LPEN);
@@ -462,9 +451,6 @@ void ddr_sr_mode_asr(void)
 {
 	uintptr_t rcc_ddritfcr = stm32_rcc_base() + RCC_DDRITFCR;
 	uintptr_t ddrctrl_base = get_ddrctrl_base();
-
-	if (!ddr_supports_ssr_asr())
-		return;
 
 	mmio_setbits_32(rcc_ddritfcr, RCC_DDRITFCR_AXIDCGEN);
 
