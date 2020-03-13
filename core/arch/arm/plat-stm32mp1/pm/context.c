@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * Copyright (c) 2018-2019, STMicroelectronics - All Rights Reserved
+ * Copyright (c) 2018-2020, STMicroelectronics - All Rights Reserved
  * Copyright (c) 2017-2018, ARM Limited and Contributors. All rights reserved.
  */
 
@@ -515,6 +515,7 @@ void stm32mp_pm_save_context(unsigned int soc_mode)
 	save_time();
 
 	if (!need_to_backup_cpu_context(soc_mode)) {
+		stm32mp1_clk_save_context_for_stop();
 		return;
 	}
 
@@ -530,6 +531,8 @@ void stm32mp_pm_restore_context(unsigned int soc_mode)
 	if (need_to_backup_cpu_context(soc_mode)) {
 		restore_soc_context();
 		gate_pm_context_clocks(false);
+	} else {
+		stm32mp1_clk_restore_context_for_stop();
 	}
 
 	restore_time();
