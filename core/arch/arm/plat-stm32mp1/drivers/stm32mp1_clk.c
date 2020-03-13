@@ -1,6 +1,6 @@
 // SPDX-License-Identifier:	GPL-2.0+	BSD-3-Clause
 /*
- * Copyright (C) 2017-2019, STMicroelectronics - All Rights Reserved
+ * Copyright (C) 2017-2020, STMicroelectronics - All Rights Reserved
  */
 
 #include <assert.h>
@@ -33,6 +33,7 @@
 #endif
 
 #define CLKSRC_TIMEOUT_US	200000U
+#define CLKDIV_TIMEOUT_US	200000U
 #define PLLRDY_TIMEOUT_US	200000U
 
 /* PLL settings computation related definitions */
@@ -653,6 +654,9 @@ static void pll_start(enum stm32mp1_pll_id pll_id)
 	const struct stm32mp1_clk_pll *pll = pll_ref(pll_id);
 	uint32_t pllxcr = stm32_rcc_base() + pll->pllxcr;
 
+	if (mmio_read_32(pllxcr) & RCC_PLLNCR_PLLON)
+		return;
+
 	mmio_clrsetbits_32(pllxcr,
 			   RCC_PLLNCR_DIVPEN | RCC_PLLNCR_DIVQEN |
 			   RCC_PLLNCR_DIVREN,
@@ -797,6 +801,25 @@ static int pll_config(enum stm32mp1_pll_id pll_id, uint32_t *pllcfg,
 	return 0;
 }
 
+static int stm32mp1_set_clkdiv(unsigned int clkdiv, uintptr_t address)
+{
+	uint64_t timeout_ref;
+
+	mmio_clrsetbits_32(address, RCC_DIVR_DIV_MASK,
+			   clkdiv & RCC_DIVR_DIV_MASK);
+
+	timeout_ref = utimeout_init(CLKDIV_TIMEOUT_US);
+	while ((mmio_read_32(address) & RCC_DIVR_DIVRDY) == 0U) {
+		if (utimeout_elapsed(CLKDIV_TIMEOUT_US, timeout_ref)) {
+			EMSG("CLKDIV %x start failed @%"PRIxPTR": 0x%"PRIx32,
+			     clkdiv, address, mmio_read_32(address));
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
 static int stm32mp1_set_clksrc(unsigned int clksrc)
 {
 	uintptr_t address = stm32_rcc_base() + (clksrc >> 4);
@@ -808,7 +831,7 @@ static int stm32mp1_set_clksrc(unsigned int clksrc)
 	timeout_ref = utimeout_init(CLKSRC_TIMEOUT_US);
 	while ((mmio_read_32(address) & RCC_SELR_SRCRDY) == 0U) {
 		if (utimeout_elapsed(CLKSRC_TIMEOUT_US, timeout_ref)) {
-			EMSG("CLKSRC %x start failed @%"PRIxPTR": 0x%"PRIx32"\n",
+			EMSG("CLKSRC %x start failed @%"PRIxPTR": 0x%"PRIx32,
 			      clksrc, address, mmio_read_32(address));
 			return -1;
 		}
@@ -2159,7 +2182,7 @@ int stm32mp1_round_opp_khz(uint32_t *freq_khz)
 	return 0;
 }
 
-static void _clock_mpu_suspend(void)
+static void clock_mpu_suspend(void)
 {
 	uintptr_t mpckselr = stm32_rcc_base() + RCC_MPCKSELR;
 
@@ -2171,7 +2194,7 @@ static void _clock_mpu_suspend(void)
 	}
 }
 
-static void _clock_mpu_resume(void)
+static void clock_mpu_resume(void)
 {
 	uintptr_t mpckselr = stm32_rcc_base() + RCC_MPCKSELR;
 
@@ -2183,11 +2206,107 @@ static void _clock_mpu_resume(void)
 	}
 }
 
-static void _clock_resume(void)
+struct soc_stop_context {
+	uint32_t pll3cr;
+	uint32_t pll4cr;
+	uint32_t mssckselr;
+	uint32_t mcudivr;
+};
+
+static struct soc_stop_context soc_stop_ctx;
+
+static void save_pll34_state(void)
+{
+	uintptr_t rcc_base = stm32_rcc_base();
+	struct soc_stop_context *ctx = &soc_stop_ctx;
+
+	ctx->pll3cr = mmio_read_32(rcc_base + RCC_PLL3CR);
+	ctx->pll4cr = mmio_read_32(rcc_base + RCC_PLL4CR);
+}
+
+static void save_mcu_subsys_clocks(void)
+{
+	uintptr_t rcc_base = stm32_rcc_base();
+	struct soc_stop_context *ctx = &soc_stop_ctx;
+
+	ctx->mssckselr = mmio_read_32(rcc_base + RCC_MSSCKSELR);
+	ctx->mcudivr = mmio_read_32(rcc_base + RCC_MCUDIVR) &
+		       RCC_MCUDIV_MASK;
+}
+
+static void restore_pll34_state(void)
+{
+	struct soc_stop_context *ctx = &soc_stop_ctx;
+
+	/* Let PLL4 start while we're starting and waiting for PLL3 */
+	if (ctx->pll4cr & RCC_PLLNCR_PLLON)
+		pll_start(_PLL4);
+
+	if (ctx->pll3cr & RCC_PLLNCR_PLLON) {
+		pll_start(_PLL3);
+		if (pll_output(_PLL3, ctx->pll3cr >> RCC_PLLNCR_DIVEN_SHIFT)) {
+			EMSG("Failed to restore PLL3");
+			panic();
+		}
+	}
+
+	if (ctx->pll4cr & RCC_PLLNCR_PLLON) {
+		if (pll_output(_PLL4, ctx->pll4cr >> RCC_PLLNCR_DIVEN_SHIFT)) {
+			EMSG("Failed to restore PLL4");
+			panic();
+		}
+	}
+}
+
+static void restore_mcu_subsys_clocks(void)
+{
+	uintptr_t rcc_base = stm32_rcc_base();
+	struct soc_stop_context *ctx = &soc_stop_ctx;
+
+	/* Restore MCU clock source after PLL3 is ready */
+	mmio_write_32(rcc_base + RCC_MSSCKSELR, ctx->mssckselr);
+
+	if (stm32mp1_set_clkdiv(ctx->mcudivr, rcc_base + RCC_MCUDIVR)) {
+		EMSG("Failed to restore MCUDIVR");
+		panic();
+	}
+}
+
+/*
+ * Context for STOP mode refers to light sleeps without CPU context
+ * loss but few SoC interfaces to restore.
+ */
+
+void stm32mp1_clk_save_context_for_stop(void)
+{
+	save_mcu_subsys_clocks();
+	save_pll34_state();
+
+	/* Lower MPU clock to save power if possible */
+	clock_mpu_suspend();
+}
+
+void stm32mp1_clk_restore_context_for_stop(void)
+{
+	clock_mpu_resume();
+	restore_pll34_state();
+	/* Restore MCU clock source after PLL3 is ready */
+	restore_mcu_subsys_clocks();
+}
+
+/* Deep sleeps with possible context loss */
+static void stm32_clock_suspend(void)
+{
+	save_pll34_state();
+	clock_mpu_suspend();
+}
+
+static void stm32_clock_resume(void)
 {
 	unsigned int idx;
 
-	_clock_mpu_resume();
+	clock_mpu_resume();
+	restore_pll34_state();
 
 	/* Sync secure and shared clocks physical state on functional state */
 	for (idx = 0; idx < NB_GATES; idx++) {
@@ -2209,16 +2328,12 @@ static void _clock_resume(void)
 
 void stm32mp_clock_suspend_resume(enum pm_op op)
 {
-	switch (op) {
-	case PM_OP_SUSPEND:
-		_clock_mpu_suspend();
-		break;
-	case PM_OP_RESUME:
-		_clock_resume();
-		break;
-	default:
-		panic();
-	}
+	assert(op == PM_OP_SUSPEND || op == PM_OP_RESUME);
+
+	if (op == PM_OP_SUSPEND)
+		stm32_clock_suspend();
+	else
+		stm32_clock_resume();
 }
 
 static TEE_Result stm32mp1_clk_probe(void)

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: BSD-3-Clause */
 /*
- * Copyright (C) 2018-2019, STMicroelectronics - All Rights Reserved
+ * Copyright (C) 2018-2020, STMicroelectronics - All Rights Reserved
  */
 
 #ifndef __STM32MP1_CLK_H__
@@ -62,6 +62,9 @@ void stm32mp_update_earlyboot_clocks_state(void);
 
 int stm32mp1_set_opp_khz(uint32_t freq_khz);
 int stm32mp1_round_opp_khz(uint32_t *freq_khz);
+
+void stm32mp1_clk_save_context_for_stop(void);
+void stm32mp1_clk_restore_context_for_stop(void);
 
 void stm32mp1_clock_suspend(void);
 void stm32mp1_clock_resume(void);
