@@ -2336,6 +2336,29 @@ void stm32mp_clock_suspend_resume(enum pm_op op)
 		stm32_clock_resume();
 }
 
+int stm32mp1_clk_opp_get_voltage_from_freq(uint32_t freq_khz,
+					   uint32_t *voltage_mv)
+{
+	unsigned int i;
+	uint32_t voltage = 0U;
+
+	assert(voltage_mv != NULL);
+
+	if (!stm32mp1_clk_pll1_settings_are_valid())
+		return -1;
+
+	for (i = 0; i < PLAT_MAX_OPP_NB; i++)
+		if (pll1_settings.freq[i] == freq_khz)
+			voltage = pll1_settings.volt[i];
+
+	if (voltage == 0U)
+		return -1;
+
+	*voltage_mv = voltage;
+
+	return 0;
+}
+
 static TEE_Result stm32mp1_clk_probe(void)
 {
 	unsigned long freq_khz;

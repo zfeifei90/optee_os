@@ -62,6 +62,8 @@ void stm32mp_update_earlyboot_clocks_state(void);
 
 int stm32mp1_set_opp_khz(uint32_t freq_khz);
 int stm32mp1_round_opp_khz(uint32_t *freq_khz);
+int stm32mp1_clk_opp_get_voltage_from_freq(uint32_t freq_khz,
+					   uint32_t *voltage_mv);
 
 void stm32mp1_clk_save_context_for_stop(void);
 void stm32mp1_clk_restore_context_for_stop(void);
