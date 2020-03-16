@@ -11,6 +11,9 @@
 #include <drivers/stm32_rtc.h>
 #include <drivers/stm32mp1_clk.h>
 #include <drivers/stm32mp1_ddrc.h>
+#include <drivers/stm32mp1_pmic.h>
+#include <drivers/stm32mp1_rcc.h>
+#include <drivers/stpmic1.h>
 #include <dt-bindings/clock/stm32mp1-clks.h>
 #include <dt-bindings/power/stm32mp1-power.h>
 #include <generated/context_asm_defines.h>
@@ -506,6 +509,30 @@ static void gate_pm_context_clocks(bool enable)
 	}
 }
 
+static void pmic_save_context(void)
+{
+	const char *name;
+	uint16_t volt_mv;
+
+	/*
+	 * stm32mp1_clk_save_context_for_stop() or save_soc_context() has
+	 * previously selected PLL1 via MPUDIV as MPU clock source, ensure
+	 * current frequency is lower enough to be compliant with regulator
+	 * minimum voltage.
+	 */
+	assert(stm32mp1_clk_get_rate(CK_MPU) <= 650000000UL);
+
+	name = stm32mp_pmic_get_cpu_supply_name();
+	volt_mv = stm32mp_pmic_get_cpu_supply_min_voltage();
+
+	stm32mp_get_pmic();
+
+	if (stpmic1_regulator_voltage_set(name, volt_mv) != 0)
+		panic();
+
+	stm32mp_put_pmic();
+}
+
 /*
  * Context (TEE RAM content + peripherals) must be restored
  * only if system may reach STANDBY state.
@@ -516,18 +543,89 @@ void stm32mp_pm_save_context(unsigned int soc_mode)
 
 	if (!need_to_backup_cpu_context(soc_mode)) {
 		stm32mp1_clk_save_context_for_stop();
-		return;
+	} else {
+		gate_pm_context_clocks(true);
+		load_earlyboot_pm_mailbox();
+		save_soc_context();
+		save_teeram_in_ddr();
+		enable_pm_mailbox(1);
 	}
 
-	gate_pm_context_clocks(true);
-	load_earlyboot_pm_mailbox();
-	save_soc_context();
-	save_teeram_in_ddr();
-	enable_pm_mailbox(1);
+	if (stm32mp_with_pmic())
+		pmic_save_context();
+}
+
+static void pmic_restore_context(void)
+{
+	uint32_t rate_khz;
+	uint32_t divider;
+	uint32_t volt_mv;
+	int read_voltage;
+	uintptr_t rcc_base = stm32_rcc_base();
+	const char *name;
+
+	/*
+	 * MPU selected clock source is still PLL1 via MPUDIV until next
+	 * stm32mp1_clk_mpu_resume() call just after this function.
+	 * New frequency is computed from current rate and divider, and should
+	 * fit with one CPU OPP value.
+	 * Related voltage is then obtained by parsing OPP settings.
+	 */
+	rate_khz = UDIV_ROUND_NEAREST(stm32mp1_clk_get_rate(CK_MPU), 1000UL);
+	if (rate_khz > (unsigned long)UINT32_MAX)
+		panic();
+
+	if (((mmio_read_32(rcc_base + RCC_MPCKSELR) & RCC_SELR_SRC_MASK)) ==
+	    RCC_MPCKSELR_PLL_MPUDIV) {
+		divider = mmio_read_32(rcc_base + RCC_MPCKDIVR) &
+			  RCC_DIVR_DIV_MASK;
+
+		switch (divider) {
+		case 0:
+			/* Unexpected value */
+			panic();
+
+		case 1:
+		case 2:
+		case 3:
+			rate_khz <<= divider;
+			break;
+
+		default:
+			rate_khz <<= 4;
+			break;
+		}
+	}
+
+	if (stm32mp1_clk_opp_get_voltage_from_freq(rate_khz, &volt_mv) < 0)
+		panic();
+
+	name = stm32mp_pmic_get_cpu_supply_name();
+	if (name == NULL)
+		panic();
+
+	stm32mp_get_pmic();
+
+	read_voltage = stpmic1_regulator_voltage_get(name);
+	if (volt_mv != (uint32_t)read_voltage) {
+		if (stpmic1_regulator_voltage_set(name, (uint16_t)volt_mv))
+			panic();
+
+		/*
+		 * PMIC Output voltage slew rate is 5.5mV/us, assume
+		 * 3mv/us as a margin to compute delay.
+		 */
+		udelay((volt_mv - read_voltage) / 3);
+	}
+
+	stm32mp_put_pmic();
 }
 
 void stm32mp_pm_restore_context(unsigned int soc_mode)
 {
+	if (stm32mp_with_pmic())
+		pmic_restore_context();
+
 	if (need_to_backup_cpu_context(soc_mode)) {
 		restore_soc_context();
 		gate_pm_context_clocks(false);
