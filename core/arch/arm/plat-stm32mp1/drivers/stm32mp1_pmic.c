@@ -27,8 +27,13 @@
 
 #define STPMIC1_DEFAULT_START_UP_DELAY_MS	1
 
+#define PMIC_REGU_SUPPLY_NAME_LEN	12
+
 static struct i2c_handle_s i2c_handle;
 static uint32_t pmic_i2c_addr;
+
+static char cpu_supply_name[PMIC_REGU_SUPPLY_NAME_LEN];
+static uint32_t cpu_supply_min_voltage;
 
 bool stm32mp_with_pmic(void)
 {
@@ -393,9 +398,62 @@ void stm32mp_pmic_apply_lp_config(const char *lp_state)
 	}
 }
 
+static int save_cpu_supply_info(void)
+{
+	void *fdt = NULL;
+	int node = 0;
+	const fdt32_t *cuint = NULL;
+	const char *name = NULL;
+
+	fdt = get_dt_blob();
+	if (!fdt)
+		panic();
+
+	node = fdt_path_offset(fdt, "/cpus/cpu@0");
+	if (node < 0)
+		return -FDT_ERR_NOTFOUND;
+
+	cuint = fdt_getprop(fdt, node, "cpu-supply", NULL);
+	if (cuint == NULL)
+		return -FDT_ERR_NOTFOUND;
+
+	node = fdt_node_offset_by_phandle(fdt, fdt32_to_cpu(*cuint));
+	if (node < 0)
+		return -FDT_ERR_NOTFOUND;
+
+	name = fdt_get_name(fdt, node, NULL);
+	assert(strnlen(name, sizeof(cpu_supply_name)) <
+	       sizeof(cpu_supply_name));
+
+	strncpy(cpu_supply_name, name, sizeof(cpu_supply_name));
+
+	cuint = fdt_getprop(fdt, node, "regulator-min-microvolt", NULL);
+	if (cuint == NULL)
+		return -FDT_ERR_NOTFOUND;
+
+	cpu_supply_min_voltage = fdt32_to_cpu(*cuint) / 1000U;
+
+	return 0;
+}
+
+const char *stm32mp_pmic_get_cpu_supply_name(void)
+{
+	return cpu_supply_name;
+}
+
+uint16_t stm32mp_pmic_get_cpu_supply_min_voltage(void)
+{
+	return (uint16_t)cpu_supply_min_voltage;
+}
+
 static int save_power_configurations(void)
 {
 	unsigned int i;
+
+	if (save_cpu_supply_info() != 0) {
+		DMSG("Failed to find and save CPU power supply info");
+		return -1;
+	}
 
 	if (save_boot_on_config() != 0) {
 		return -1;

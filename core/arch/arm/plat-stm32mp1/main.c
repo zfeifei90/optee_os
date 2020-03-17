@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-2-Clause
 /*
- * Copyright (c) 2017-2019, STMicroelectronics
+ * Copyright (c) 2017-2020, STMicroelectronics
  * Copyright (c) 2016-2018, Linaro Limited
  */
 
@@ -244,7 +244,7 @@ service_init_late(stm32_uart_console_probe);
 /* Compute PLL1 settings once PMIC init is completed */
 static TEE_Result initialize_pll1_settings(void)
 {
-	uint32_t vddcore_voltage = 0U;
+	uint32_t cpu_voltage = 0U;
 	int ret;
 
 	if (stm32mp1_clk_pll1_settings_are_valid()) {
@@ -254,17 +254,18 @@ static TEE_Result initialize_pll1_settings(void)
 	if (stm32mp_dt_pmic_status() > 0) {
 		stm32mp_get_pmic();
 
-		ret = stpmic1_regulator_voltage_get("buck1");
+		ret = stpmic1_regulator_voltage_get(
+				stm32mp_pmic_get_cpu_supply_name());
 		if (ret < 0) {
 			panic();
 		}
 
-		vddcore_voltage = (uint32_t)ret;
+		cpu_voltage = (uint32_t)ret;
 
 		stm32mp_put_pmic();
 	}
 
-	if (stm32mp1_clk_compute_all_pll1_settings(vddcore_voltage) != 0) {
+	if (stm32mp1_clk_compute_all_pll1_settings(cpu_voltage) != 0) {
 		panic();
 	}
 
