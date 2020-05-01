@@ -162,6 +162,9 @@ static inline int stm32mp_start_clock_calib(unsigned int clock_id __unused)
 }
 #endif
 
+/* Platform util for the RTC driver */
+bool stm32_rtc_get_read_twice(void);
+
 /*
  * Return true if platform is in closed_device mode
  */
