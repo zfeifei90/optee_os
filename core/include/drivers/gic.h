@@ -56,6 +56,9 @@ void gic_init(struct gic_data *gd, vaddr_t gicc_base, vaddr_t gicd_base);
 /* initial base address only */
 void gic_init_base_addr(struct gic_data *gd, vaddr_t gicc_base,
 			vaddr_t gicd_base);
+/* Setup GIC default configuration */
+void gic_init_setup(struct gic_data *gd);
+
 /* initial cpu if only, mainly use for secondary cpu setup cpu interface */
 void gic_cpu_init(struct gic_data *gd);
 
