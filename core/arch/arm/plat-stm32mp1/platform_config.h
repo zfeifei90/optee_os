@@ -12,6 +12,7 @@
 #define STACK_ALIGNMENT			32
 
 /* SoC interface registers base address */
+#define BKPSRAM_BASE			0x54000000
 #define BSEC_BASE			0x5c005000
 #define ETZPC_BASE			0x5c007000
 #define CRYP1_BASE			0x54001000
@@ -173,6 +174,9 @@
 #define DBGMCU_IDC_DEV_ID_MASK		GENMASK_32(11, 0)
 #define DBGMCU_IDC_REV_ID_MASK		GENMASK_32(31, 16)
 #define DBGMCU_IDC_REV_ID_SHIFT		16
+
+/* BKPSRAM layout */
+#define BKPSRAM_SIZE			0x1000
 
 /* SYSRAM layout */
 #define SYSRAM_SIZE			0x40000
