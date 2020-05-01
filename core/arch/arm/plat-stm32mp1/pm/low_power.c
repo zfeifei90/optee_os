@@ -286,6 +286,28 @@ void stm32_enter_cstop(uint32_t mode)
 	if (ddr_standby_sr_entry() != 0)
 		panic();
 #endif
+
+	if (mode == STM32_PM_CSTOP_ALLOW_STANDBY_DDR_SR) {
+		/* set POPL to 20ms */
+		io_clrsetbits32(pwr_base + PWR_CR3_OFF, PWR_CR3_POPL_MASK,
+				20U << PWR_CR3_POPL_SHIFT);
+
+		/* Keep backup RAM content in standby */
+		io_setbits32(pwr_base + PWR_CR2_OFF, PWR_CR2_BREN);
+
+		// TODO add a timeout?
+		while (!(io_read32(pwr_base + PWR_CR2_OFF) & PWR_CR2_BRRDY))
+			;
+
+#ifndef CFG_STM32MP13
+		/* Keep retention in standby */
+		io_setbits32(pwr_base + PWR_CR2_OFF, PWR_CR2_RREN);
+
+		while ((io_read32(pwr_base + PWR_CR2_OFF) &
+			(PWR_CR2_RRRDY)) == 0U)
+			;
+#endif
+	}
 }
 
 /*
