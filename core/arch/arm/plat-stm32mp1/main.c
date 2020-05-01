@@ -13,6 +13,7 @@
 #include <drivers/stm32_uart.h>
 #include <drivers/stm32mp1_etzpc.h>
 #include <drivers/stm32mp1_pmic.h>
+#include <drivers/stm32mp1_rcc.h>
 #include <drivers/stpmic1.h>
 #include <dt-bindings/clock/stm32mp1-clks.h>
 #include <io.h>
@@ -40,6 +41,7 @@ register_phys_mem_pgdir(MEM_AREA_IO_NSEC, I2C6_BASE, SMALL_PAGE_SIZE);
 register_phys_mem_pgdir(MEM_AREA_IO_NSEC, IWDG1_BASE, SMALL_PAGE_SIZE);
 register_phys_mem_pgdir(MEM_AREA_IO_NSEC, IWDG2_BASE, SMALL_PAGE_SIZE);
 register_phys_mem_pgdir(MEM_AREA_IO_NSEC, RNG1_BASE, SMALL_PAGE_SIZE);
+register_phys_mem_pgdir(MEM_AREA_IO_NSEC, RTC_BASE, SMALL_PAGE_SIZE);
 #ifdef CFG_WITH_NSEC_UARTS
 register_phys_mem_pgdir(MEM_AREA_IO_NSEC, USART1_BASE, SMALL_PAGE_SIZE);
 register_phys_mem_pgdir(MEM_AREA_IO_NSEC, USART2_BASE, SMALL_PAGE_SIZE);
@@ -62,6 +64,7 @@ register_phys_mem_pgdir(MEM_AREA_IO_SEC, IWDG1_BASE, SMALL_PAGE_SIZE);
 register_phys_mem_pgdir(MEM_AREA_IO_SEC, PWR_BASE, SMALL_PAGE_SIZE);
 register_phys_mem_pgdir(MEM_AREA_IO_SEC, RCC_BASE, SMALL_PAGE_SIZE);
 register_phys_mem_pgdir(MEM_AREA_IO_SEC, RNG1_BASE, SMALL_PAGE_SIZE);
+register_phys_mem_pgdir(MEM_AREA_IO_SEC, RTC_BASE, SMALL_PAGE_SIZE);
 register_phys_mem_pgdir(MEM_AREA_IO_SEC, SYSCFG_BASE, SMALL_PAGE_SIZE);
 register_phys_mem_pgdir(MEM_AREA_IO_SEC, TAMP_BASE, SMALL_PAGE_SIZE);
 register_phys_mem_pgdir(MEM_AREA_IO_SEC, TIM1_BASE, SMALL_PAGE_SIZE);
@@ -566,3 +569,44 @@ unsigned long stm32_get_iwdg_otp_config(vaddr_t pbase)
 
 	return iwdg_cfg;
 }
+
+#ifdef CFG_STM32_RTC
+/*
+ * Return true if RTC needs to be read twice not once for a reliable value.
+ *
+ * This function determines the number of needed RTC calendar read operations
+ * to get consistent values: RTC may need to be read twice depending on clock
+ * frequencies.
+ * If APB1 frequency is less than 7 times the RTC one, the software has to
+ * read the calendar time and date register twice.
+ */
+bool stm32_rtc_get_read_twice(void)
+{
+	unsigned long apb1_freq = 0;
+	unsigned long rtc_freq = 0;
+	uint32_t apb1_div = 0;
+	vaddr_t rcc_base = stm32_rcc_base();
+
+	switch ((io_read32(rcc_base + RCC_BDCR) &
+		 RCC_BDCR_RTCSRC_MASK) >> RCC_BDCR_RTCSRC_SHIFT) {
+	case 1:
+		rtc_freq = stm32_clock_get_rate(CK_LSE);
+		break;
+	case 2:
+		rtc_freq = stm32_clock_get_rate(CK_LSI);
+		break;
+	case 3:
+		rtc_freq = stm32_clock_get_rate(CK_HSE);
+		rtc_freq /= (io_read32(rcc_base + RCC_RTCDIVR) &
+			     RCC_DIVR_DIV_MASK) + 1U;
+		break;
+	default:
+		panic();
+	}
+
+	apb1_div = io_read32(rcc_base + RCC_APB1DIVR) & RCC_APBXDIV_MASK;
+	apb1_freq = stm32_clock_get_rate(CK_MCU) >> apb1_div;
+
+	return apb1_freq < (rtc_freq * 7U);
+}
+#endif
