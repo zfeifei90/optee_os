@@ -9,6 +9,7 @@
 #include <dt-bindings/clock/stm32mp1-clks.h>
 #include <dt-bindings/reset/stm32mp1-resets.h>
 #include <initcall.h>
+#include <kernel/pm.h>
 #include <mm/core_memprot.h>
 #include <mm/core_mmu.h>
 #include <platform_config.h>
@@ -276,8 +277,21 @@ const char *plat_scmi_clock_get_name(unsigned int agent_id,
 	return clock->name;
 }
 
-int32_t plat_scmi_clock_rates_array(unsigned int agent_id, unsigned int scmi_id,
-				    unsigned long *array, size_t *nb_elts)
+int32_t plat_scmi_clock_rates_array(unsigned int agent_id __unused,
+				    unsigned int scmi_id __unused,
+				    unsigned long *array __unused,
+				    size_t *nb_elts __unused)
+{
+	/*
+	 * Explicitly do not expose clock rates by array since not
+	 * fully supported by Linux kernel as of v5.4.24.
+	 */
+	return SCMI_NOT_SUPPORTED;
+}
+
+int32_t plat_scmi_clock_rates_by_step(unsigned int agent_id,
+				      unsigned int scmi_id,
+				      unsigned long *array)
 {
 	struct stm32_scmi_clk *clock = find_clock(agent_id, scmi_id);
 
@@ -287,12 +301,48 @@ int32_t plat_scmi_clock_rates_array(unsigned int agent_id, unsigned int scmi_id,
 	if (!stm32mp_nsec_can_access_clock(clock->clock_id))
 		return SCMI_DENIED;
 
-	if (!array)
-		*nb_elts = 1;
-	else if (*nb_elts == 1)
-		*array = stm32_clock_get_rate(clock->clock_id);
-	else
-		return SCMI_GENERIC_ERROR;
+	switch (scmi_id) {
+	case CK_SCMI0_MPU:
+		/*
+		 * Pretend we support all rates for MPU clock,
+		 * CLOCK_RATE_SET will reject unsupported rates.
+		 */
+		array[0] = 0U;
+		array[1] = UINT32_MAX;
+		array[2] = 1U;
+		break;
+	default:
+		array[0] = stm32_clock_get_rate(clock->clock_id);
+		array[1] = array[0];
+		array[2] = 0U;
+		break;
+	}
+
+	return SCMI_SUCCESS;
+}
+
+int32_t plat_scmi_clock_set_rate(unsigned int agent_id, unsigned int scmi_id,
+				 unsigned long rate)
+{
+	struct stm32_scmi_clk *clock = find_clock(agent_id, scmi_id);
+	int ret = SCMI_DENIED;
+
+	if (!clock)
+		return SCMI_NOT_FOUND;
+	if (!stm32mp_nsec_can_access_clock(clock->clock_id))
+		return SCMI_DENIED;
+
+	switch (scmi_id) {
+	case CK_SCMI0_MPU:
+		ret = stm32mp1_set_opp_khz(rate / 1000);
+		if (ret)
+			return SCMI_INVALID_PARAMETERS;
+		break;
+	default:
+		if (rate != stm32_clock_get_rate(clock->clock_id))
+			return SCMI_INVALID_PARAMETERS;
+		break;
+	}
 
 	return SCMI_SUCCESS;
 }
