@@ -91,6 +91,7 @@ CFG_MMAP_REGIONS ?= 23
 ifeq ($(CFG_EMBED_DTB_SOURCE_FILE),)
 # Some drivers mandate DT support
 $(call force,CFG_STM32_I2C,n)
+$(call force,CFG_STM32_TIM,n)
 $(call force,CFG_STPMIC1,n)
 endif
 
@@ -100,6 +101,7 @@ CFG_STM32_GPIO ?= y
 CFG_STM32_I2C ?= y
 CFG_STM32_RNG ?= y
 CFG_STM32_RNG ?= y
+CFG_STM32_TIM ?= y
 CFG_STM32_UART ?= y
 CFG_STPMIC1 ?= y
 CFG_TZC400 ?= y
