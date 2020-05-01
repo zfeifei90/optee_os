@@ -100,6 +100,7 @@
 #define GIC_NON_SEC_SGI_0		0
 #define GIC_SEC_SGI_0			8
 #define GIC_SEC_SGI_1			9
+#define GIC_SPI_SEC_PHY_TIMER		29
 
 #define TARGET_CPU0_GIC_MASK		BIT(0)
 #define TARGET_CPU1_GIC_MASK		BIT(1)

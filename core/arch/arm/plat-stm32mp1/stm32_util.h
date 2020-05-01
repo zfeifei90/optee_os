@@ -127,6 +127,16 @@ struct stm32_bsec_static_cfg {
 
 void stm32mp_get_bsec_static_cfg(struct stm32_bsec_static_cfg *cfg);
 
+/* Clock calibration. Returns 0 on success */
+#ifdef CFG_STM32_CLKCALIB
+int stm32mp_start_clock_calib(unsigned int clock_id);
+#else
+static inline int stm32mp_start_clock_calib(unsigned int clock_id __unused)
+{
+	return 1;
+}
+#endif
+
 /*
  * Return true if platform is in closed_device mode
  */
