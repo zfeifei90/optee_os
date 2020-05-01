@@ -92,6 +92,10 @@
 #define PART_NUMBER_OTP_PART_MASK	GENMASK_32(7, 0)
 #define PART_NUMBER_OTP_PART_SHIFT	0
 
+#define HW2_OTP_IWDG_HW_ENABLE_SHIFT		3
+#define HW2_OTP_IWDG_FZ_STOP_SHIFT		5
+#define HW2_OTP_IWDG_FZ_STANDBY_SHIFT		7
+
 /* GIC resources */
 #define GIC_SIZE			0x2000
 #define GICC_OFFSET			0x1000
@@ -132,6 +136,13 @@
 #define GPIO_BANK_J			9U
 #define GPIO_BANK_K			10U
 #define GPIO_BANK_Z			25U
+
+/* IWDG resources */
+#define IWDG1_INST			0
+#define IWDG2_INST			1
+
+#define STM32MP1_IRQ_IWDG1		182U
+#define STM32MP1_IRQ_IWDG2		183U
 
 /* TAMP resources */
 #define TAMP_BKP_REGISTER_OFF		0x100

@@ -51,6 +51,18 @@ vaddr_t stm32_get_gpio_bank_base(unsigned int bank);
 unsigned int stm32_get_gpio_bank_offset(unsigned int bank);
 unsigned int stm32_get_gpio_bank_clock(unsigned int bank);
 
+/*
+ * Platform util for the IWDG driver
+ */
+
+/* Get IWDG_* enable flags mask from watchdog configuration read from fuses */
+unsigned long stm32_get_iwdg_otp_config(vaddr_t pbase);
+
+/* Conversion between IWDG instance IDs and hardware resources */
+size_t stm32mp_iwdg_instance2irq(unsigned int instance);
+unsigned int stm32mp_iwdg_irq2instance(size_t irq);
+unsigned int stm32mp_iwdg_iomem2instance(vaddr_t pbase);
+
 /* Platform util for PMIC support */
 bool stm32mp_with_pmic(void);
 
