@@ -545,12 +545,23 @@ vaddr_t stm32_rcc_base(void);
 
 static inline bool stm32_rcc_is_secure(void)
 {
-	return io_read32(stm32_rcc_base() + RCC_TZCR) & RCC_TZCR_TZEN;
+	static int state = -1;
+
+	if (state < 0)
+		state = io_read32(stm32_rcc_base() + RCC_TZCR) & RCC_TZCR_TZEN;
+
+	return state;
 }
 
 static inline bool stm32_rcc_is_mckprot(void)
 {
-	return io_read32(stm32_rcc_base() + RCC_TZCR) & RCC_TZCR_MCKPROT;
+	const uint32_t mask = RCC_TZCR_TZEN | RCC_TZCR_MCKPROT;
+	static int state = -1;
+
+	if (state < 0)
+		state = (io_read32(stm32_rcc_base() + RCC_TZCR) & mask) == mask;
+
+	return state;
 }
 #endif /*__ASSEMBLER__*/
 
