@@ -111,6 +111,7 @@ CFG_STM32MP_PANIC_ON_TZC_PERM_VIOLATION ?= y
 
 # SiP/OEM service for non-secure world
 CFG_STM32_BSEC_SIP ?= y
+CFG_STM32_PWR_SIP ?= y
 CFG_STM32_RCC_SIP ?= y
 
 # Default enable some test facitilites
