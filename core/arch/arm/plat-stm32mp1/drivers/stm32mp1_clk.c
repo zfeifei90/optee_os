@@ -106,6 +106,8 @@ enum stm32mp1_parent_sel {
 	_UART24_SEL,
 	_UART35_SEL,
 	_UART78_SEL,
+	_SDMMC12_SEL,
+	_SDMMC3_SEL,
 	_AXISS_SEL,
 	_MCUSS_SEL,
 	_USBPHY_SEL,
@@ -427,6 +429,18 @@ static const struct stm32mp1_clk_gate stm32mp1_clk_gate[] = {
 	_CLK_SC_FIXED(N_S, RCC_MP_APB3ENSETR, 11, SYSCFG, _UNKNOWN_ID),
 	_CLK_SC_SELEC(N_S, RCC_MP_APB4ENSETR, 8, DDRPERFM, _UNKNOWN_SEL),
 	_CLK_SC_SELEC(N_S, RCC_MP_APB4ENSETR, 15, IWDG2, _UNKNOWN_SEL),
+#ifdef STM32MP1_USE_MPU0_RESET
+	_CLK_SC_SELEC(N_S, RCC_MP_APB4ENSETR, 0, LTDC_PX, _UNKNOWN_SEL),
+	_CLK_SC_SELEC(N_S, RCC_MP_AHB2ENSETR, 0, DMA1, _UNKNOWN_SEL),
+	_CLK_SC_SELEC(N_S, RCC_MP_AHB2ENSETR, 1, DMA2, _UNKNOWN_SEL),
+	_CLK_SC_SELEC(N_S, RCC_MP_AHB2ENSETR, 8, USBO_K, _USBO_SEL),
+	_CLK_SC_SELEC(N_S, RCC_MP_AHB2ENSETR, 16, SDMMC3_K, _SDMMC3_SEL),
+	_CLK_SC_SELEC(N_S, RCC_MP_AHB6ENSETR, 5, GPU, _UNKNOWN_SEL),
+	_CLK_SC_FIXED(N_S, RCC_MP_AHB6ENSETR, 10, ETHMAC, _ACLK),
+	_CLK_SC_SELEC(N_S, RCC_MP_AHB6ENSETR, 16, SDMMC1_K, _SDMMC12_SEL),
+	_CLK_SC_SELEC(N_S, RCC_MP_AHB6ENSETR, 17, SDMMC2_K, _SDMMC12_SEL),
+	_CLK_SC_SELEC(N_S, RCC_MP_AHB6ENSETR, 24, USBH, _UNKNOWN_SEL),
+#endif
 
 	_CLK_SELEC(N_S, RCC_DBGCFGR, 8, CK_DBG, _UNKNOWN_SEL),
 };
@@ -480,6 +494,24 @@ static const uint8_t rtc_parents[] = {
 	_UNKNOWN_ID, _LSE, _LSI, _HSE
 };
 
+#ifdef STM32MP1_USE_MPU0_RESET
+static const uint8_t usbphy_parents[] = {
+	_HSE_KER, _PLL4_R, _HSE_KER_DIV2
+};
+
+static const uint8_t usbo_parents[] = {
+	_PLL4_R, _USB_PHY_48
+};
+
+static const uint8_t sdmmc12_parents[] = {
+	_HCLK6, _PLL3_R, _PLL4_P, _HSI_KER
+};
+
+static const uint8_t sdmmc3_parents[] = {
+	_HCLK2, _PLL3_R, _PLL4_P, _HSI_KER
+};
+#endif
+
 static const struct stm32mp1_clk_sel stm32mp1_clk_sel[_PARENT_SEL_NB] = {
 	/* Secure aware clocks */
 	_CLK_PARENT(_STGEN_SEL, RCC_STGENCKSELR, 0, 0x3, stgen_parents),
@@ -489,6 +521,8 @@ static const struct stm32mp1_clk_sel stm32mp1_clk_sel[_PARENT_SEL_NB] = {
 	_CLK_PARENT(_RNG1_SEL, RCC_RNG1CKSELR, 0, 0x3, rng1_parents),
 	_CLK_PARENT(_RTC_SEL, RCC_BDCR, 0, 0x3, rtc_parents),
 	_CLK_PARENT(_MPU_SEL, RCC_MPCKSELR, 0, 0x3, mpu_parents),
+	_CLK_PARENT(_AXISS_SEL, RCC_ASSCKSELR, 0, 0x3, axiss_parents),
+	_CLK_PARENT(_MCUSS_SEL, RCC_MSSCKSELR, 0, 0x3, mcuss_parents),
 	/* Always non-secure clocks (maybe used in some way in secure world) */
 #ifdef CFG_WITH_NSEC_UARTS
 	_CLK_PARENT(_UART6_SEL, RCC_UART6CKSELR, 0, 0x7, uart6_parents),
@@ -496,8 +530,12 @@ static const struct stm32mp1_clk_sel stm32mp1_clk_sel[_PARENT_SEL_NB] = {
 	_CLK_PARENT(_UART35_SEL, RCC_UART35CKSELR, 0, 0x7, uart234578_parents),
 	_CLK_PARENT(_UART78_SEL, RCC_UART78CKSELR, 0, 0x7, uart234578_parents),
 #endif
-	_CLK_PARENT(_AXISS_SEL, RCC_ASSCKSELR, 0, 0x3, axiss_parents),
-	_CLK_PARENT(_MCUSS_SEL, RCC_MSSCKSELR, 0, 0x3, mcuss_parents),
+#ifdef STM32MP1_USE_MPU0_RESET
+	_CLK_PARENT(_SDMMC12_SEL, RCC_SDMMC12CKSELR, 0, 0x7, sdmmc12_parents),
+	_CLK_PARENT(_SDMMC3_SEL, RCC_SDMMC3CKSELR, 0, 0x7, sdmmc3_parents),
+	_CLK_PARENT(_USBPHY_SEL, RCC_USBCKSELR, 0, 0x3, usbphy_parents),
+	_CLK_PARENT(_USBO_SEL, RCC_USBCKSELR, 4, 0x1, usbo_parents),
+#endif
 };
 
 /* Define characteristics of PLL according type */
