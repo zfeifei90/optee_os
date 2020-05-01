@@ -66,6 +66,7 @@ register_phys_mem_pgdir(MEM_AREA_IO_SEC, PWR_BASE, SMALL_PAGE_SIZE);
 register_phys_mem_pgdir(MEM_AREA_IO_SEC, RCC_BASE, SMALL_PAGE_SIZE);
 register_phys_mem_pgdir(MEM_AREA_IO_SEC, RNG1_BASE, SMALL_PAGE_SIZE);
 register_phys_mem_pgdir(MEM_AREA_IO_SEC, RTC_BASE, SMALL_PAGE_SIZE);
+register_phys_mem_pgdir(MEM_AREA_IO_SEC, STGEN_BASE, SMALL_PAGE_SIZE);
 register_phys_mem_pgdir(MEM_AREA_IO_SEC, SYSCFG_BASE, SMALL_PAGE_SIZE);
 register_phys_mem_pgdir(MEM_AREA_IO_SEC, TAMP_BASE, SMALL_PAGE_SIZE);
 register_phys_mem_pgdir(MEM_AREA_IO_SEC, TIM1_BASE, SMALL_PAGE_SIZE);
@@ -423,6 +424,13 @@ vaddr_t stm32mp_bkpreg(unsigned int idx)
 vaddr_t stm32mp_bkpsram_base(void)
 {
 	struct io_pa_va base = { .pa = BKPSRAM_BASE };
+
+	return io_pa_or_va(&base);
+}
+
+vaddr_t stm32mp_stgen_base(void)
+{
+	struct io_pa_va base = { .pa = STGEN_BASE };
 
 	return io_pa_or_va(&base);
 }
