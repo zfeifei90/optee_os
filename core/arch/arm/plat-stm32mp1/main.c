@@ -99,6 +99,12 @@ register_dynamic_shm(DDR_BASE, CFG_TZDRAM_START - DDR_BASE);
 register_dynamic_shm(TZDRAM_END, DRAM_END - TZDRAM_END);
 #endif
 
+/* Map non-secure DDR bottom for the low power sequence */
+register_phys_mem(MEM_AREA_RAM_NSEC, DDR_BASE, SMALL_PAGE_SIZE);
+
+/* Map TEE physical RAM as read-only for content storage when suspending */
+register_phys_mem(MEM_AREA_ROM_SEC, TEE_RAM_START, TEE_RAM_PH_SIZE);
+
 static const struct thread_handlers handlers = {
 	.cpu_on = pm_panic,
 	.cpu_off = pm_panic,
@@ -319,6 +325,13 @@ void main_secondary_init_gic(void)
 {
 	gic_cpu_init(&gic_data);
 
+#if CFG_TEE_CORE_NB_CORE == 2
+	/* Secondary core release constraint on APB5 clock */
+	io_write32(stm32mp_bkpreg(BCKR_CORE1_MAGIC_NUMBER),
+		   BOOT_API_A7_RESET_MAGIC_NUMBER);
+	stm32_clock_disable(RTCAPB);
+#endif
+
 	stm32mp_register_online_cpu();
 }
 
@@ -337,7 +350,11 @@ static TEE_Result init_stm32mp1_drivers(void)
 			     (SYSRAM_SEC_SIZE >= CFG_TZSRAM_SIZE)));
 
 	etzpc_configure_tzma(1, SYSRAM_SEC_SIZE >> SMALL_PAGE_SHIFT);
+#ifdef STM32MP1_USE_MPU0_RESET
+	/* BootROM needs unlocked for independent reset */
+#else
 	etzpc_lock_tzma(1);
+#endif
 
 	return TEE_SUCCESS;
 }

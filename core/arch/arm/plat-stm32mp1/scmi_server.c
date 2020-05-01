@@ -482,6 +482,19 @@ int32_t plat_scmi_rd_set_state(unsigned int agent_id, unsigned int scmi_id,
 	return SCMI_SUCCESS;
 }
 
+static TEE_Result stm32_scmi_pm(enum pm_op op, unsigned int pm_hint __unused,
+				const struct pm_callback_handle *hdl __unused)
+{
+	size_t i = 0;
+
+	if (op == PM_OP_RESUME)
+		for (i = 0; i < ARRAY_SIZE(scmi_channel); i++)
+			scmi_smt_init_agent_channel(&scmi_channel[i]);
+
+	return TEE_SUCCESS;
+}
+DECLARE_KEEP_PAGER(stm32_scmi_pm);
+
 /*
  * Initialize platform SCMI resources
  */
@@ -489,6 +502,8 @@ static TEE_Result stm32mp1_init_scmi_server(void)
 {
 	size_t i = 0;
 	size_t j = 0;
+
+	register_pm_driver_cb(stm32_scmi_pm, NULL);
 
 	for (i = 0; i < ARRAY_SIZE(scmi_channel); i++) {
 		struct scmi_msg_channel *chan = &scmi_channel[i];
