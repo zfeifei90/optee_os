@@ -10,6 +10,12 @@
 #include <stdint.h>
 #include <tee_api.h>
 
+/* BSEC_DEBUG */
+#define BSEC_HDPEN			BIT(4)
+#define BSEC_SPIDEN			BIT(5)
+#define BSEC_SPINDEN			BIT(6)
+#define BSEC_DBGSWGEN			BIT(10)
+
 /*
  * Load OTP from SAFMEM and provide its value
  * @value: Output read value
