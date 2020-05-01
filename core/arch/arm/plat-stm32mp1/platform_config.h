@@ -18,6 +18,8 @@
 #define CRYP1_BASE			0x54001000
 #define DBGMCU_BASE			0x50081000
 #define DDR_BASE			0xc0000000ul
+#define DDRCTRL_BASE			0x5a003000
+#define DDRPHYC_BASE			0x5a004000
 #define GIC_BASE			0xa0021000ul
 #define GPIOA_BASE			0x50002000
 #define GPIOB_BASE			0x50003000
@@ -68,6 +70,9 @@
 #define UART6_BASE			0x44003000
 #define UART7_BASE			0x40018000
 #define UART8_BASE			0x40019000
+
+/* DDR expected size if not found in device tree */
+#define STM32MP1_DDR_SIZE_DFLT		(1 * 1024 * 1024 * 1024)
 
 /* Console configuration */
 #define STM32MP1_DEBUG_USART_BASE	UART4_BASE
