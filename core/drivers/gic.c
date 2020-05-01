@@ -329,21 +329,6 @@ static void gic_it_set_prio(struct gic_data *gd, size_t it, uint8_t prio)
 	size_t idx __maybe_unused = it / NUM_INTS_PER_REG;
 	uint32_t mask __maybe_unused = 1 << (it % NUM_INTS_PER_REG);
 
-#if 1 // Maybe add the following instead of the assert() above
-	/*
-	 * Check priority against ARM recommendation: Group1 interrupts always
-	 * have a lower priority than group0 interrupts.
-	 * Note, lower numerical values have higher priorities so the comparison
-	 * checks below are reversed from what might be expected.
-	 */
-	if ((io_read32(gd->gicd_base + GICD_IGROUPR(idx)) & mask) == 0) {
-		assert(prio <= GIC_LOWEST_SEC_PRIORITY);
-	} else {
-		assert(prio >= GIC_HIGHEST_NS_PRIORITY &&
-		       prio <= GIC_LOWEST_NS_PRIORITY);
-	}
-#endif
-
 	/* Set prio it to selected CPUs */
 	DMSG("prio: writing 0x%x to 0x%" PRIxVA,
 		prio, gd->gicd_base + GICD_IPRIORITYR(0) + it);
