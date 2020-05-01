@@ -9,6 +9,7 @@
 #include <sm/sm.h>
 
 #include "bsec_svc.h"
+#include "rcc_svc.h"
 #include "stm32mp1_smc.h"
 
 static enum sm_handler_ret sip_service(struct sm_ctx *ctx __unused,
@@ -39,6 +40,12 @@ static enum sm_handler_ret sip_service(struct sm_ctx *ctx __unused,
 	case STM32_SIP_SVC_FUNC_BSEC:
 		bsec_main(args);
 		break;
+	case STM32_SIP_SVC_FUNC_RCC:
+		args->a0 = rcc_scv_handler(args->a1, args->a2, args->a3);
+		break;
+        case STM32_SIP_SVC_FUNC_RCC_OPP:
+                args->a0 = rcc_opp_scv_handler(args->a1, args->a2, &args->a1);
+                break;
 	default:
 		return SM_HANDLER_PENDING_SMC;
 	}
