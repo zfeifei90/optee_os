@@ -24,6 +24,9 @@ bool stm32mp_supports_cpu_opp(uint32_t opp_id);
 vaddr_t stm32mp_bkpreg(unsigned int idx);
 vaddr_t stm32mp_bkpsram_base(void);
 
+/* Platform util for the STGEN driver */
+vaddr_t stm32mp_stgen_base(void);
+
 /*
  * SYSCFG IO compensation.
  * These functions assume non-secure world is suspended.
