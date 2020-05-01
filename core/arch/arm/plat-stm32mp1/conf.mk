@@ -54,6 +54,9 @@ $(call force,CFG_ARM_GIC_PM,y)
 $(call force,CFG_BOOT_SECONDARY_REQUEST,y)
 $(call force,CFG_GIC,y)
 $(call force,CFG_INIT_CNTVOFF,y)
+$(call force,CFG_PM,y)
+$(call force,CFG_PM_ARM32,y)
+$(call force,CFG_PM_STUBS,y)
 $(call force,CFG_PSCI_ARM32,y)
 $(call force,CFG_SCMI_MSG_DRIVERS,y)
 $(call force,CFG_SCMI_MSG_CLOCK,y)
@@ -85,7 +88,7 @@ CFG_DRAM_SIZE    ?= 0x40000000
 CFG_TEE_CORE_NB_CORE ?= 2
 CFG_WITH_PAGER ?= y
 CFG_WITH_LPAE ?= y
-CFG_MMAP_REGIONS ?= 23
+CFG_MMAP_REGIONS ?= 25
 
 ifeq ($(CFG_EMBED_DTB_SOURCE_FILE),)
 # Some drivers mandate DT support
@@ -98,6 +101,7 @@ endif
 
 CFG_STM32_BSEC ?= y
 CFG_STM32_CLKCALIB ?= y
+CFG_STM32_CRYP ?= y
 CFG_STM32_ETZPC ?= y
 CFG_STM32_GPIO ?= y
 CFG_STM32_I2C ?= y
@@ -130,8 +134,10 @@ CFG_STM32_RCC_SIP ?= y
 # Default enable some test facitilites
 CFG_TEE_CORE_EMBED_INTERNAL_TESTS ?= y
 CFG_WITH_STATS ?= y
+CFG_WERROR ?= y
 
 # Default disable some support for pager memory size constraint
+CFG_TEE_CORE_LOG_LEVEL ?= 2
 CFG_TEE_CORE_DEBUG ?= n
 CFG_UNWIND ?= n
 CFG_LOCKDEP ?= n

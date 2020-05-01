@@ -37,6 +37,7 @@ void stm32mp_syscfg_disable_io_compensation(void);
 /* Platform util for the GIC */
 vaddr_t get_gicc_base(void);
 vaddr_t get_gicd_base(void);
+void stm32mp_gic_set_end_of_interrupt(uint32_t it);
 
 /*
  * Platform util functions for the GPIO driver
@@ -108,6 +109,10 @@ static inline bool stm32mp_nsec_can_access_pmic_regu(const char *name __unused)
 }
 #endif
 
+/* PM sequences specific to SoC STOP mode support */
+void stm32mp1_clk_save_context_for_stop(void);
+void stm32mp1_clk_restore_context_for_stop(void);
+
 /*
  * Util for PLL1 settings management based on DT OPP table content.
  */
@@ -155,6 +160,9 @@ struct stm32_bsec_static_cfg {
 };
 
 void stm32mp_get_bsec_static_cfg(struct stm32_bsec_static_cfg *cfg);
+
+/* Reset function for early watchdog management */
+void stm32mp_platform_reset(int cpu);
 
 /* Clock calibration. Returns 0 on success */
 #ifdef CFG_STM32_CLKCALIB

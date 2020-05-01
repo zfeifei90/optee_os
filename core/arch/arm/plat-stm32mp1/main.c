@@ -96,6 +96,12 @@ register_dynamic_shm(DDR_BASE, CFG_TZDRAM_START - DDR_BASE);
 register_dynamic_shm(TZDRAM_END, DRAM_END - TZDRAM_END);
 #endif
 
+/* Map non-secure DDR bottom for the low power sequence */
+register_phys_mem(MEM_AREA_RAM_NSEC, DDR_BASE, SMALL_PAGE_SIZE);
+
+/* Map TEE physical RAM as read-only for content storage when suspending */
+register_phys_mem(MEM_AREA_ROM_SEC, TEE_RAM_START, TEE_RAM_PH_SIZE);
+
 #define _ID2STR(id)		(#id)
 #define ID2STR(id)		_ID2STR(id)
 
@@ -320,7 +326,11 @@ static TEE_Result init_stm32mp1_drivers(void)
 			     (SYSRAM_SEC_SIZE >= CFG_TZSRAM_SIZE)));
 
 	etzpc_configure_tzma(1, SYSRAM_SEC_SIZE >> SMALL_PAGE_SHIFT);
+#ifdef STM32MP1_USE_MPU0_RESET
+	/* BootROM needs unlocked for independent reset */
+#else
 	etzpc_lock_tzma(1);
+#endif
 
 	return TEE_SUCCESS;
 }
