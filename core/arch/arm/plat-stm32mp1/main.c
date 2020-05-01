@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-2-Clause
 /*
- * Copyright (c) 2017-2018, STMicroelectronics
+ * Copyright (c) 2017-2020, STMicroelectronics
  * Copyright (c) 2016-2018, Linaro Limited
  */
 
@@ -11,6 +11,8 @@
 #include <drivers/stm32_etzpc.h>
 #include <drivers/stm32mp1_etzpc.h>
 #include <drivers/stm32_uart.h>
+#include <drivers/stm32mp1_pmic.h>
+#include <drivers/stpmic1.h>
 #include <dt-bindings/clock/stm32mp1-clks.h>
 #include <io.h>
 #include <kernel/boot.h>
@@ -19,6 +21,7 @@
 #include <kernel/misc.h>
 #include <kernel/panic.h>
 #include <kernel/spinlock.h>
+#include <kernel/tee_misc.h>
 #include <mm/core_memprot.h>
 #include <platform_config.h>
 #include <sm/psci.h>
@@ -170,6 +173,37 @@ static TEE_Result init_console_from_dt(void)
 
 /* Probe console from DT once clock inits (service init level) are completed */
 service_init_late(init_console_from_dt);
+
+static TEE_Result initialize_pll1_settings(void)
+{
+	uint32_t cpu_voltage = 0U;
+	int ret = 0;
+
+	if (stm32mp1_clk_pll1_settings_are_valid())
+		return TEE_SUCCESS;
+
+	if (stm32mp_dt_pmic_status() > 0) {
+		stm32mp_get_pmic();
+
+		ret = stpmic1_regulator_voltage_get(
+				stm32mp_pmic_get_cpu_supply_name());
+		if (ret < 0)
+			return ret;
+
+		cpu_voltage = (uint32_t)ret;
+
+		stm32mp_put_pmic();
+	}
+
+	if (stm32mp1_clk_compute_all_pll1_settings(cpu_voltage))
+		panic();
+
+	return TEE_SUCCESS;
+}
+
+/* Compute PLL1 settings once PMIC init is completed */
+driver_init_late(initialize_pll1_settings);
+
 #endif
 
 static uintptr_t stm32_dbgmcu_base(void)
@@ -378,4 +412,66 @@ unsigned int stm32_get_gpio_bank_clock(unsigned int bank)
 
 	assert(bank <= GPIO_BANK_K);
 	return GPIOA + bank;
+}
+
+static int get_part_number(uint32_t *part_nb)
+{
+	uint32_t part_number = 0;
+	uint32_t dev_id = 0;
+	uint32_t otp = 0;
+	size_t bit_len = 0;
+
+	assert(part_nb);
+
+	if (stm32mp1_dbgmcu_get_chip_dev_id(&dev_id))
+		return -1;
+
+	if (stm32_bsec_find_otp_in_nvmem_layout(PART_NUMBER_OTP,
+						&otp, &bit_len))
+		return -1;
+
+	if (bit_len != 8)
+		panic();
+
+	if (stm32_bsec_read_otp(&part_number, otp))
+		return -1;
+
+	part_number = (part_number & PART_NUMBER_OTP_PART_MASK) >>
+		      PART_NUMBER_OTP_PART_SHIFT;
+
+	*part_nb = part_number | (dev_id << 16);
+
+	return 0;
+}
+
+bool stm32mp_supports_cpu_opp(uint32_t opp_id)
+{
+	uint32_t part_number = 0;
+	uint32_t id = 0;
+
+	if (get_part_number(&part_number)) {
+		DMSG("Cannot get part number\n");
+		panic();
+	}
+
+	switch (opp_id) {
+	case PLAT_OPP_ID1:
+	case PLAT_OPP_ID2:
+		id = opp_id;
+		break;
+	default:
+		return false;
+	}
+
+	switch (part_number) {
+	case STM32MP157F_PART_NB:
+	case STM32MP157D_PART_NB:
+	case STM32MP153F_PART_NB:
+	case STM32MP153D_PART_NB:
+	case STM32MP151F_PART_NB:
+	case STM32MP151D_PART_NB:
+		return true;
+	default:
+		return id == PLAT_OPP_ID1;
+	}
 }
