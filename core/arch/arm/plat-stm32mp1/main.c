@@ -56,6 +56,8 @@ register_phys_mem_pgdir(MEM_AREA_IO_NSEC, UART8_BASE, SMALL_PAGE_SIZE);
 register_phys_mem_pgdir(MEM_AREA_IO_SEC, BKPSRAM_BASE, SMALL_PAGE_SIZE);
 register_phys_mem_pgdir(MEM_AREA_IO_SEC, BSEC_BASE, SMALL_PAGE_SIZE);
 register_phys_mem_pgdir(MEM_AREA_IO_SEC, DBGMCU_BASE, SMALL_PAGE_SIZE);
+register_phys_mem_pgdir(MEM_AREA_IO_SEC, DDRCTRL_BASE, SMALL_PAGE_SIZE);
+register_phys_mem_pgdir(MEM_AREA_IO_SEC, DDRPHYC_BASE, SMALL_PAGE_SIZE);
 register_phys_mem_pgdir(MEM_AREA_IO_SEC, ETZPC_BASE, SMALL_PAGE_SIZE);
 register_phys_mem_pgdir(MEM_AREA_IO_SEC, GIC_BASE, GIC_SIZE);
 register_phys_mem_pgdir(MEM_AREA_IO_SEC, GPIOZ_BASE, SMALL_PAGE_SIZE);
