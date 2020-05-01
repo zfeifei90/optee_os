@@ -7,11 +7,29 @@
 #include <drivers/scmi-msg.h>
 #include <sm/optee_smc.h>
 #include <sm/sm.h>
+#include <stm32_util.h>
 
 #include "bsec_svc.h"
 #include "pwr_svc.h"
 #include "rcc_svc.h"
 #include "stm32mp1_smc.h"
+
+#ifdef CFG_STM32_CLKCALIB_SIP
+static uint32_t calib_scv_handler(uint32_t x1)
+{
+	unsigned long clock_id = x1;
+
+	if (stm32mp_start_clock_calib(clock_id))
+		return STM32_SIP_SVC_FAILED;
+
+	return STM32_SIP_SVC_OK;
+}
+#else
+static uint32_t calib_scv_handler(uint32_t __unused x1)
+{
+	return STM32_SIP_SVC_FAILED;
+}
+#endif
 
 static enum sm_handler_ret sip_service(struct sm_ctx *ctx __unused,
 				       struct thread_smc_args *args)
@@ -47,6 +65,9 @@ static enum sm_handler_ret sip_service(struct sm_ctx *ctx __unused,
         case STM32_SIP_SVC_FUNC_RCC_OPP:
                 args->a0 = rcc_opp_scv_handler(args->a1, args->a2, &args->a1);
                 break;
+	case STM32_SIP_SVC_FUNC_CAL:
+		args->a0 = calib_scv_handler(args->a1);
+		break;
 	case STM32_SIP_SVC_FUNC_PWR:
 		args->a0 = pwr_scv_handler(args->a1, args->a2, args->a3);
 		break;

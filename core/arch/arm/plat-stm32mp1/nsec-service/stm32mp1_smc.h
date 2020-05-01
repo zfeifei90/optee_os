@@ -14,7 +14,7 @@
 #define STM32_SIP_SVC_VERSION_MAJOR	0x0
 #define STM32_SIP_SVC_VERSION_MINOR	0x1
 
-#define STM32_SIP_SVC_FUNCTION_COUNT	6
+#define STM32_SIP_SVC_FUNCTION_COUNT	7
 
 /* STM32 SIP service generic return codes */
 #define STM32_SIP_SVC_OK		0x0
@@ -90,7 +90,16 @@
 #define STM32_SIP_SVC_REG_CLEAR			0x3
 
 /*
- * SIP function STM32_SIP_SVC_FUNC_PWR
+ * SIP functions STM32_SIP_SVC_FUNC_CAL
+ *
+ * Argument a0: (input) SMCC ID
+ *		(output) status return code
+ * Argument a1: (input) Clock ID (from DT clock bindings)
+ */
+#define STM32_SIP_SVC_FUNC_CAL			0x1002
+
+/*
+ * SIP functions STM32_SIP_FUNC_PWR
  *
  * Argument a0: (input) SMCC ID
  *		(output) status return code
