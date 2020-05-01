@@ -17,6 +17,7 @@
 #include <platform_config.h>
 #include <stdio.h>
 #include <stm32_util.h>
+#include <tee_api_types.h>
 #include <trace.h>
 #include <util.h>
 
@@ -1365,6 +1366,17 @@ static TEE_Result stm32mp1_clk_early_init(void)
 
 	return TEE_SUCCESS;
 }
+#else
+static TEE_Result stm32mp1_clk_early_init(void)
+{
+	vaddr_t rcc_base = stm32_rcc_base();
+
+	/* Expect booting from a secure setup */
+	if ((io_read32(rcc_base + RCC_TZCR) & RCC_TZCR_TZEN) == 0)
+		panic("RCC TZC[TZEN]");
+
+	return TEE_SUCCESS;
+}
+#endif /*CFG_EMBED_DTB*/
 
 service_init(stm32mp1_clk_early_init);
-#endif /*CFG_EMBED_DTB*/
