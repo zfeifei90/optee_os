@@ -53,6 +53,7 @@ register_phys_mem_pgdir(MEM_AREA_IO_NSEC, UART7_BASE, SMALL_PAGE_SIZE);
 register_phys_mem_pgdir(MEM_AREA_IO_NSEC, UART8_BASE, SMALL_PAGE_SIZE);
 #endif
 
+register_phys_mem_pgdir(MEM_AREA_IO_SEC, BKPSRAM_BASE, SMALL_PAGE_SIZE);
 register_phys_mem_pgdir(MEM_AREA_IO_SEC, BSEC_BASE, SMALL_PAGE_SIZE);
 register_phys_mem_pgdir(MEM_AREA_IO_SEC, DBGMCU_BASE, SMALL_PAGE_SIZE);
 register_phys_mem_pgdir(MEM_AREA_IO_SEC, ETZPC_BASE, SMALL_PAGE_SIZE);
@@ -417,6 +418,13 @@ static vaddr_t bkpreg_base(void)
 vaddr_t stm32mp_bkpreg(unsigned int idx)
 {
 	return bkpreg_base() + (idx * sizeof(uint32_t));
+}
+
+vaddr_t stm32mp_bkpsram_base(void)
+{
+	struct io_pa_va base = { .pa = BKPSRAM_BASE };
+
+	return io_pa_or_va(&base);
 }
 
 vaddr_t stm32_get_gpio_bank_base(unsigned int bank)
