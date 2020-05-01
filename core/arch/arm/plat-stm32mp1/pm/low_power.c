@@ -206,6 +206,16 @@ void stm32_enter_cstop(uint32_t mode)
 
 	if (ddr_standby_sr_entry() != 0)
 		panic();
+
+	if (mode == STM32_PM_CSTOP_ALLOW_STANDBY_DDR_SR) {
+		/* Keep retention and backup RAM content in standby */
+		io_setbits32(pwr_base + PWR_CR2_OFF, PWR_CR2_BREN |
+			     PWR_CR2_RREN);
+
+		while ((io_read32(pwr_base + PWR_CR2_OFF) &
+			(PWR_CR2_BRRDY | PWR_CR2_RRRDY)) == 0U)
+			;
+	}
 }
 
 /*
