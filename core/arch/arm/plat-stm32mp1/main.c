@@ -9,8 +9,9 @@
 #include <console.h>
 #include <drivers/gic.h>
 #include <drivers/stm32_etzpc.h>
-#include <drivers/stm32mp1_etzpc.h>
+#include <drivers/stm32_iwdg.h>
 #include <drivers/stm32_uart.h>
+#include <drivers/stm32mp1_etzpc.h>
 #include <drivers/stm32mp1_pmic.h>
 #include <drivers/stpmic1.h>
 #include <dt-bindings/clock/stm32mp1-clks.h>
@@ -36,6 +37,8 @@ register_phys_mem_pgdir(MEM_AREA_IO_NSEC, GPIOS_NSEC_BASE, GPIOS_NSEC_SIZE);
 #endif
 register_phys_mem_pgdir(MEM_AREA_IO_NSEC, I2C4_BASE, SMALL_PAGE_SIZE);
 register_phys_mem_pgdir(MEM_AREA_IO_NSEC, I2C6_BASE, SMALL_PAGE_SIZE);
+register_phys_mem_pgdir(MEM_AREA_IO_NSEC, IWDG1_BASE, SMALL_PAGE_SIZE);
+register_phys_mem_pgdir(MEM_AREA_IO_NSEC, IWDG2_BASE, SMALL_PAGE_SIZE);
 register_phys_mem_pgdir(MEM_AREA_IO_NSEC, RNG1_BASE, SMALL_PAGE_SIZE);
 #ifdef CFG_WITH_NSEC_UARTS
 register_phys_mem_pgdir(MEM_AREA_IO_NSEC, USART1_BASE, SMALL_PAGE_SIZE);
@@ -55,6 +58,7 @@ register_phys_mem_pgdir(MEM_AREA_IO_SEC, GIC_BASE, GIC_SIZE);
 register_phys_mem_pgdir(MEM_AREA_IO_SEC, GPIOZ_BASE, SMALL_PAGE_SIZE);
 register_phys_mem_pgdir(MEM_AREA_IO_SEC, I2C4_BASE, SMALL_PAGE_SIZE);
 register_phys_mem_pgdir(MEM_AREA_IO_SEC, I2C6_BASE, SMALL_PAGE_SIZE);
+register_phys_mem_pgdir(MEM_AREA_IO_SEC, IWDG1_BASE, SMALL_PAGE_SIZE);
 register_phys_mem_pgdir(MEM_AREA_IO_SEC, PWR_BASE, SMALL_PAGE_SIZE);
 register_phys_mem_pgdir(MEM_AREA_IO_SEC, RCC_BASE, SMALL_PAGE_SIZE);
 register_phys_mem_pgdir(MEM_AREA_IO_SEC, RNG1_BASE, SMALL_PAGE_SIZE);
@@ -505,4 +509,60 @@ bool stm32mp_supports_cpu_opp(uint32_t opp_id)
 	default:
 		return id == PLAT_OPP_ID1;
 	}
+}
+
+unsigned int stm32mp_iwdg_irq2instance(size_t irq)
+{
+	int id = irq - STM32MP1_IRQ_IWDG1;
+
+	assert(id >= IWDG1_INST && id <= IWDG2_INST);
+	return (unsigned int)id;
+}
+
+size_t stm32mp_iwdg_instance2irq(unsigned int instance)
+{
+	return instance + STM32MP1_IRQ_IWDG1;
+}
+
+unsigned int stm32mp_iwdg_iomem2instance(vaddr_t pbase)
+{
+	switch (pbase) {
+	case IWDG1_BASE:
+		return IWDG1_INST;
+	case IWDG2_BASE:
+		return IWDG2_INST;
+	default:
+		panic();
+	}
+}
+
+unsigned long stm32_get_iwdg_otp_config(vaddr_t pbase)
+{
+	unsigned int idx = 0;
+	unsigned long iwdg_cfg = 0;
+	uint32_t otp_id = 0;
+	size_t bit_len = 0;
+	uint32_t otp_value = 0;
+
+	idx = stm32mp_iwdg_iomem2instance(pbase);
+
+	if (stm32_bsec_find_otp_in_nvmem_layout(HW2_OTP, &otp_id, &bit_len))
+		panic();
+
+	if (bit_len != 32)
+		panic();
+
+	if (stm32_bsec_read_otp(&otp_value, otp_id))
+		panic();
+
+	if (otp_value & BIT(idx + HW2_OTP_IWDG_HW_ENABLE_SHIFT))
+		iwdg_cfg |= IWDG_HW_ENABLED;
+
+	if (otp_value & BIT(idx + HW2_OTP_IWDG_FZ_STOP_SHIFT))
+		iwdg_cfg |= IWDG_DISABLE_ON_STOP;
+
+	if (otp_value & BIT(idx + HW2_OTP_IWDG_FZ_STANDBY_SHIFT))
+		iwdg_cfg |= IWDG_DISABLE_ON_STANDBY;
+
+	return iwdg_cfg;
 }
