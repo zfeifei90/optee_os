@@ -20,10 +20,9 @@
  * Optimize unpaged memory size:
  * - one table for the level2 table for overall vmem range
  * - two tables for TEE RAM fine grain mapping [2ffc.0000 301f.ffff]
- * - one table for internal RAMs (PM: ROMed core TEE RAM & DDR first page)
- * - one table for a 2MByte dynamiq shared virtual memory (SHM_VASPACE)
+ * - one table for a 2MByte dynamic shared virtual memory (SHM_VASPACE)
  */
-#define MAX_XLAT_TABLES			5
+#define MAX_XLAT_TABLES			4
 #else
 /*
  * Optimize unpaged memory size:
