@@ -6,7 +6,20 @@
 
 #include <kernel/panic.h>
 #include <kernel/thread.h>
+#include <stdbool.h>
 #include <trace.h>
+
+static void __noreturn stall_cpu(void)
+{
+	while (true)
+		;
+}
+
+void __weak __noreturn plat_panic(void)
+{
+	/* abort current execution */
+	stall_cpu();
+}
 
 void __do_panic(const char *file __maybe_unused,
 		const int line __maybe_unused,
@@ -15,8 +28,6 @@ void __do_panic(const char *file __maybe_unused,
 {
 	/* disable prehemption */
 	(void)thread_mask_exceptions(THREAD_EXCP_ALL);
-
-	/* TODO: notify other cores */
 
 	/* trace: Panic ['panic-string-message' ]at FILE:LINE [<FUNCTION>]" */
 	if (!file && !func && !msg)
@@ -28,7 +39,9 @@ void __do_panic(const char *file __maybe_unused,
 			 func ? "<" : "", func ? func : "", func ? ">" : "");
 
 	EPRINT_STACK();
-	/* abort current execution */
-	while (1)
-		;
+
+	plat_panic();
+
+	EMSG("platform failed to abord execution");
+	stall_cpu();
 }
