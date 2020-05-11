@@ -226,12 +226,20 @@ void stm32mp_get_bsec_static_cfg(struct stm32_bsec_static_cfg *cfg)
 
 bool stm32mp_is_closed_device(void)
 {
-	uint32_t otp = 0;
+	uint32_t otp_id = 0;
+	size_t bit_len = 0;
+	uint32_t otp_value = 0;
 	TEE_Result result = TEE_ERROR_GENERIC;
 
+	if (stm32_bsec_find_otp_in_nvmem_layout(CFG0_OTP, &otp_id, &bit_len))
+		panic();
+
+	if (bit_len != 8)
+		panic();
+
 	/* Non closed_device platform expects fuse well programmed to 0 */
-	result = stm32_bsec_shadow_read_otp(&otp, DATA0_OTP);
-	if (!result && !(otp & BIT(DATA0_OTP_SECURED_POS)))
+	result = stm32_bsec_shadow_read_otp(&otp_value, otp_id);
+	if (!result && !(otp_value & BIT(CFG0_OTP_SECURED_POS)))
 		return false;
 
 	return true;
