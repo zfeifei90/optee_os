@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
 /*
- * Copyright (C) STMicroelectronics 2019 - All Rights Reserved
- * Author: Alexandre Torgue <alexandre.torgue@st.com> for STMicroelectronics.
+ * Copyright (C) STMicroelectronics 2017 - All Rights Reserved
+ * Author: Ludovic Barre <ludovic.barre@st.com> for STMicroelectronics.
  */
 
 #include <dt-bindings/clock/stm32mp1-clksrc.h>
@@ -10,7 +10,7 @@
 / {
 	memory@c0000000 {
 		device_type = "memory";
-		reg = <0xc0000000 0x20000000>;
+		reg = <0xC0000000 0x40000000>;
 	};
 
 	vin: vin {
@@ -34,10 +34,6 @@
 };
 
 &cpu0{
-	cpu-supply = <&vddcore>;
-};
-
-&cpu1{
 	cpu-supply = <&vddcore>;
 };
 
@@ -70,10 +66,10 @@
 			buck3-supply = <&vin>;
 			buck4-supply = <&vin>;
 			ldo1-supply = <&v3v3>;
-			ldo2-supply = <&vin>;
+			ldo2-supply = <&v3v3>;
 			ldo3-supply = <&vdd_ddr>;
 			ldo4-supply = <&vin>;
-			ldo5-supply = <&vin>;
+			ldo5-supply = <&v3v3>;
 			ldo6-supply = <&v3v3>;
 			vref_ddr-supply = <&vin>;
 			boost-supply = <&vin>;
@@ -91,6 +87,10 @@
 					regulator-on-in-suspend;
 					regulator-suspend-microvolt = <1200000>;
 				};
+				lplv-stop {
+					regulator-on-in-suspend;
+					regulator-suspend-microvolt = <900000>;
+				};
 				standby-ddr-sr {
 					regulator-off-in-suspend;
 				};
@@ -107,6 +107,10 @@
 				regulator-initial-mode = <0>;
 				regulator-over-current-protection;
 				lp-stop {
+					regulator-suspend-microvolt = <1350000>;
+					regulator-on-in-suspend;
+				};
+				lplv-stop {
 					regulator-suspend-microvolt = <1350000>;
 					regulator-on-in-suspend;
 				};
@@ -131,6 +135,10 @@
 					regulator-suspend-microvolt = <3300000>;
 					regulator-on-in-suspend;
 				};
+				lplv-stop {
+					regulator-suspend-microvolt = <3300000>;
+					regulator-on-in-suspend;
+				};
 				standby-ddr-sr {
 					regulator-suspend-microvolt = <3300000>;
 					regulator-on-in-suspend;
@@ -148,10 +156,6 @@
 				regulator-always-on;
 				regulator-over-current-protection;
 				regulator-initial-mode = <0>;
-				lp-stop {
-					regulator-suspend-microvolt = <3300000>;
-					regulator-on-in-suspend;
-				};
 				standby-ddr-sr {
 					regulator-off-in-suspend;
 				};
@@ -160,11 +164,10 @@
 				};
 			};
 
-			v1v8_audio: ldo1 {
-				regulator-name = "v1v8_audio";
-				regulator-min-microvolt = <1800000>;
-				regulator-max-microvolt = <1800000>;
-				regulator-always-on;
+			vdda: ldo1 {
+				regulator-name = "vdda";
+				regulator-min-microvolt = <2900000>;
+				regulator-max-microvolt = <2900000>;
 				standby-ddr-sr {
 					regulator-off-in-suspend;
 				};
@@ -173,11 +176,10 @@
 				};
 			};
 
-			v3v3_hdmi: ldo2 {
-				regulator-name = "v3v3_hdmi";
-				regulator-min-microvolt = <3300000>;
-				regulator-max-microvolt = <3300000>;
-				regulator-always-on;
+			v2v8: ldo2 {
+				regulator-name = "v2v8";
+				regulator-min-microvolt = <2800000>;
+				regulator-max-microvolt = <2800000>;
 				standby-ddr-sr {
 					regulator-off-in-suspend;
 				};
@@ -193,6 +195,9 @@
 				regulator-always-on;
 				regulator-over-current-protection;
 				lp-stop {
+					regulator-off-in-suspend;
+				};
+				lplv-stop {
 					regulator-off-in-suspend;
 				};
 				standby-ddr-sr {
@@ -216,8 +221,8 @@
 				};
 			};
 
-			vdda: ldo5 {
-				regulator-name = "vdda";
+			vdd_sd: ldo5 {
+				regulator-name = "vdd_sd";
 				regulator-min-microvolt = <2900000>;
 				regulator-max-microvolt = <2900000>;
 				regulator-boot-on;
@@ -229,11 +234,10 @@
 				};
 			};
 
-			v1v2_hdmi: ldo6 {
-				regulator-name = "v1v2_hdmi";
-				regulator-min-microvolt = <1200000>;
-				regulator-max-microvolt = <1200000>;
-				regulator-always-on;
+			v1v8: ldo6 {
+				regulator-name = "v1v8";
+				regulator-min-microvolt = <1800000>;
+				regulator-max-microvolt = <1800000>;
 				standby-ddr-sr {
 					regulator-off-in-suspend;
 				};
@@ -247,6 +251,9 @@
 				regulator-always-on;
 				regulator-over-current-protection;
 				lp-stop {
+					regulator-on-in-suspend;
+				};
+				lplv-stop {
 					regulator-on-in-suspend;
 				};
 				standby-ddr-sr {
@@ -305,6 +312,7 @@
 	system_suspend_supported_soc_modes = <
 		STM32_PM_CSLEEP_RUN
 		STM32_PM_CSTOP_ALLOW_LP_STOP
+		STM32_PM_CSTOP_ALLOW_LPLV_STOP
 		STM32_PM_CSTOP_ALLOW_STANDBY_DDR_SR
 	>;
 	system_off_soc_mode = <STM32_PM_CSTOP_ALLOW_STANDBY_DDR_OFF>;
@@ -416,11 +424,32 @@
 
 &sdmmc1 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&sdmmc1_b4_pins_a>;
+	pinctrl-0 = <&sdmmc1_b4_pins_a &sdmmc1_dir_pins_a>;
 	disable-wp;
+	st,sig-dir;
 	st,neg-edge;
+	st,use-ckin;
 	bus-width = <4>;
+	vmmc-supply = <&vdd_sd>;
+	sd-uhs-sdr12;
+	sd-uhs-sdr25;
+	sd-uhs-sdr50;
+	sd-uhs-ddr50;
+	sd-uhs-sdr104;
+	status = "okay";
+};
+
+&sdmmc2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&sdmmc2_b4_pins_a &sdmmc2_d47_pins_a>;
+	non-removable;
+	no-sd;
+	no-sdio;
+	st,neg-edge;
+	bus-width = <8>;
 	vmmc-supply = <&v3v3>;
+	vqmmc-supply = <&vdd>;
+	mmc-ddr-3_3v;
 	status = "okay";
 };
 
@@ -436,28 +465,8 @@
 	status = "okay";
 };
 
-&uart7 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&uart7_pins_b>;
-	status = "disabled";
-};
-
-&usart3 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&usart3_pins_b>;
-	uart-has-rtscts;
-	status = "disabled";
-};
-
 &usbotg_hs {
-	phys = <&usbphyc_port1 0>;
-	phy-names = "usb2-phy";
-	usb-role-switch;
-	status = "okay";
-};
-
-&usbphyc {
-	status = "okay";
+	vbus-supply = <&vbus_otg>;
 };
 
 &usbphyc_port0 {
