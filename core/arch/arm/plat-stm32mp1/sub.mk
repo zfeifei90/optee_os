@@ -8,6 +8,7 @@ srcs-$(CFG_SCMI_MSG_DRIVERS) += scmi_server.c
 srcs-y += shared_resources.c
 srcs-$(CFG_TZC400) += plat_tzc400.c
 srcs-$(CFG_WITH_PAGER) += link_dummies_paged.c
+srcs-$(CFG_RPROC_PTA) += remoteproc_pta.c
 
 subdirs-y += drivers
 subdirs-y += nsec-service
