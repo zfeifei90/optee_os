@@ -39,6 +39,8 @@
 #endif /*CFG_WITH_PAGER*/
 
 /* SoC interface registers base address */
+#define MCUSRAM_BASE			0x30000000ul
+#define RETRAM_BASE			0x38000000ul
 #define BKPSRAM_BASE			0x54000000
 #define BSEC_BASE			0x5c005000
 #define ETZPC_BASE			0x5c007000
@@ -237,6 +239,12 @@
 #else
 #define SYSRAM_SEC_SIZE		SYSRAM_SIZE
 #endif
+
+/* RETRAM layout */
+#define RETRAM_SIZE			0x10000
+
+/* MCUSRAM layout */
+#define MCUSRAM_SIZE			0x60000
 
 /* SoC part numbers and revisions */
 #define STM32MP1_CHIP_ID		0x500
