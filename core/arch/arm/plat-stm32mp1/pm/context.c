@@ -44,8 +44,13 @@
 #define STANDBY_CONTEXT_MAGIC0		(0x0001 << 16)
 #define STANDBY_CONTEXT_MAGIC1		(0x0002 << 16)
 
-#define STANDBY_CONTEXT_MAGIC		(STANDBY_CONTEXT_MAGIC1 | \
-					 TRAINING_AREA_SIZE)
+#if CFG_STM32MP15_PM_CONTEX_VERSION == 1
+#define STANDBY_CONTEXT_MAGIC	(STANDBY_CONTEXT_MAGIC0 | TRAINING_AREA_SIZE)
+#elif CFG_STM32MP15_PM_CONTEX_VERSION == 2
+#define STANDBY_CONTEXT_MAGIC	(STANDBY_CONTEXT_MAGIC1 | TRAINING_AREA_SIZE)
+#else
+#error Invalid value for CFG_STM32MP15_PM_CONTEX_VERSION
+#endif
 
 #if (PLAT_MAX_OPP_NB != 2) || (PLAT_MAX_PLLCFG_NB != 6)
 #error STANDBY_CONTEXT_MAGIC1 does not support expected PLL1 settings
@@ -85,7 +90,9 @@ struct pm_mailbox {
 	uint32_t core0_resume_ep;
 	uint32_t zq0cr0_zdata;
 	uint8_t ddr_training_backup[TRAINING_AREA_SIZE];
+#if CFG_STM32MP15_PM_CONTEX_VERSION >= 2
 	uint8_t pll1_settings[PLL1_SETTINGS_SIZE];
+#endif
 };
 
 /*
@@ -293,6 +300,7 @@ static void save_ddr_training_area(void)
  * structure must then be saved before going to STANDBY in the PM mailbox
  * shared with the warm boot boot stage.
  */
+#if CFG_STM32MP15_PM_CONTEX_VERSION >= 2
 static void save_pll1_settings(void)
 {
 	struct pm_mailbox *mailbox = get_pm_mailbox();
@@ -301,6 +309,7 @@ static void save_pll1_settings(void)
 
 	stm32mp1_clk_lp_save_opp_pll1_settings(data, size);
 }
+#endif
 
 static void load_earlyboot_pm_mailbox(void)
 {
@@ -317,7 +326,9 @@ static void load_earlyboot_pm_mailbox(void)
 
 	save_ddr_training_area();
 
+#if CFG_STM32MP15_PM_CONTEX_VERSION >= 2
 	save_pll1_settings();
+#endif
 }
 
 #if defined(CFG_STM32_RNG) && defined(CFG_STM32_CRYP)

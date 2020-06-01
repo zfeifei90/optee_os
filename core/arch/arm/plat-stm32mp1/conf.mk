@@ -134,6 +134,11 @@ CFG_STM32_LOWPOWER_SIP ?= $(CFG_PM)
 CFG_STM32_PWR_SIP ?= y
 CFG_STM32_RCC_SIP ?= y
 
+# Default use stm32mp1 PM mailbox context version 2
+# Use CFG_STM32MP15_PM_CONTEX_VERSION=1 to force version 0 when dealing with
+# a TF-A firmware that supports version 1 of the context mailbox.
+CFG_STM32MP15_PM_CONTEX_VERSION ?= 2
+
 # Default enable some test facitilites
 CFG_TEE_CORE_EMBED_INTERNAL_TESTS ?= y
 CFG_WITH_STATS ?= y
