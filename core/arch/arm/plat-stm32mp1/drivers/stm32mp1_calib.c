@@ -337,6 +337,11 @@ static void arm_timer_with_period(uint32_t period_sec)
 {
 	timer_val = period_sec * read_cntfrq();
 
+	if (timer_val > INT32_MAX)
+		timer_val = INT32_MAX;
+
+	DMSG("Calibration timeout set to %"PRIu32, timer_val / read_cntfrq());
+
 	arm_timer();
 }
 
