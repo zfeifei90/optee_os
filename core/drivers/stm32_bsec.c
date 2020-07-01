@@ -287,7 +287,6 @@ TEE_Result stm32_bsec_shadow_read_otp(uint32_t *otp_value, uint32_t otp_id)
 	return result;
 }
 
-#ifdef CFG_STM32_BSEC_WRITE
 TEE_Result stm32_bsec_write_otp(uint32_t value, uint32_t otp_id)
 {
 	TEE_Result result = 0;
@@ -312,6 +311,7 @@ TEE_Result stm32_bsec_write_otp(uint32_t value, uint32_t otp_id)
 	return TEE_SUCCESS;
 }
 
+#ifdef CFG_STM32_BSEC_WRITE
 TEE_Result stm32_bsec_program_otp(uint32_t value, uint32_t otp_id)
 {
 	TEE_Result result = 0;
