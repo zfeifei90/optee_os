@@ -63,7 +63,7 @@
 #define TIM_PRESCAL_HSI		10U
 #define TIM_PRESCAL_CSI		7U
 #define TIM_MIN_FREQ_CALIB	50000000U
-
+#define TIM_THRESHOLD		1U
 
 struct stm32_timer_instance {
 	struct io_pa_va base;
@@ -133,9 +133,9 @@ static int timer_config(struct stm32_timer_instance *timer)
 static uint32_t timer_start_capture(struct stm32_timer_instance *timer)
 {
 	uint64_t timeout_ref;
+	uint64_t timeout_conv = 0;
 	uint32_t counter = 0U;
 	uint32_t old_counter = 0U;
-	int twice;
 	uintptr_t base = timer_base(timer);
 
 	if (timer_config(timer) < 0)
@@ -145,29 +145,41 @@ static uint32_t timer_start_capture(struct stm32_timer_instance *timer)
 
 	mmio_write_32(base + TIM_SR, 0U);
 
-	timeout_ref = utimeout_init(TIM_TIMEOUT_US);
+	timeout_ref = utimeout_init(TIM_TIMEOUT_US / TIM_TIMEOUT_STEP_US);
 
 	while ((mmio_read_32(base + TIM_SR) & TIM_SR_UIF) == 0U) {
-		if (utimeout_elapsed(TIM_TIMEOUT_US, timeout_ref)) {
+		if (utimeout_elapsed(TIM_TIMEOUT_US / TIM_TIMEOUT_STEP_US,
+				     timeout_ref)) {
 			goto bail;
 		}
 	}
 
 	mmio_write_32(base + TIM_SR, 0U);
 
-	for (twice = 0; (twice < 2) || (counter != old_counter); twice++) {
-		timeout_ref = utimeout_init(TIM_TIMEOUT_US);
+	timeout_conv = utimeout_init(TIM_TIMEOUT_US);
 
-		while ((mmio_read_32(base + TIM_SR) & TIM_SR_CC1IF) == 0U) {
-			if (utimeout_elapsed(TIM_TIMEOUT_US, timeout_ref)) {
-				counter = 0U;
-				goto bail;
-			}
+	do {
+		if (utimeout_elapsed(TIM_TIMEOUT_US, timeout_conv)) {
+			counter = 0;
+			goto bail;
+		}
+
+		timeout_ref = utimeout_init(TIM_TIMEOUT_US /
+					    TIM_TIMEOUT_STEP_US);
+		while (!utimeout_elapsed(TIM_TIMEOUT_US / TIM_TIMEOUT_STEP_US,
+					 timeout_ref))
+			if (mmio_read_32(base + TIM_SR) & TIM_SR_CC1IF)
+				break;
+
+		if (!(mmio_read_32(base + TIM_SR) & TIM_SR_CC1IF)) {
+			counter = 0;
+			goto bail;
 		}
 
 		old_counter = counter;
 		counter = mmio_read_32(base + TIM_CCR1);
-	}
+	} while (MAX(counter, old_counter) - MIN(counter, old_counter) >
+		 TIM_THRESHOLD);
 
 bail:
 	stm32_clock_disable(timer->clk);
