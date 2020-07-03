@@ -15,6 +15,7 @@
 #include <drivers/stm32mp1_rcc.h>
 #include <drivers/stpmic1.h>
 #include <dt-bindings/clock/stm32mp1-clks.h>
+#include <dt-bindings/soc/st,stm32-etzpc.h>
 #include <io.h>
 #include <kernel/dt.h>
 #include <kernel/generic_boot.h>
@@ -545,6 +546,22 @@ bool stm32mp_supports_cpu_opp(uint32_t opp_id)
 		return true;
 	default:
 		return id == PLAT_OPP_ID1;
+	}
+}
+
+enum etzpc_decprot_attributes stm32mp_etzpc_binding2decprot(uint32_t mode)
+{
+	switch (mode) {
+	case DECPROT_S_RW:
+		return ETZPC_DECPROT_S_RW;
+	case DECPROT_NS_R_S_W:
+		return ETZPC_DECPROT_NS_R_S_W;
+	case DECPROT_MCU_ISOLATION:
+		return ETZPC_DECPROT_MCU_ISOLATION;
+	case DECPROT_NS_RW:
+		return ETZPC_DECPROT_NS_RW;
+	default:
+		panic();
 	}
 }
 
