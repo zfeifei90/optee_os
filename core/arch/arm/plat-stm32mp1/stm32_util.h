@@ -177,6 +177,11 @@ static inline int stm32mp_start_clock_calib(unsigned int clock_id __unused)
 /* Platform util for the RTC driver */
 bool stm32_rtc_get_read_twice(void);
 
+/* Platform util for the ETZPC driver */
+
+/* Convert a ETZPC mode from DT binding to ETZPC DECPROT configuration */
+enum etzpc_decprot_attributes stm32mp_etzpc_binding2decprot(uint32_t mode);
+
 /*
  * Return true if platform is in closed_device mode
  */
