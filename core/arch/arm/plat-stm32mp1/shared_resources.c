@@ -147,6 +147,9 @@ static const char __maybe_unused *shres2str_id_tbl[STM32MP1_SHRES_COUNT] = {
 
 static __maybe_unused const char *shres2str_id(enum stm32mp_shres id)
 {
+	if (id >= ARRAY_SIZE(shres2str_id_tbl))
+		panic("Invalid shared resource ID");
+
 	return shres2str_id_tbl[id];
 }
 
@@ -406,6 +409,91 @@ void stm32mp_register_non_secure_gpio(unsigned int bank, unsigned int pin)
 		break;
 	}
 }
+
+#ifdef CFG_STM32_ETZPC
+struct shres2decprot {
+	enum stm32mp_shres shres_id;
+	unsigned int decprot_id;
+};
+
+#define SHRES2DECPROT(shres, decprot) {		\
+		.shres_id = shres,		\
+		.decprot_id = decprot,		\
+	}
+
+static const struct shres2decprot shres2decprot_tbl[] = {
+	SHRES2DECPROT(STM32MP1_SHRES_IWDG1, STM32MP1_ETZPC_IWDG1_ID),
+	SHRES2DECPROT(STM32MP1_SHRES_USART1, STM32MP1_ETZPC_USART1_ID),
+	SHRES2DECPROT(STM32MP1_SHRES_SPI6, STM32MP1_ETZPC_SPI6_ID),
+	SHRES2DECPROT(STM32MP1_SHRES_I2C4, STM32MP1_ETZPC_I2C4_ID),
+	SHRES2DECPROT(STM32MP1_SHRES_RNG1, STM32MP1_ETZPC_RNG1_ID),
+	SHRES2DECPROT(STM32MP1_SHRES_HASH1, STM32MP1_ETZPC_HASH1_ID),
+	SHRES2DECPROT(STM32MP1_SHRES_CRYP1, STM32MP1_ETZPC_CRYP1_ID),
+	SHRES2DECPROT(STM32MP1_SHRES_I2C6, STM32MP1_ETZPC_I2C6_ID),
+};
+
+static enum stm32mp_shres decprot2shres(unsigned int decprot_id)
+{
+	size_t i = 0;
+
+	for (i = 0; i < ARRAY_SIZE(shres2decprot_tbl); i++)
+		if (shres2decprot_tbl[i].decprot_id == decprot_id)
+			return shres2decprot_tbl[i].shres_id;
+
+	DMSG("No shared resource for DECPROT ID %u", decprot_id);
+	return STM32MP1_SHRES_COUNT;
+}
+
+void stm32mp_register_etzpc_decprot(unsigned int id,
+				    enum etzpc_decprot_attributes attr)
+{
+	enum shres_state state = SHRES_SECURE;
+	bool write_secure = false;
+	unsigned int id_shres = STM32MP1_SHRES_COUNT;
+
+	switch (attr) {
+	case ETZPC_DECPROT_S_RW:
+		state = SHRES_SECURE;
+		break;
+	case ETZPC_DECPROT_NS_R_S_W:
+	case ETZPC_DECPROT_MCU_ISOLATION:
+	case ETZPC_DECPROT_NS_RW:
+		state = SHRES_NON_SECURE;
+		break;
+	default:
+		panic();
+	}
+
+	write_secure = attr == ETZPC_DECPROT_NS_R_S_W ||
+		       attr == ETZPC_DECPROT_S_RW;
+
+	switch (id) {
+	case STM32MP1_ETZPC_STGENC_ID:
+	case STM32MP1_ETZPC_BKPSRAM_ID:
+		if (state != SHRES_SECURE)
+			panic("ETZPC: STGEN & BKSRAM should be secure");
+		break;
+	case STM32MP1_ETZPC_DDRCTRL_ID:
+	case STM32MP1_ETZPC_DDRPHYC_ID:
+		/* We assume these must always be write-only to secure world */
+		if (!write_secure)
+			panic("ETZPC: DDRCTRL & DDRPHY should be write secure");
+		break;
+	default:
+		id_shres = decprot2shres(id);
+		if (id_shres >= STM32MP1_SHRES_COUNT) {
+			if (write_secure) {
+				DMSG("ETZPC: cannot secure DECPROT %s",
+				     shres2str_id(id_shres));
+				panic();
+			}
+		} else {
+			register_periph(id_shres, state);
+		}
+		break;
+	}
+}
+#endif /*CFG_STM32_ETZPC*/
 
 static void lock_registering(void)
 {
