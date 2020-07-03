@@ -340,4 +340,8 @@ bool stm32mp_gpio_bank_is_non_secure(unsigned int bank);
 /* Register parent clocks of @clock (ID used in clock DT bindings) as secure */
 void stm32mp_register_clock_parents_secure(unsigned long clock_id);
 
+/* Register a resource identified by a ETZPC DECPROT identifier */
+void stm32mp_register_etzpc_decprot(unsigned int id,
+				    enum etzpc_decprot_attributes attr);
+
 #endif /*__STM32_UTIL_H__*/
