@@ -701,13 +701,39 @@ static void config_lock_decprot(uint32_t decprot_id,
 		etzpc_lock_decprot(decprot_id);
 }
 
+static bool decprot_is_write_secure(uint32_t decprot_id)
+{
+	enum etzpc_decprot_attributes attr = etzpc_get_decprot(decprot_id);
+
+	return attr == ETZPC_DECPROT_S_RW ||
+	       attr == ETZPC_DECPROT_NS_R_S_W;
+}
+
+static bool decprot_is_secure(uint32_t decprot_id)
+{
+	enum etzpc_decprot_attributes attr = etzpc_get_decprot(decprot_id);
+
+	return attr == ETZPC_DECPROT_S_RW;
+}
+
 static void set_etzpc_secure_configuration(void)
 {
 	/* Some peripherals shall be secure */
-	config_lock_decprot(STM32MP1_ETZPC_STGENC_ID, ETZPC_DECPROT_S_RW);
-	config_lock_decprot(STM32MP1_ETZPC_BKPSRAM_ID, ETZPC_DECPROT_S_RW);
-	config_lock_decprot(STM32MP1_ETZPC_DDRCTRL_ID, ETZPC_DECPROT_S_RW);
-	config_lock_decprot(STM32MP1_ETZPC_DDRPHYC_ID, ETZPC_DECPROT_S_RW);
+	if (!decprot_is_secure(STM32MP1_ETZPC_STGENC_ID))
+		config_lock_decprot(STM32MP1_ETZPC_STGENC_ID,
+				    ETZPC_DECPROT_S_RW);
+
+	if (!decprot_is_secure(STM32MP1_ETZPC_BKPSRAM_ID))
+		config_lock_decprot(STM32MP1_ETZPC_BKPSRAM_ID,
+				    ETZPC_DECPROT_S_RW);
+
+	if (!decprot_is_write_secure(STM32MP1_ETZPC_DDRCTRL_ID))
+		config_lock_decprot(STM32MP1_ETZPC_DDRCTRL_ID,
+				    ETZPC_DECPROT_NS_R_S_W);
+
+	if (!decprot_is_write_secure(STM32MP1_ETZPC_DDRPHYC_ID))
+		config_lock_decprot(STM32MP1_ETZPC_DDRPHYC_ID,
+				    ETZPC_DECPROT_NS_R_S_W);
 
 	/* Configure ETZPC with peripheral registering */
 	config_lock_decprot(STM32MP1_ETZPC_IWDG1_ID,
