@@ -11,7 +11,6 @@
 #include <drivers/stm32_etzpc.h>
 #include <drivers/stm32_iwdg.h>
 #include <drivers/stm32_uart.h>
-#include <drivers/stm32mp1_etzpc.h>
 #include <drivers/stm32mp1_pmic.h>
 #include <drivers/stm32mp1_rcc.h>
 #include <drivers/stpmic1.h>
