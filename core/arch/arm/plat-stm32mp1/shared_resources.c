@@ -5,10 +5,10 @@
 
 #include <drivers/stm32_etzpc.h>
 #include <drivers/stm32_gpio.h>
-#include <drivers/stm32mp1_etzpc.h>
 #include <drivers/stm32mp1_rcc.h>
 #include <dt-bindings/clock/stm32mp1-clks.h>
 #include <dt-bindings/reset/stm32mp1-resets.h>
+#include <dt-bindings/soc/st,stm32-etzpc.h>
 #include <initcall.h>
 #include <io.h>
 #include <keep.h>
