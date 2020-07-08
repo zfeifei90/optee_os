@@ -95,9 +95,6 @@ static void raw_allowed_access_request(uint32_t request,
 	case RCC_MP_CIFR:
 		allowed_mask = RCC_MP_CIFR_WKUPF;
 		break;
-	case RCC_MP_GCR:
-		allowed_mask = RCC_MP_GCR_BOOT_MCU;
-		break;
 
 #ifdef FULL_RCC_ACCESS
 	case RCC_OCENSETR:

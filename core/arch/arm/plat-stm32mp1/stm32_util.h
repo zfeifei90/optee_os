@@ -120,6 +120,9 @@ int stm32mp1_round_opp_khz(uint32_t *freq_khz);
 TEE_Result stm32_reset_assert(unsigned int id, unsigned int timeout_us);
 TEE_Result stm32_reset_deassert(unsigned int id, unsigned int timeout_us);
 
+/* Specific reset to manage the MCU hold boot */
+TEE_Result stm32_reset_assert_deassert_mcu(bool assert_not_deassert);
+
 static inline void stm32_reset_set(unsigned int id)
 {
 	(void)stm32_reset_assert(id, 0);
