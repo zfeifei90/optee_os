@@ -6,7 +6,6 @@
 #include <drivers/stm32mp1_rcc.h>
 #include <dt-bindings/clock/stm32mp1-clks.h>
 #include <inttypes.h>
-#include <kernel/panic.h>
 #include <io.h>
 #include <mm/core_memprot.h>
 #include <platform_config.h>
@@ -85,8 +84,8 @@ static void access_allowed_mask(uint32_t request, uint32_t offset,
 	}
 }
 
-static void raw_allowed_access_request(uint32_t request,
-				       uint32_t offset, uint32_t value)
+static uint32_t raw_allowed_access_request(uint32_t request,
+					   uint32_t offset, uint32_t value)
 {
 	uint32_t allowed_mask = 0;
 
@@ -132,10 +131,12 @@ static void raw_allowed_access_request(uint32_t request,
 		break;
 #endif
 	default:
-		panic();
+		return STM32_SIP_SVC_INVALID_PARAMS;
 	}
 
 	access_allowed_mask(request, offset, value, allowed_mask);
+
+	return STM32_SIP_SVC_OK;
 }
 
 uint32_t rcc_scv_handler(uint32_t x1, uint32_t x2, uint32_t x3)
@@ -160,9 +161,7 @@ uint32_t rcc_scv_handler(uint32_t x1, uint32_t x2, uint32_t x3)
 		 request == STM32_SIP_SVC_REG_SET ? "set" : "clear",
 		 value, offset);
 
-	raw_allowed_access_request(request, offset, value);
-
-	return STM32_SIP_SVC_OK;
+	return raw_allowed_access_request(request, offset, value);
 }
 
 uint32_t rcc_opp_scv_handler(uint32_t x1, uint32_t x2, uint32_t *res)
