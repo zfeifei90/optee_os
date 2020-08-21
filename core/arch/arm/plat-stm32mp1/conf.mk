@@ -50,6 +50,7 @@ endif
 
 include core/arch/arm/cpu/cortex-a7.mk
 
+$(call force,CFG_CLK_DRIVER,y)
 $(call force,CFG_ARM_GIC_PM,y)
 $(call force,CFG_BOOT_SECONDARY_REQUEST,y)
 $(call force,CFG_GIC,y)
@@ -121,6 +122,7 @@ CFG_STM32_RNG ?= y
 CFG_STM32_RTC ?= y
 CFG_STM32_TIM ?= y
 CFG_STM32_UART ?= y
+CFG_STM32MP15_CLK ?= y
 CFG_STPMIC1 ?= y
 CFG_TZC400 ?= y
 
