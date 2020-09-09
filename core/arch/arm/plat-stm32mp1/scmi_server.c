@@ -478,7 +478,7 @@ int32_t plat_scmi_rd_set_state(unsigned int agent_id, unsigned int scmi_id,
 
 	if (rd->reset_id == MCU_HOLD_BOOT_R) {
 		DMSG("SCMI MCU hold boot %s",
-		     assert_not_deassert ? "set" ; "release");
+		     assert_not_deassert ? "set" : "release");
 		stm32_reset_assert_deassert_mcu(assert_not_deassert);
 		return SCMI_SUCCESS;
 	}
