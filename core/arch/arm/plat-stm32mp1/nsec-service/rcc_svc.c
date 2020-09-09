@@ -15,29 +15,10 @@
 #include "rcc_svc.h"
 #include "stm32mp1_smc.h"
 
-#undef FULL_RCC_ACCESS
-
 static bool offset_is_clear_register(uint32_t __maybe_unused offset)
 {
-#ifdef FULL_RCC_ACCESS
-	switch (offset) {
-	case RCC_OCENCLRR:
-	case RCC_MP_SREQCLRR:
-	case RCC_APB5RSTCLRR:
-	case RCC_AHB5RSTCLRR:
-	case RCC_MP_APB5ENCLRR:
-	case RCC_MP_AHB5ENCLRR:
-	case RCC_MP_APB5LPENCLRR:
-	case RCC_MP_AHB5LPENCLRR:
-	case RCC_MP_IWDGFZCLRR:
-		return true;
-	default:
-		return false;
-	}
-#else
 	/* All allowed registers are non set/clear registers  */
 	return false;
-#endif
 }
 
 static void access_allowed_mask(uint32_t request, uint32_t offset,
@@ -94,42 +75,6 @@ static uint32_t raw_allowed_access_request(uint32_t request,
 	case RCC_MP_CIFR:
 		allowed_mask = RCC_MP_CIFR_WKUPF;
 		break;
-
-#ifdef FULL_RCC_ACCESS
-	case RCC_OCENSETR:
-	case RCC_OCENCLRR:
-	case RCC_HSICFGR:
-	case RCC_CSICFGR:
-	case RCC_MP_BOOTCR:		/* Allowed MPU/MCU reboot cfg */
-	case RCC_MP_GCR:		/* Allowed MPU/MCU reboot cfg */
-	case RCC_MP_GRSTCSETR:		/* Allowed MCU and system reset */
-	case RCC_BR_RSTSCLRR:		/* Allowed system reset status */
-	case RCC_MC_RSTSCLRR:		/* Allowed system reset status */
-	case RCC_MP_RSTSCLRR:		/* Allowed system reset status */
-	case RCC_BDCR:
-	case RCC_RDLSICR:
-	case RCC_APB5RSTSETR:
-	case RCC_APB5RSTCLRR:
-	case RCC_MP_APB5ENSETR:
-	case RCC_MP_APB5ENCLRR:
-	case RCC_MP_APB5LPENSETR:
-	case RCC_MP_APB5LPENCLRR:
-	case RCC_AHB5RSTSETR:
-	case RCC_AHB5RSTCLRR:
-	case RCC_MP_AHB5ENSETR:
-	case RCC_MP_AHB5ENCLRR:
-	case RCC_MP_AHB5LPENSETR:
-	case RCC_MP_AHB5LPENCLRR:
-	case RCC_RTCDIVR:
-	case RCC_I2C46CKSELR:
-	case RCC_SPI6CKSELR:
-	case RCC_UART1CKSELR:
-	case RCC_RNG1CKSELR:
-	case RCC_MP_IWDGFZSETR:
-	case RCC_MP_IWDGFZCLRR:
-		allowed_mask = UINT32_MAX;
-		break;
-#endif
 	default:
 		return STM32_SIP_SVC_INVALID_PARAMS;
 	}
