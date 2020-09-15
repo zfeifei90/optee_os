@@ -95,6 +95,9 @@ CFG_CORE_HEAP_SIZE ?= 49152
 # Disable early TA compression to limit HEAP size
 CFG_EARLY_TA_COMPRESS ?= n
 
+# Embed public part of this key in OP-TEE OS
+CFG_RPROC_SIGN_KEY ?= keys/default_rproc.pem
+
 ifeq ($(CFG_EMBED_DTB_SOURCE_FILE),)
 # Some drivers mandate DT support
 $(call force,CFG_STM32_CLKCALIB,n)
