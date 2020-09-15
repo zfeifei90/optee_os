@@ -131,6 +131,11 @@ CFG_CORE_HEAP_SIZE ?= 49152
 # Default disable RPC command shared memory allocation caching due to
 # side effect on TEE session release by the Linux tee & optee drivers.
 CFG_PREALLOC_RPC_CACHE ?= n
+# Disable early TA compression to limit HEAP size
+CFG_EARLY_TA_COMPRESS ?= n
+
+# Embed public part of this key in OP-TEE OS
+CFG_RPROC_SIGN_KEY ?= keys/default_rproc.pem
 
 ifeq ($(CFG_EMBED_DTB_SOURCE_FILE),)
 # Some drivers mandate DT support
