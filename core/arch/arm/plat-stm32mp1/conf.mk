@@ -92,6 +92,9 @@ CFG_WITH_STACK_CANARIES ?= y
 CFG_MMAP_REGIONS ?= 30
 CFG_CORE_HEAP_SIZE ?= 49152
 
+# Disable early TA compression to limit HEAP size
+CFG_EARLY_TA_COMPRESS ?= n
+
 ifeq ($(CFG_EMBED_DTB_SOURCE_FILE),)
 # Some drivers mandate DT support
 $(call force,CFG_STM32_CLKCALIB,n)
