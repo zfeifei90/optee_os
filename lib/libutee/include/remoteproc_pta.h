@@ -28,6 +28,32 @@
 /* The platorm is able to change access to secure the firmware input image */
 #define PTA_REMOTEPROC_FW_MEMORY_PROTECTION	BIT32(2)
 
+/**
+ * struct rproc_pta_key_info - public key information
+ * @algo:	Algorithm, defined by public key algorithms TEE_ALG_*
+ *		from TEE Internal API specification
+ * @info_size:	Byte size of the @info
+ * @info:	Append key information data
+ */
+struct rproc_pta_key_info {
+	uint32_t algo;
+	uint32_t info_size;
+	char info[];
+};
+
+static inline size_t
+	rproc_pta_get_keyinfo_size(struct rproc_pta_key_info *keyinf)
+{
+	size_t s = 0;
+
+	if (!keyinf || ADD_OVERFLOW(sizeof(*keyinf), keyinf->info_size, &s))
+		return 0;
+
+	return s;
+}
+
+#define RPROC_PTA_GET_KEYINFO_SIZE(x)	rproc_pta_get_keyinfo_size((x))
+
 /*
  * Platform capabilities.
  *
@@ -115,5 +141,17 @@
  * [out] params[3].value.b:	32bit MSB converted physical address
  */
 #define PTA_REMOTEPROC_FIRMWARE_DA_TO_PA	7
+
+/*
+ * Verify the firmware digest against a signature
+ *
+ * Return TEE_SUCCESS if the signature is verified,  else an error
+ *
+ * [in]  params[0].value.a:	Unique 32bit firmware identifier
+ * [in]  params[1].memref:	Key information (refer to @rproc_pta_key_info)
+ * [in]  params[2].memref:	Digest of the firmware authenticated data
+ * [in]  params[3].memref:	Signature of the firmware authenticated data
+ */
+#define PTA_REMOTEPROC_VERIFY_DIGEST	8
 
 #endif /* __REMOTEPROC_PTA_H */
