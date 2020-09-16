@@ -10,6 +10,7 @@
 #include <tee_internal_api.h>
 #include <tee_internal_api_extensions.h>
 #include <types_ext.h>
+#include <utee_defines.h>
 
 /* Firmware state */
 enum remoteproc_state {
@@ -20,6 +21,12 @@ enum remoteproc_state {
 
 #define RPROC_HDR_MAGIC		0x3543A468 /*random value */
 #define HEADER_VERSION		1
+
+/* Supported signature algorithm */
+enum remoteproc_sign_type {
+	RPROC_RSASSA_PKCS1_v1_5_SHA256 = 1,
+	RPROC_ECDSA_SHA256 = 2,
+};
 
 /*
  * struct remoteproc_fw_hdr - firmware header
@@ -56,6 +63,18 @@ struct remoteproc_fw_hdr {
 };
 
 /*
+ * struct remoteproc_sig_algo - signature algorithm information
+ * @sign_type: Header signature type
+ * @id:        Signature algorigthm identifier TEE_ALG_*
+ * @hash_len:  Signature hash length
+ */
+struct remoteproc_sig_algo {
+	enum remoteproc_sign_type sign_type;
+	uint32_t id;
+	size_t hash_len;
+};
+
+/*
  * struct remoteproc_context - session context
  * @pta_sess:    Session towards remoteproc pseudo TA
  * @fw_id:       Unique Id of the firmware
@@ -79,6 +98,19 @@ struct remoteproc_context {
 	enum remoteproc_state state;
 	uint32_t hw_fmt;
 	uint32_t hw_img_prot;
+};
+
+static const struct remoteproc_sig_algo rproc_ta_sign_algo[] = {
+	{
+		.sign_type = RPROC_RSASSA_PKCS1_v1_5_SHA256,
+		.id = TEE_ALG_RSASSA_PKCS1_V1_5_SHA256,
+		.hash_len = TEE_SHA256_HASH_SIZE,
+	},
+	{
+		.sign_type = RPROC_ECDSA_SHA256,
+		.id = TEE_ALG_ECDSA_P256,
+		.hash_len = TEE_SHA256_HASH_SIZE,
+	},
 };
 
 static void remoteproc_header_dump(struct remoteproc_fw_hdr __maybe_unused *hdr)
@@ -110,6 +142,58 @@ static TEE_Result check_param0_fw_id(struct remoteproc_context *ctx,
 	return TEE_SUCCESS;
 }
 
+static const struct remoteproc_sig_algo *remoteproc_get_algo(uint32_t sign_type)
+{
+	unsigned int i = 0;
+
+	for (i = 0; i < ARRAY_SIZE(rproc_ta_sign_algo); i++)
+		if (sign_type == rproc_ta_sign_algo[i].sign_type)
+			return &rproc_ta_sign_algo[i];
+
+	return NULL;
+}
+
+static TEE_Result remoteproc_pta_verify(struct remoteproc_context *ctx,
+					const struct remoteproc_sig_algo  *algo,
+					char *hash, uint32_t hash_len)
+{
+	TEE_Result res = TEE_ERROR_GENERIC;
+	struct remoteproc_fw_hdr *hdr = ctx->hdr;
+	struct rproc_pta_key_info *keyinfo = NULL;
+	uint32_t param_types = TEE_PARAM_TYPES(TEE_PARAM_TYPE_VALUE_INPUT,
+					       TEE_PARAM_TYPE_MEMREF_INPUT,
+					       TEE_PARAM_TYPE_MEMREF_INPUT,
+					       TEE_PARAM_TYPE_MEMREF_INPUT);
+	TEE_Param params[TEE_NUM_PARAMS] = { };
+
+	keyinfo = TEE_Malloc(sizeof(*keyinfo) + hdr->key_length, 0);
+	if (!keyinfo)
+		return TEE_ERROR_OUT_OF_MEMORY;
+
+	keyinfo->algo = algo->id;
+	keyinfo->info_size = hdr->key_length;
+	memcpy(keyinfo->info, (uint8_t *)hdr + hdr->key_offset,
+	       hdr->key_length);
+
+	params[0].value.a = ctx->fw_id;
+	params[1].memref.buffer = keyinfo;
+	params[1].memref.size = RPROC_PTA_GET_KEYINFO_SIZE(keyinfo);
+	params[2].memref.buffer = hash;
+	params[2].memref.size = hash_len;
+	params[3].memref.buffer = (uint8_t *)hdr + hdr->sign_offset;
+	params[3].memref.size = hdr->sign_length;
+
+	res = TEE_InvokeTACommand(ctx->pta_sess, TEE_TIMEOUT_INFINITE,
+				  PTA_REMOTEPROC_VERIFY_DIGEST,
+				  param_types, params, NULL);
+	if (res != TEE_SUCCESS)
+		EMSG("Failed to verify signature, res = %#"PRIx32, res);
+
+	TEE_Free(keyinfo);
+
+	return res;
+}
+
 static TEE_Result remoteproc_save_fw_header(struct remoteproc_context *ctx,
 					    void *fw_orig,
 					    uint32_t fw_orig_size)
@@ -128,6 +212,52 @@ static TEE_Result remoteproc_save_fw_header(struct remoteproc_context *ctx,
 	memcpy(ctx->hdr, fw_orig, hdr->hdr_length);
 
 	return TEE_SUCCESS;
+}
+
+static TEE_Result remoteproc_verify_signature(struct remoteproc_context *ctx)
+{
+	TEE_OperationHandle op = TEE_HANDLE_NULL;
+	struct remoteproc_fw_hdr *hdr = ctx->hdr;
+	const struct remoteproc_sig_algo  *algo = NULL;
+	TEE_Result res = TEE_ERROR_GENERIC;
+	char *hash = NULL;
+	uint32_t hash_len = 0;
+
+	algo = remoteproc_get_algo(hdr->sign_type);
+	if (!algo) {
+		EMSG("Unsupported signature type %d", hdr->sign_type);
+		return TEE_ERROR_NOT_SUPPORTED;
+	}
+
+	/* Compute the header hash */
+	hash_len = algo->hash_len;
+	hash = TEE_Malloc(hash_len, 0);
+	if (!hash)
+		return TEE_ERROR_OUT_OF_MEMORY;
+
+	res = TEE_AllocateOperation(&op, TEE_ALG_SHA256, TEE_MODE_DIGEST, 0);
+	if (res != TEE_SUCCESS)
+		goto free_hash;
+
+	res = TEE_DigestDoFinal(op, hdr, hdr->sign_offset, hash, &hash_len);
+	if (res != TEE_SUCCESS)
+		goto out;
+
+	/*
+	 * TODO:
+	 * Provide alternative to verify the signature in the TA. This could
+	 * be done for instance by getting the key object from secure storage.
+	 */
+
+	/* By default ask the pta to verify the signature. */
+	res = remoteproc_pta_verify(ctx, algo, hash, hash_len);
+
+out:
+	TEE_FreeOperation(op);
+free_hash:
+	TEE_Free(hash);
+
+	return res;
 }
 
 static TEE_Result remoteproc_verify_header(struct remoteproc_context *ctx)
@@ -167,12 +297,7 @@ static TEE_Result remoteproc_verify_header(struct remoteproc_context *ctx)
 	    chunk_size > hdr_size)
 		return TEE_ERROR_CORRUPT_OBJECT;
 
-	/*
-	 * TODO: check header signature: compute the HASH of the firmware
-	 * header and compare to the signature
-	 */
-
-	return TEE_SUCCESS;
+	return remoteproc_verify_signature(ctx);
 }
 
 static TEE_Result get_rproc_pta_capabilities(struct remoteproc_context *ctx)
