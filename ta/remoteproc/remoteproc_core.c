@@ -29,6 +29,16 @@ enum remoteproc_sign_type {
 };
 
 /*
+ * struct remoteproc_segment - program header with hash structure
+ * @phdr: program header
+ * @hash: hash associated to the program segment.
+ */
+struct remoteproc_segment {
+	Elf32_Phdr phdr;
+	unsigned char hash[TEE_SHA256_HASH_SIZE];
+};
+
+/*
  * struct remoteproc_fw_hdr - firmware header
  * @magic:        Magic number, must be equal to RPROC_HDR_MAGIC
  * @version:      Version of the header (must be 1)
@@ -297,6 +307,9 @@ static TEE_Result remoteproc_verify_header(struct remoteproc_context *ctx)
 	    chunk_size > hdr_size)
 		return TEE_ERROR_CORRUPT_OBJECT;
 
+	if (hdr->phhdr_length % sizeof(struct remoteproc_segment))
+		return TEE_ERROR_CORRUPT_OBJECT;
+
 	return remoteproc_verify_signature(ctx);
 }
 
@@ -419,6 +432,43 @@ static TEE_Result remoteproc_parse_rsc_table(struct remoteproc_context *ctx)
 	return TEE_SUCCESS;
 }
 
+static TEE_Result get_segment_hash(struct remoteproc_context *ctx, uint8_t *src,
+				   uint32_t size, uint32_t da,
+				   uint32_t mem_size, unsigned char **hash)
+{
+	struct remoteproc_fw_hdr *hdr = ctx->hdr;
+	struct remoteproc_segment *peh = NULL;
+	unsigned int i = 0;
+	unsigned int nb_entry = hdr->phhdr_length / sizeof(*peh);
+
+	peh = (void *)((uint8_t *)hdr + hdr->phhdr_offset);
+
+	for (i = 0; i < nb_entry; peh++, i++) {
+		if (peh->phdr.p_paddr != da)
+			continue;
+
+		/*
+		 * Segment is read from a non secure memory. Crosscheck it using
+		 * the hash table to verify that the segment has not been
+		 * corrupted.
+		 */
+		if (peh->phdr.p_type != PT_LOAD)
+			return TEE_ERROR_CORRUPT_OBJECT;
+
+		if (peh->phdr.p_filesz != size || peh->phdr.p_memsz != mem_size)
+			return TEE_ERROR_CORRUPT_OBJECT;
+
+		if ((Elf32_Off)(src - ctx->fw_img) !=  peh->phdr.p_offset)
+			return TEE_ERROR_CORRUPT_OBJECT;
+
+		*hash = peh->hash;
+
+		return TEE_SUCCESS;
+	}
+
+	return TEE_ERROR_NO_DATA;
+}
+
 static TEE_Result remoteproc_load_segment(uint8_t *src, uint32_t size,
 					  uint32_t da, uint32_t mem_size,
 					  void *priv)
@@ -430,6 +480,7 @@ static TEE_Result remoteproc_load_segment(uint8_t *src, uint32_t size,
 					       TEE_PARAM_TYPE_MEMREF_INPUT);
 	TEE_Param params[TEE_NUM_PARAMS] = { };
 	TEE_Result res = TEE_ERROR_GENERIC;
+	unsigned char *hash = NULL;
 
 	/*
 	 * Invoke platform remoteproc PTA to load the segment in remote
@@ -439,14 +490,16 @@ static TEE_Result remoteproc_load_segment(uint8_t *src, uint32_t size,
 	DMSG("Load segment %#"PRIx32" size %"PRIu32" (%"PRIu32")", da, size,
 	     mem_size);
 
-	/* TODO: Check the validity of the segment to load and get the
-	 * associated hash stored in the header hash table.
-	 */
+	res = get_segment_hash(ctx, src, size, da, mem_size, &hash);
+	if (res)
+		return res;
 
 	params[0].value.a = ctx->fw_id;
 	params[1].memref.buffer = src;
 	params[1].memref.size = size;
 	params[2].value.a = da;
+	params[3].memref.buffer = hash;
+	params[3].memref.size = TEE_SHA256_HASH_SIZE;
 
 	res = TEE_InvokeTACommand(ctx->pta_sess, TEE_TIMEOUT_INFINITE,
 				  PTA_REMOTEPROC_LOAD_SEGMENT_SHA256,
