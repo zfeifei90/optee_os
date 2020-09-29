@@ -9,6 +9,7 @@
 #include <dt-bindings/clock/stm32mp1-clks.h>
 #include <dt-bindings/reset/stm32mp1-resets.h>
 #include <dt-bindings/soc/st,stm32-etzpc.h>
+#include <initcall.h>
 #include <kernel/pseudo_ta.h>
 #include <kernel/user_ta.h>
 #include <mm/core_memprot.h>
@@ -499,11 +500,26 @@ static TEE_Result
 	if (!is_user_ta_ctx(s->ctx))
 		return TEE_ERROR_ACCESS_DENIED;
 
+	return TEE_SUCCESS;
+}
+
+static TEE_Result rproc_pta_init(void)
+{
+	vaddr_t rcc_base = stm32_rcc_base();
+
 	/* Configure the Cortex-M4 rams access right for secure context only */
 	rproc_pta_mem_protect(true);
 
+	/* Initialise the context */
+	rproc_ta_state = REMOTEPROC_OFF;
+
+	/* Ensure that the MCU is HOLD */
+	io_clrbits32(rcc_base + RCC_MP_GCR, RCC_MP_GCR_BOOT_MCU);
+	stm32_reset_set(MCU_R);
+
 	return TEE_SUCCESS;
 }
+service_init_late(rproc_pta_init);
 
 pseudo_ta_register(.uuid = PTA_REMOTEPROC_UUID, .name = PTA_NAME,
 		   .flags = PTA_DEFAULT_FLAGS,

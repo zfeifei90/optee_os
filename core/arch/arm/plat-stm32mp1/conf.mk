@@ -106,6 +106,7 @@ $(call force,CFG_STM32_TIM,n)
 $(call force,CFG_STPMIC1,n)
 endif
 
+CFG_RPROC_PTA ?= n
 CFG_STM32_BSEC ?= y
 CFG_STM32_CLKCALIB ?= y
 CFG_STM32_CRYP ?= y
