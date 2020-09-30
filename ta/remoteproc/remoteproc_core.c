@@ -260,7 +260,7 @@ static TEE_Result remoteproc_verify_signature(struct remoteproc_context *ctx)
 
 	algo = remoteproc_get_algo(hdr->sign_type);
 	if (!algo) {
-		EMSG("unsupported signature type %d", hdr->sign_type);
+		EMSG("Unsupported signature type %d", hdr->sign_type);
 		return TEE_ERROR_NOT_SUPPORTED;
 	}
 
@@ -530,7 +530,7 @@ static TEE_Result remoteproc_load_segment(uint8_t *src, uint32_t size,
 				  PTA_REMOTEPROC_LOAD_SEGMENT_SHA256,
 				  param_types, params, NULL);
 	if (res != TEE_SUCCESS) {
-		EMSG("fails to load segment, res = 0x%x", res);
+		EMSG("Fails to load segment, res = 0x%x", res);
 		return res;
 	}
 
@@ -548,7 +548,7 @@ static TEE_Result remoteproc_load_segment(uint8_t *src, uint32_t size,
 					  PTA_REMOTEPROC_SET_MEMORY,
 					  param_types, params, NULL);
 		if (res != TEE_SUCCESS)
-			EMSG("fails to clear segment, res = 0x%x", res);
+			EMSG("Fails to clear segment, res = 0x%x", res);
 	}
 
 	return res;
