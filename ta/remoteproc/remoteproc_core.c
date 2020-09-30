@@ -6,6 +6,7 @@
 #include <elf_parser.h>
 #include <remoteproc_pta.h>
 #include <string.h>
+#include <sys/queue.h>
 #include <ta_remoteproc.h>
 #include <tee_internal_api.h>
 #include <tee_internal_api_extensions.h>
@@ -85,8 +86,7 @@ struct remoteproc_sig_algo {
 };
 
 /*
- * struct remoteproc_context - session context
- * @pta_sess:    Session towards remoteproc pseudo TA
+ * struct remoteproc_context - firmware context
  * @fw_id:       Unique Id of the firmware
  * @hdr:         Location of a secure copy of the firmware header
  * @fw_img:      Firmware image
@@ -96,9 +96,9 @@ struct remoteproc_sig_algo {
  * @state:       Remote-processor state
  * @hw_fmt:      Image format capabilities of the remoteproc PTA
  * @hw_img_prot: Image protection capabilities of the remoteproc PTA
+ * @link:        Linked list element
  */
 struct remoteproc_context {
-	TEE_TASessionHandle pta_sess;
 	uint32_t fw_id;
 	struct remoteproc_fw_hdr *hdr;
 	uint8_t *fw_img;
@@ -108,7 +108,13 @@ struct remoteproc_context {
 	enum remoteproc_state state;
 	uint32_t hw_fmt;
 	uint32_t hw_img_prot;
+	TAILQ_ENTRY(remoteproc_context) link;
 };
+
+TAILQ_HEAD(remoteproc_firmware_head, remoteproc_context);
+
+static struct remoteproc_firmware_head firmware_head =
+	TAILQ_HEAD_INITIALIZER(firmware_head);
 
 static const struct remoteproc_sig_algo rproc_ta_sign_algo[] = {
 	{
@@ -122,6 +128,9 @@ static const struct remoteproc_sig_algo rproc_ta_sign_algo[] = {
 		.hash_len = TEE_SHA256_HASH_SIZE,
 	},
 };
+
+static size_t session_refcount;
+static TEE_TASessionHandle pta_session;
 
 static void remoteproc_header_dump(struct remoteproc_fw_hdr __maybe_unused *hdr)
 {
@@ -141,15 +150,31 @@ static void remoteproc_header_dump(struct remoteproc_fw_hdr __maybe_unused *hdr)
 	DMSG("img_type :\t%#"PRIx32, hdr->img_type);
 }
 
-static TEE_Result check_param0_fw_id(struct remoteproc_context *ctx,
-				     uint32_t param_types,
-				     TEE_Param params[TEE_NUM_PARAMS])
+static struct remoteproc_context *remoteproc_find_firmware(uint32_t fw_id)
 {
-	if (TEE_PARAM_TYPE_GET(param_types, 0) != TEE_PARAM_TYPE_VALUE_INPUT ||
-	    params[0].value.a != ctx->fw_id)
-		return TEE_ERROR_BAD_PARAMETERS;
+	struct remoteproc_context *ctx = NULL;
 
-	return TEE_SUCCESS;
+	TAILQ_FOREACH(ctx, &firmware_head, link) {
+		if (ctx->fw_id == fw_id)
+			return ctx;
+	}
+
+	return NULL;
+}
+
+static struct remoteproc_context *remoteproc_add_firmware(uint32_t fw_id)
+{
+	struct remoteproc_context *ctx = NULL;
+
+	ctx = TEE_Malloc(sizeof(*ctx), TEE_MALLOC_FILL_ZERO);
+	if (!ctx)
+		return NULL;
+
+	ctx->fw_id = fw_id;
+
+	TAILQ_INSERT_TAIL(&firmware_head, ctx, link);
+
+	return ctx;
 }
 
 static const struct remoteproc_sig_algo *remoteproc_get_algo(uint32_t sign_type)
@@ -193,7 +218,7 @@ static TEE_Result remoteproc_pta_verify(struct remoteproc_context *ctx,
 	params[3].memref.buffer = (uint8_t *)hdr + hdr->sign_offset;
 	params[3].memref.size = hdr->sign_length;
 
-	res = TEE_InvokeTACommand(ctx->pta_sess, TEE_TIMEOUT_INFINITE,
+	res = TEE_InvokeTACommand(pta_session, TEE_TIMEOUT_INFINITE,
 				  PTA_REMOTEPROC_VERIFY_DIGEST,
 				  param_types, params, NULL);
 	if (res != TEE_SUCCESS)
@@ -324,7 +349,7 @@ static TEE_Result get_rproc_pta_capabilities(struct remoteproc_context *ctx)
 
 	params[0].value.a = ctx->fw_id;
 
-	res = TEE_InvokeTACommand(ctx->pta_sess, TEE_TIMEOUT_INFINITE,
+	res = TEE_InvokeTACommand(pta_session, TEE_TIMEOUT_INFINITE,
 				  PTA_REMOTEPROC_HW_CAPABILITIES,
 				  param_types, params, NULL);
 	if (res)
@@ -393,7 +418,7 @@ static paddr_t remoteproc_da_to_pa(uint32_t da, uint32_t size, void *priv)
 	params[1].value.a = da;
 	params[2].value.a = size;
 
-	res = TEE_InvokeTACommand(ctx->pta_sess, TEE_TIMEOUT_INFINITE,
+	res = TEE_InvokeTACommand(pta_session, TEE_TIMEOUT_INFINITE,
 				  PTA_REMOTEPROC_FIRMWARE_DA_TO_PA,
 				  param_types, params, NULL);
 	if (res != TEE_SUCCESS) {
@@ -501,7 +526,7 @@ static TEE_Result remoteproc_load_segment(uint8_t *src, uint32_t size,
 	params[3].memref.buffer = hash;
 	params[3].memref.size = TEE_SHA256_HASH_SIZE;
 
-	res = TEE_InvokeTACommand(ctx->pta_sess, TEE_TIMEOUT_INFINITE,
+	res = TEE_InvokeTACommand(pta_session, TEE_TIMEOUT_INFINITE,
 				  PTA_REMOTEPROC_LOAD_SEGMENT_SHA256,
 				  param_types, params, NULL);
 	if (res != TEE_SUCCESS) {
@@ -519,7 +544,7 @@ static TEE_Result remoteproc_load_segment(uint8_t *src, uint32_t size,
 		params[2].value.a = mem_size - size;
 		params[3].value.a = 0;
 
-		res = TEE_InvokeTACommand(ctx->pta_sess, TEE_TIMEOUT_INFINITE,
+		res = TEE_InvokeTACommand(pta_session, TEE_TIMEOUT_INFINITE,
 					  PTA_REMOTEPROC_SET_MEMORY,
 					  param_types, params, NULL);
 		if (res != TEE_SUCCESS)
@@ -543,27 +568,31 @@ static TEE_Result remoteproc_load_elf(struct remoteproc_context *ctx)
 					 remoteproc_load_segment, ctx);
 }
 
-static TEE_Result remoteproc_load_fw(struct remoteproc_context *ctx,
-				     uint32_t pt,
+static TEE_Result remoteproc_load_fw(uint32_t pt,
 				     TEE_Param params[TEE_NUM_PARAMS])
 {
 	const uint32_t exp_pt = TEE_PARAM_TYPES(TEE_PARAM_TYPE_VALUE_INPUT,
 						TEE_PARAM_TYPE_MEMREF_INPUT,
 						TEE_PARAM_TYPE_NONE,
 						TEE_PARAM_TYPE_NONE);
+	struct remoteproc_context *ctx = NULL;
+	uint32_t fw_id = params[0].value.a;
 	TEE_Result res = TEE_ERROR_GENERIC;
 
 	if (pt != exp_pt)
 		return TEE_ERROR_BAD_PARAMETERS;
+
+	ctx = remoteproc_find_firmware(fw_id);
+	if (!ctx)
+		ctx = remoteproc_add_firmware(fw_id);
+	if (!ctx)
+		return TEE_ERROR_OUT_OF_MEMORY;
 
 	if (ctx->state != REMOTEPROC_OFF)
 		return TEE_ERROR_BAD_STATE;
 
 	if (!params[1].memref.buffer || !params[1].memref.size)
 		return TEE_ERROR_BAD_PARAMETERS;
-
-	/* Store the firmware ID associated to this session */
-	ctx->fw_id = params[0].value.a;
 
 	DMSG("Got base addr: %p size %zu", params[1].memref.buffer,
 	     params[1].memref.size);
@@ -592,20 +621,21 @@ out:
 	return res;
 }
 
-static TEE_Result remoteproc_start_fw(struct remoteproc_context *ctx,
-				      uint32_t pt,
+static TEE_Result remoteproc_start_fw(uint32_t pt,
 				      TEE_Param params[TEE_NUM_PARAMS])
 {
 	const uint32_t exp_pt = TEE_PARAM_TYPES(TEE_PARAM_TYPE_VALUE_INPUT,
 						TEE_PARAM_TYPE_NONE,
 						TEE_PARAM_TYPE_NONE,
 						TEE_PARAM_TYPE_NONE);
+	struct remoteproc_context *ctx = NULL;
 	TEE_Result res = TEE_ERROR_GENERIC;
 
 	if (pt != exp_pt)
 		return TEE_ERROR_BAD_PARAMETERS;
 
-	if (check_param0_fw_id(ctx, pt, params))
+	ctx = remoteproc_find_firmware(params[0].value.a);
+	if (!ctx)
 		return TEE_ERROR_BAD_PARAMETERS;
 
 	switch (ctx->state) {
@@ -616,7 +646,7 @@ static TEE_Result remoteproc_start_fw(struct remoteproc_context *ctx,
 		res =  TEE_SUCCESS;
 		break;
 	case REMOTEPROC_LOADED:
-		res = TEE_InvokeTACommand(ctx->pta_sess, TEE_TIMEOUT_INFINITE,
+		res = TEE_InvokeTACommand(pta_session, TEE_TIMEOUT_INFINITE,
 					  PTA_REMOTEPROC_FIRMWARE_START,
 					  pt, params, NULL);
 		if (res == TEE_SUCCESS)
@@ -629,20 +659,21 @@ static TEE_Result remoteproc_start_fw(struct remoteproc_context *ctx,
 	return res;
 }
 
-static TEE_Result remoteproc_stop_fw(struct remoteproc_context *ctx,
-				     uint32_t pt,
+static TEE_Result remoteproc_stop_fw(uint32_t pt,
 				     TEE_Param params[TEE_NUM_PARAMS])
 {
 	const uint32_t exp_pt = TEE_PARAM_TYPES(TEE_PARAM_TYPE_VALUE_INPUT,
 						TEE_PARAM_TYPE_NONE,
 						TEE_PARAM_TYPE_NONE,
 						TEE_PARAM_TYPE_NONE);
+	struct remoteproc_context *ctx = NULL;
 	TEE_Result res = TEE_ERROR_GENERIC;
 
 	if (pt != exp_pt)
 		return TEE_ERROR_BAD_PARAMETERS;
 
-	if (check_param0_fw_id(ctx, pt, params))
+	ctx = remoteproc_find_firmware(params[0].value.a);
+	if (!ctx)
 		return TEE_ERROR_BAD_PARAMETERS;
 
 	switch (ctx->state) {
@@ -653,7 +684,7 @@ static TEE_Result remoteproc_stop_fw(struct remoteproc_context *ctx,
 		res = TEE_SUCCESS;
 		break;
 	case REMOTEPROC_STARTED:
-		res = TEE_InvokeTACommand(ctx->pta_sess, TEE_TIMEOUT_INFINITE,
+		res = TEE_InvokeTACommand(pta_session, TEE_TIMEOUT_INFINITE,
 					  PTA_REMOTEPROC_FIRMWARE_STOP,
 					  pt, params, NULL);
 		if (res == TEE_SUCCESS)
@@ -666,19 +697,20 @@ static TEE_Result remoteproc_stop_fw(struct remoteproc_context *ctx,
 	return res;
 }
 
-static TEE_Result remoteproc_get_rsc_table(struct remoteproc_context *ctx,
-					   uint32_t pt,
+static TEE_Result remoteproc_get_rsc_table(uint32_t pt,
 					   TEE_Param params[TEE_NUM_PARAMS])
 {
 	const uint32_t exp_pt = TEE_PARAM_TYPES(TEE_PARAM_TYPE_VALUE_INPUT,
 						TEE_PARAM_TYPE_VALUE_OUTPUT,
 						TEE_PARAM_TYPE_VALUE_OUTPUT,
 						TEE_PARAM_TYPE_NONE);
+	struct remoteproc_context *ctx = NULL;
 
 	if (pt != exp_pt)
 		return TEE_ERROR_BAD_PARAMETERS;
 
-	if (check_param0_fw_id(ctx, pt, params))
+	ctx = remoteproc_find_firmware(params[0].value.a);
+	if (!ctx)
 		return TEE_ERROR_BAD_PARAMETERS;
 
 	if (ctx->state == REMOTEPROC_OFF)
@@ -703,45 +735,44 @@ void TA_DestroyEntryPoint(void)
 
 TEE_Result TA_OpenSessionEntryPoint(uint32_t pt __unused,
 				    TEE_Param params[TEE_NUM_PARAMS] __unused,
-				    void **sess)
+				    void **sess __unused)
 {
-	struct remoteproc_context *ctx = NULL;
 	static const TEE_UUID uuid = PTA_REMOTEPROC_UUID;
 	TEE_Result res = TEE_ERROR_GENERIC;
 
-	ctx = TEE_Malloc(sizeof(*ctx), TEE_MALLOC_FILL_ZERO);
-	if (!ctx)
-		return TEE_ERROR_OUT_OF_MEMORY;
+	if (!session_refcount) {
+		res = TEE_OpenTASession(&uuid, TEE_TIMEOUT_INFINITE, 0, NULL,
+					&pta_session, NULL);
+		if (res)
+			return res;
+	}
 
-	res = TEE_OpenTASession(&uuid, TEE_TIMEOUT_INFINITE, 0, NULL,
-				&ctx->pta_sess, NULL);
-	if (res)
-		return res;
-
-	*sess = ctx;
+	session_refcount++;
 
 	return TEE_SUCCESS;
 }
 
-void TA_CloseSessionEntryPoint(void *sess)
+void TA_CloseSessionEntryPoint(void *sess __unused)
 {
-	struct remoteproc_context *ctx = sess;
+	session_refcount--;
 
-	TEE_CloseTASession(ctx->pta_sess);
+	if (!session_refcount)
+		TEE_CloseTASession(pta_session);
 }
 
-TEE_Result TA_InvokeCommandEntryPoint(void *sess, uint32_t cmd_id, uint32_t pt,
+TEE_Result TA_InvokeCommandEntryPoint(void *sess __unused, uint32_t cmd_id,
+				      uint32_t pt,
 				      TEE_Param params[TEE_NUM_PARAMS])
 {
 	switch (cmd_id) {
 	case TA_RPROC_FW_CMD_LOAD_FW:
-		return remoteproc_load_fw(sess, pt, params);
+		return remoteproc_load_fw(pt, params);
 	case TA_RPROC_FW_CMD_START_FW:
-		return remoteproc_start_fw(sess, pt, params);
+		return remoteproc_start_fw(pt, params);
 	case TA_RPROC_FW_CMD_STOP_FW:
-		return remoteproc_stop_fw(sess, pt, params);
+		return remoteproc_stop_fw(pt, params);
 	case TA_RPROC_FW_CMD_GET_RSC_TABLE:
-		return remoteproc_get_rsc_table(sess, pt, params);
+		return remoteproc_get_rsc_table(pt, params);
 	case TA_RPROC_FW_CMD_GET_COREDUMP:
 		return TEE_ERROR_NOT_IMPLEMENTED;
 	default:
