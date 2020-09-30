@@ -608,14 +608,23 @@ static TEE_Result remoteproc_start_fw(struct remoteproc_context *ctx,
 	if (check_param0_fw_id(ctx, pt, params))
 		return TEE_ERROR_BAD_PARAMETERS;
 
-	if (ctx->state != REMOTEPROC_LOADED)
-		return TEE_ERROR_BAD_STATE;
-
-	res = TEE_InvokeTACommand(ctx->pta_sess, TEE_TIMEOUT_INFINITE,
-				  PTA_REMOTEPROC_FIRMWARE_START,
-				  pt, params, NULL);
-	if (res == TEE_SUCCESS)
-		ctx->state = REMOTEPROC_STARTED;
+	switch (ctx->state) {
+	case REMOTEPROC_OFF:
+		res = TEE_ERROR_BAD_STATE;
+		break;
+	case REMOTEPROC_STARTED:
+		res =  TEE_SUCCESS;
+		break;
+	case REMOTEPROC_LOADED:
+		res = TEE_InvokeTACommand(ctx->pta_sess, TEE_TIMEOUT_INFINITE,
+					  PTA_REMOTEPROC_FIRMWARE_START,
+					  pt, params, NULL);
+		if (res == TEE_SUCCESS)
+			ctx->state = REMOTEPROC_STARTED;
+		break;
+	default:
+		res = TEE_ERROR_BAD_STATE;
+	}
 
 	return res;
 }
@@ -636,15 +645,23 @@ static TEE_Result remoteproc_stop_fw(struct remoteproc_context *ctx,
 	if (check_param0_fw_id(ctx, pt, params))
 		return TEE_ERROR_BAD_PARAMETERS;
 
-	if (ctx->state != REMOTEPROC_STARTED)
-		return TEE_ERROR_BAD_STATE;
-
-	res = TEE_InvokeTACommand(ctx->pta_sess, TEE_TIMEOUT_INFINITE,
-				  PTA_REMOTEPROC_FIRMWARE_STOP,
-				  pt, params, NULL);
-
-	if (res == TEE_SUCCESS)
-		ctx->state = REMOTEPROC_OFF;
+	switch (ctx->state) {
+	case REMOTEPROC_LOADED:
+		res = TEE_ERROR_BAD_STATE;
+		break;
+	case REMOTEPROC_OFF:
+		res = TEE_SUCCESS;
+		break;
+	case REMOTEPROC_STARTED:
+		res = TEE_InvokeTACommand(ctx->pta_sess, TEE_TIMEOUT_INFINITE,
+					  PTA_REMOTEPROC_FIRMWARE_STOP,
+					  pt, params, NULL);
+		if (res == TEE_SUCCESS)
+			ctx->state = REMOTEPROC_OFF;
+		break;
+	default:
+		res = TEE_ERROR_BAD_STATE;
+	}
 
 	return res;
 }
