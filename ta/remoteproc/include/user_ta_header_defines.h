@@ -11,7 +11,8 @@
 #define TA_UUID				TA_REMOTEPROC_UUID
 
 #define TA_FLAGS			(TA_FLAG_DEVICE_ENUM | \
-					 TA_FLAG_SINGLE_INSTANCE)
+					 TA_FLAG_SINGLE_INSTANCE | \
+					 TA_FLAG_INSTANCE_KEEP_ALIVE)
 
 /* Provisioned stack size */
 #define TA_STACK_SIZE			(4 * 1024)
