@@ -681,7 +681,7 @@ static TEE_Result remoteproc_get_rsc_table(struct remoteproc_context *ctx,
 	if (check_param0_fw_id(ctx, pt, params))
 		return TEE_ERROR_BAD_PARAMETERS;
 
-	if (ctx->state != REMOTEPROC_LOADED)
+	if (ctx->state == REMOTEPROC_OFF)
 		return TEE_ERROR_BAD_STATE;
 
 	reg_pair_from_64((uint64_t)ctx->rsc_pa,
