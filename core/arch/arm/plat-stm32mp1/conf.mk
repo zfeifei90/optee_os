@@ -90,6 +90,7 @@ CFG_WITH_PAGER ?= y
 CFG_WITH_LPAE ?= y
 CFG_MMAP_REGIONS ?= 30
 CFG_CORE_HEAP_SIZE ?= 49152
+CFG_DTB_MAX_SIZE = 0x20000
 
 # Disable early TA compression to limit HEAP size
 CFG_EARLY_TA_COMPRESS ?= n
