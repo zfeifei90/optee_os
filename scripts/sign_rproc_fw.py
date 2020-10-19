@@ -4,14 +4,25 @@
 # Copyright (C) 2020, STMicroelectronics - All Rights Reserved
 #
 
-from elftools.elf.elffile import ELFFile
-from elftools.elf.sections import SymbolTableSection
-from elftools.elf.enums import *
+try:
+    from elftools.elf.elffile import ELFFile
+    from elftools.elf.sections import SymbolTableSection
+    from elftools.elf.enums import ENUM_P_TYPE_BASE
+    from elftools.elf.enums import *
+except ImportError:
+    print("""
+***
+ERROR: pyelftools python module is not installed or version < 0.25.
+***
+""")
+    raise
+
 from Cryptodome.Hash import SHA256
 from Cryptodome.Signature import pkcs1_15
 from Cryptodome.PublicKey import RSA
 from Cryptodome.Signature import DSS
 from Cryptodome.PublicKey import ECC
+import os
 import sys
 import struct
 import logging
@@ -113,7 +124,7 @@ class SegmentHash(object):
             logging.debug("hash computed: %s" % seg.hash)
             del h
             struct.pack_into('<I', self._bufview_, self._offset,
-                             ENUM_P_TYPE[seg.header.p_type])
+                             ENUM_P_TYPE_BASE[seg.header.p_type])
             self._offset += 4
             struct.pack_into('<7I', self._bufview_, self._offset,
                              seg.header.p_offset, seg.header.p_vaddr,
@@ -209,6 +220,8 @@ def get_args(logger):
     import textwrap
     command_base = ['sign']
     command_choices = command_base
+    default_key = os.path.abspath(os.path.dirname(__file__)) + \
+        '/../keys/default_rproc.pem'
 
     parser = ArgumentParser(
         description='Sign a remote processor firmware loadable by OP-TEE.',
@@ -219,13 +232,17 @@ def get_args(logger):
         '                 Takes arguments --in, --out --key\n' +
         '   %(prog)s --help  show available commands and arguments\n\n',
         formatter_class=RawDescriptionHelpFormatter,
+        epilog=textwrap.dedent(
+            '''If no key is specified, the script will default try to ''' +
+            '''use the following private key:''') + '\n' + default_key
         )
     parser.add_argument(
         'command', choices=command_choices, nargs='?',
         default='sign',
         help='Command, one of [' + ', '.join(command_base) + ']')
-    parser.add_argument('--key', required=True,
+    parser.add_argument('--key', required=False,
                         help='Name of signing key file',
+                        default=default_key,
                         dest='keyf')
     parser.add_argument('--key_info', required=False,
                         help='Name file containing extra key information',
@@ -288,7 +305,6 @@ def main():
     from Cryptodome.PublicKey import RSA
     import base64
     import logging
-    import os
     import struct
 
     logging.basicConfig()
