@@ -454,6 +454,9 @@
 #define RCC_MP_SREQCLRR_STPREQ_P0	BIT(0)
 #define RCC_MP_SREQCLRR_STPREQ_P1	BIT(1)
 
+/* Values of RCC_PWRLPDLYCR register */
+#define RCC_PWRLPDLYCR_PWRLP_DLY_MASK	GENMASK_32(21, 0)
+
 /* Global Control Register */
 #define RCC_MP_GCR_BOOT_MCU		BIT(0)
 

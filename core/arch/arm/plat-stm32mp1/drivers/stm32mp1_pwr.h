@@ -13,6 +13,7 @@
 #define PWR_CR2_OFF		0x08
 #define PWR_CR3_OFF		0x0c
 #define PWR_MPUCR_OFF		0x10
+#define PWR_MCUCR_OFF		0x14
 #define PWR_WKUPCR_OFF		0x20
 #define PWR_MPUWKUPENR_OFF	0x28
 
@@ -40,6 +41,8 @@
 #define PWR_MPUCR_PDDS		BIT(0)
 #define PWR_MPUCR_CSTDBYDIS	BIT(3)
 #define PWR_MPUCR_CSSF		BIT(9)
+
+#define PWR_MCUCR_PDDS		BIT(0)
 
 #define PWR_WKUPCR_MASK		(GENMASK_32(27, 16) | \
 				 GENMASK_32(13, 8) | GENMASK_32(5, 0))

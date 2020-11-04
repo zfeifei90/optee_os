@@ -39,6 +39,8 @@
 
 #define TIMEOUT_US_1MS		1000
 
+#define PWRLP_TEMPO_5_HSI	5
+
 static uint8_t gicd_rcc_wakeup;
 static uint8_t gicc_pmr;
 
@@ -568,6 +570,7 @@ DECLARE_KEEP_PAGER(sgi9_reset_handler);
 static TEE_Result init_low_power(void)
 {
 	vaddr_t pwr_base = stm32_pwr_base();
+	vaddr_t rcc_base = stm32_rcc_base();
 
 	itr_add(&rcc_wakeup_handler);
 	itr_enable(rcc_wakeup_handler.it);
@@ -578,6 +581,20 @@ static TEE_Result init_low_power(void)
 	/* Enable retention for BKPSRAM and BKPREG */
 	io_mask32(pwr_base + PWR_CR2_OFF,
 		  PWR_CR2_BREN | PWR_CR2_RREN, PWR_CR2_BREN | PWR_CR2_RREN);
+
+	/*
+	 * Configure Standby mode available for MCU by default
+	 * and allow to switch in standby SoC in all case
+	 */
+	io_setbits32(pwr_base + PWR_MCUCR_OFF, PWR_MCUCR_PDDS);
+
+	/* Disable STOP request */
+	io_setbits32(rcc_base + RCC_MP_SREQCLRR,
+		     RCC_MP_SREQSETR_STPREQ_P0 | RCC_MP_SREQSETR_STPREQ_P1);
+
+	/* Wait 5 HSI periods before re-enabling PLLs after STOP modes */
+	io_clrsetbits32(rcc_base + RCC_PWRLPDLYCR, RCC_PWRLPDLYCR_PWRLP_DLY_MASK,
+			PWRLP_TEMPO_5_HSI);
 
 	return TEE_SUCCESS;
 }
