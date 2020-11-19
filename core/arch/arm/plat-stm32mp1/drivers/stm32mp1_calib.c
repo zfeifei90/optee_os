@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * Copyright (c) 2018, STMicroelectronics
+ * Copyright (c) 2018-2020, STMicroelectronics
  */
 
 #include <arm.h>
+#include <drivers/clk.h>
 #include <drivers/stm32_tim.h>
 #include <drivers/stm32mp1_rcc.h>
 #include <dt-bindings/clock/stm32mp1-clks.h>
@@ -439,7 +440,7 @@ static int init_hsi_calibration(void *fdt, int node)
 		return -1;
 	}
 
-	hsi_calib->ref_freq = stm32_clock_get_rate(CK_HSI);
+	hsi_calib->ref_freq = clk_get_rate(CK_HSI);
 
 	hsi_calib->cal_ref = (io_read32(stm32_rcc_base() + RCC_HSICFGR) &
 			       RCC_HSICFGR_HSICAL_MASK) >>
@@ -466,7 +467,7 @@ static int init_csi_calibration(void *fdt, int node)
 		return -1;
 	}
 
-	csi_calib->ref_freq = stm32_clock_get_rate(CK_CSI);
+	csi_calib->ref_freq = clk_get_rate(CK_CSI);
 
 	csi_calib->cal_ref = (io_read32(stm32_rcc_base() + RCC_CSICFGR) &
 			      RCC_CSICFGR_CSICAL_MASK) >>

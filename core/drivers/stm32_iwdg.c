@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * Copyright (c) 2017-2019, STMicroelectronics - All Rights Reserved
+ * Copyright (c) 2017-2020, STMicroelectronics - All Rights Reserved
  */
 
 #include <assert.h>
+#include <drivers/clk.h>
 #include <drivers/stm32_iwdg.h>
 #include <io.h>
 #include <keep.h>
@@ -103,11 +104,11 @@ static enum itr_return stm32_iwdg_it_handler(struct itr_handler *handler)
 
 	stm32_iwdg_refresh(instance);
 
-	stm32_clock_enable(iwdg->clock);
+	clk_enable(iwdg->clock);
 
 	io_setbits32(iwdg_base + IWDG_EWCR_OFFSET, IWDG_EWCR_EWIC);
 
-	stm32_clock_disable(iwdg->clock);
+	clk_disable(iwdg->clock);
 
 #ifdef CFG_PM
 	/*
@@ -181,10 +182,10 @@ static TEE_Result stm32_iwdg_conf_etimeout(void *fdt, int node,
 
 	/* Prescaler fix to 256 */
 	reload_ll = (unsigned long long)dt_secure_timeout *
-		    stm32_clock_get_rate(id_lsi);
+		    clk_get_rate(id_lsi);
 	reload = ((uint32_t)(reload_ll >> 8) - 1) & IWDG_EWCR_EWIT_MASK;
 
-	stm32_clock_enable(iwdg->clock);
+	clk_enable(iwdg->clock);
 
 	io_write32(iwdg_base + IWDG_KR_OFFSET, IWDG_KR_START_KEY);
 	io_write32(iwdg_base + IWDG_KR_OFFSET, IWDG_KR_ACCESS_KEY);
@@ -197,7 +198,7 @@ static TEE_Result stm32_iwdg_conf_etimeout(void *fdt, int node,
 			break;
 
 	status = io_read32(iwdg_base + IWDG_SR_OFFSET) & IWDG_SR_EWU;
-	stm32_clock_disable(iwdg->clock);
+	clk_disable(iwdg->clock);
 	if (status)
 		return TEE_ERROR_GENERIC;
 
@@ -220,11 +221,11 @@ void stm32_iwdg_refresh(unsigned int instance)
 	if (!iwdg)
 		return;
 
-	stm32_clock_enable(iwdg->clock);
+	clk_enable(iwdg->clock);
 
 	io_write32(get_base(iwdg) + IWDG_KR_OFFSET, IWDG_KR_RELOAD_KEY);
 
-	stm32_clock_disable(iwdg->clock);
+	clk_disable(iwdg->clock);
 }
 
 static TEE_Result iwdg_init(void)

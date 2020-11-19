@@ -4,6 +4,7 @@
   */
 
 #include <crypto/crypto.h>
+#include <drivers/clk.h>
 #include <drivers/stm32_etzpc.h>
 #include <drivers/stm32mp1_rcc.h>
 #include <dt-bindings/clock/stm32mp1-clks.h>
@@ -323,7 +324,7 @@ static TEE_Result rproc_pta_start(uint32_t pt,
 	if (rproc_ta_state != REMOTEPROC_OFF)
 		return TEE_ERROR_BAD_STATE;
 
-	stm32_clock_enable(CK_MCU);
+	clk_enable(CK_MCU);
 
 	/* Configure the Cortex-M4 RAMs as expected to run the firmware */
 	rproc_pta_mem_protect(false);
@@ -370,7 +371,7 @@ static TEE_Result rproc_pta_stop(uint32_t pt,
 
 	stm32_reset_set(MCU_R);
 
-	stm32_clock_disable(CK_MCU);
+	clk_disable(CK_MCU);
 
 	/*
 	 * Cortex-M4 memories are cleaned and access rights restored for the

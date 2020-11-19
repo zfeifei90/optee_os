@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: BSD-3-Clause */
 /*
- * Copyright (c) 2018-2019, STMicroelectronics
+ * Copyright (c) 2018-2020, STMicroelectronics
  */
 
 #ifndef __STM32_UTIL_H__
@@ -86,15 +86,6 @@ static inline void stm32mp_register_online_cpu(void)
  */
 uint32_t may_spin_lock(unsigned int *lock);
 void may_spin_unlock(unsigned int *lock, uint32_t exceptions);
-
-/*
- * Util for clock gating and to get clock rate for stm32 and platform drivers
- * @id: Target clock ID, ID used in clock DT bindings
- */
-void stm32_clock_enable(unsigned long id);
-void stm32_clock_disable(unsigned long id);
-unsigned long stm32_clock_get_rate(unsigned long id);
-bool stm32_clock_is_enabled(unsigned long id);
 
 /* Return true if @clock_id is shared by secure and non-secure worlds */
 bool stm32mp_nsec_can_access_clock(unsigned long clock_id);

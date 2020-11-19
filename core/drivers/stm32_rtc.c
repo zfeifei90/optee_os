@@ -1,10 +1,11 @@
+// SPDX-License-Identifier: BSD-3-Clause
 /*
- * Copyright (c) 2018, STMicroelectronics - All Rights Reserved
+ * Copyright (c) 2018-2020, STMicroelectronics - All Rights Reserved
  *
- * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #include <arm32.h>
+#include <drivers/clk.h>
 #include <drivers/stm32_rtc.h>
 #include <initcall.h>
 #include <io.h>
@@ -195,7 +196,7 @@ static void stm32_rtc_read_timestamp(struct stm32_rtc_time *time)
 
 void stm32_rtc_get_calendar(struct stm32_rtc_calendar *calendar)
 {
-	stm32_clock_enable(rtc_dev.clock);
+	clk_enable(rtc_dev.clock);
 
 	stm32_rtc_read_calendar(calendar);
 
@@ -209,7 +210,7 @@ void stm32_rtc_get_calendar(struct stm32_rtc_calendar *calendar)
 			stm32_rtc_read_calendar(calendar);
 	}
 
-	stm32_clock_disable(rtc_dev.clock);
+	clk_disable(rtc_dev.clock);
 }
 
 /* Return difference in milliseconds on second fraction */
@@ -342,7 +343,7 @@ void stm32_rtc_get_timestamp(struct stm32_rtc_time *tamp_ts)
 {
 	vaddr_t rtc_base = get_base();
 
-	stm32_clock_enable(rtc_dev.clock);
+	clk_enable(rtc_dev.clock);
 
 	if (io_read32(rtc_base + RTC_SR) & RTC_SR_TSF) {
 		/* Timestamp for tamper event */
@@ -354,14 +355,14 @@ void stm32_rtc_get_timestamp(struct stm32_rtc_time *tamp_ts)
 			io_setbits32(rtc_base + RTC_SCR, RTC_SCR_CTSOVF);
 	}
 
-	stm32_clock_disable(rtc_dev.clock);
+	clk_disable(rtc_dev.clock);
 }
 
 void stm32_rtc_set_tamper_timestamp(void)
 {
 	vaddr_t rtc_base = get_base();
 
-	stm32_clock_enable(rtc_dev.clock);
+	clk_enable(rtc_dev.clock);
 
 	stm32_rtc_write_unprotect();
 
@@ -373,18 +374,18 @@ void stm32_rtc_set_tamper_timestamp(void)
 
 	stm32_rtc_write_protect();
 
-	stm32_clock_disable(rtc_dev.clock);
+	clk_disable(rtc_dev.clock);
 }
 
 bool stm32_rtc_is_timestamp_enable(void)
 {
 	bool ret = false;
 
-	stm32_clock_enable(rtc_dev.clock);
+	clk_enable(rtc_dev.clock);
 
 	ret = io_read32(get_base() + RTC_CR) & RTC_CR_TAMPTS;
 
-	stm32_clock_disable(rtc_dev.clock);
+	clk_disable(rtc_dev.clock);
 
 	return ret;
 }
@@ -427,7 +428,7 @@ static TEE_Result stm32_rtc_init(void)
 		rtc_dev.base.va = (vaddr_t)phys_to_virt(rtc_dev.base.pa,
 							MEM_AREA_IO_SEC);
 		/* Unbalanced clock enable: keep RTC running */
-		stm32_clock_enable(get_second_clock(fdt, node));
+		clk_enable(get_second_clock(fdt, node));
 	} else {
 		stm32mp_register_non_secure_periph_iomem(rtc_dev.base.pa);
 		rtc_dev.base.va = (vaddr_t)phys_to_virt(rtc_dev.base.pa,

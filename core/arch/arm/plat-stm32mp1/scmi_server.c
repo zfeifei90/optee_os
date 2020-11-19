@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: BSD-2-Clause
 /*
- * Copyright (c) 2019, STMicroelectronics
+ * Copyright (c) 2019-2020, STMicroelectronics
  */
 #include <assert.h>
 #include <compiler.h>
+#include <drivers/clk.h>
 #include <drivers/scmi-msg.h>
 #include <drivers/scmi.h>
 #include <drivers/stm32mp1_pmic.h>
@@ -349,7 +350,7 @@ int32_t plat_scmi_clock_rates_by_step(unsigned int agent_id,
 		array[2] = 1U;
 		break;
 	default:
-		array[0] = stm32_clock_get_rate(clock->clock_id);
+		array[0] = clk_get_rate(clock->clock_id);
 		array[1] = array[0];
 		array[2] = 0U;
 		break;
@@ -376,7 +377,7 @@ int32_t plat_scmi_clock_set_rate(unsigned int agent_id, unsigned int scmi_id,
 			return SCMI_INVALID_PARAMETERS;
 		break;
 	default:
-		if (rate != stm32_clock_get_rate(clock->clock_id))
+		if (rate != clk_get_rate(clock->clock_id))
 			return SCMI_INVALID_PARAMETERS;
 		break;
 	}
@@ -392,7 +393,7 @@ unsigned long plat_scmi_clock_get_rate(unsigned int agent_id,
 	if (!clock || !stm32mp_nsec_can_access_clock(clock->clock_id))
 		return 0;
 
-	return stm32_clock_get_rate(clock->clock_id);
+	return clk_get_rate(clock->clock_id);
 }
 
 int32_t plat_scmi_clock_get_state(unsigned int agent_id, unsigned int scmi_id)
@@ -419,13 +420,13 @@ int32_t plat_scmi_clock_set_state(unsigned int agent_id, unsigned int scmi_id,
 	if (enable_not_disable) {
 		if (!clock->enabled) {
 			DMSG("SCMI clock %u enable", scmi_id);
-			stm32_clock_enable(clock->clock_id);
+			clk_enable(clock->clock_id);
 			clock->enabled = true;
 		}
 	} else {
 		if (clock->enabled) {
 			DMSG("SCMI clock %u disable", scmi_id);
-			stm32_clock_disable(clock->clock_id);
+			clk_disable(clock->clock_id);
 			clock->enabled = false;
 		}
 	}
@@ -895,7 +896,7 @@ static TEE_Result stm32mp1_init_scmi_server(void)
 			/* Sync SCMI clocks with their targeted initial state */
 			if (clk->enabled &&
 			    stm32mp_nsec_can_access_clock(clk->clock_id))
-				stm32_clock_enable(clk->clock_id);
+				clk_enable(clk->clock_id);
 		}
 
 		for (j = 0; j < res->rd_count; j++) {

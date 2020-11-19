@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: BSD-2-Clause
 /*
- * Copyright (c) 2017-2018, STMicroelectronics
+ * Copyright (c) 2017-2020, STMicroelectronics
  */
 
 #include <arm.h>
 #include <boot_api.h>
 #include <config.h>
 #include <console.h>
+#include <drivers/clk.h>
 #include <drivers/stm32_etzpc.h>
 #include <drivers/stm32_rng.h>
 #include <drivers/stm32mp1_pmic.h>
@@ -120,7 +121,7 @@ void stm32mp_register_online_cpu(void)
 			   BOOT_API_A7_RESET_MAGIC_NUMBER);
 
 		/* Balance BKPREG clock gating */
-		stm32_clock_disable(RTCAPB);
+		clk_disable(RTCAPB);
 	}
 
 	core_state[pos] = CORE_ON;
@@ -141,7 +142,7 @@ static void release_secondary_early_hpen(size_t __unused pos)
 	raise_sgi0_as_secure();
 	udelay(20);
 
-	stm32_clock_enable(RTCAPB);
+	clk_enable(RTCAPB);
 
 	io_write32(stm32mp_bkpreg(BCKR_CORE1_BRANCH_ADDRESS),
 		   TEE_LOAD_ADDR);
@@ -149,7 +150,7 @@ static void release_secondary_early_hpen(size_t __unused pos)
 		   BOOT_API_A7_CORE1_MAGIC_NUMBER);
 
 	dsb_ishst();
-	stm32_clock_disable(RTCAPB);
+	clk_disable(RTCAPB);
 
 	dsb_ishst();
 	itr_raise_sgi(GIC_SEC_SGI_0, TARGET_CPU1_GIC_MASK);
@@ -219,7 +220,7 @@ int psci_cpu_off(void)
 	unlock_state_access(exceptions);
 
 	/* Enable BKPREG access for the disabled CPU */
-	stm32_clock_enable(RTCAPB);
+	clk_enable(RTCAPB);
 
 	thread_mask_exceptions(THREAD_EXCP_ALL);
 	if (IS_ENABLED(CFG_PM))

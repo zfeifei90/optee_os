@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * Copyright (c) 2018-2019, STMicroelectronics - All Rights Reserved
+ * Copyright (c) 2018-2020, STMicroelectronics - All Rights Reserved
  * Copyright (c) 2017-2018, ARM Limited and Contributors. All rights reserved.
  */
 
 #include <arm32.h>
 #include <boot_api.h>
+#include <drivers/clk.h>
 #include <drivers/gic.h>
 #include <drivers/stm32_rng.h>
 #include <drivers/stm32_rtc.h>
@@ -122,15 +123,15 @@ static void __maybe_unused dump_context(void)
 	struct pm_mailbox *mailbox = get_pm_mailbox();
 	struct retram_resume_ctx *ctx = get_retram_resume_ctx();
 
-	stm32_clock_enable(RTCAPB);
+	clk_enable(RTCAPB);
 
 	DMSG("Backup registers: address 0x%" PRIx32 ", magic 0x%" PRIx32,
 		*(uint32_t *)stm32mp_bkpreg(BCKR_CORE1_BRANCH_ADDRESS),
 		*(uint32_t *)stm32mp_bkpreg(BCKR_CORE1_MAGIC_NUMBER));
 
-	stm32_clock_disable(RTCAPB);
+	clk_disable(RTCAPB);
 
-	stm32_clock_enable(BKPSRAM);
+	clk_enable(BKPSRAM);
 
 	DMSG("BKPSRAM mailbox:  0x%" PRIx32 ", zd 0x%" PRIx32 ", ep 0x%" PRIx32,
 		mailbox->magic, mailbox->zq0cr0_zdata,
@@ -139,7 +140,7 @@ static void __maybe_unused dump_context(void)
 	DMSG("BKPSRAM context:  teeram backup @%" PRIx32 ", resume @0x%" PRIx32,
 		ctx->teeram_bkp_pa, ctx->resume_pa);
 
-	stm32_clock_disable(BKPSRAM);
+	clk_disable(BKPSRAM);
 }
 #else
 static void __maybe_unused dump_context(void)
@@ -159,7 +160,7 @@ static void save_time(void)
 	if (plat_ctx.stgen_cnt_l < 10)
 		plat_ctx.stgen_cnt_h = io_read32(stgen + CNTCVU_OFFSET);
 
-	stm32_clock_enable(RTC);
+	clk_enable(RTC);
 	stm32_rtc_get_calendar(&plat_ctx.rtc);
 }
 
@@ -169,13 +170,13 @@ static void print_ccm_decryption_duration(void)
 	vaddr_t stgen = stm32mp_stgen_base();
 	struct retram_resume_ctx *ctx = get_retram_resume_ctx();
 
-	stm32_clock_enable(BKPSRAM);
+	clk_enable(BKPSRAM);
 
 	DMSG("CCM decryption duration %llums",
 		((unsigned long long)ctx->stgen_cnt * 1000) /
 		io_read32(stgen + CNTFID_OFFSET));
 
-	stm32_clock_enable(BKPSRAM);
+	clk_enable(BKPSRAM);
 }
 #else
 static void print_ccm_decryption_duration(void)
@@ -204,7 +205,7 @@ static void restore_time(void)
 	io_setbits32(stgen + CNTCR_OFFSET, CNTCR_EN);
 
 	/* Balance clock enable(RTC) at save_time() */
-	stm32_clock_disable(RTC);
+	clk_disable(RTC);
 
 	print_ccm_decryption_duration();
 }
@@ -241,12 +242,12 @@ void stm32mp_pm_wipe_context(void)
 	struct retram_resume_ctx *ctx = get_retram_resume_ctx();
 	struct pm_mailbox *mailbox = get_pm_mailbox();
 
-	stm32_clock_enable(BKPSRAM);
+	clk_enable(BKPSRAM);
 
 	memset(ctx, 0xa5, sizeof(*ctx));
 	memset(mailbox, 0xa5, sizeof(*mailbox));
 
-	stm32_clock_disable(BKPSRAM);
+	clk_disable(BKPSRAM);
 }
 
 static struct mobj *teeram_bkp_mobj;
@@ -273,9 +274,9 @@ static void init_retram_resume_resources(void)
 	assert((mobj_get_va(teeram_bkp_mobj, 0) != NULL) &&
 	       (mobj_get_pa(teeram_bkp_mobj, 0, 0, &pa) == 0));
 
-	stm32_clock_enable(BKPSRAM);
+	clk_enable(BKPSRAM);
 	memset(ctx, 0, sizeof(*ctx));
-	stm32_clock_disable(BKPSRAM);
+	clk_disable(BKPSRAM);
 }
 
 /*
@@ -318,7 +319,7 @@ static void load_earlyboot_pm_mailbox(void)
 	COMPILE_TIME_ASSERT(sizeof(struct pm_mailbox) <
 			    BKPSRAM_PM_MAILBOX_SIZE);
 
-	assert(stm32_clock_is_enabled(BKPSRAM));
+	assert(clk_is_enabled(BKPSRAM));
 
 	memset(mailbox, 0, sizeof(*mailbox));
 
@@ -357,8 +358,8 @@ static void save_teeram_in_ddr(void)
 	COMPILE_TIME_ASSERT(PM_CTX_CCM_CTR0_SIZE == sizeof(ccm->ctr0));
 	COMPILE_TIME_ASSERT(PM_CTX_CCM_TAG_SIZE == sizeof(ccm->tag));
 
-	assert(stm32_clock_is_enabled(BKPSRAM) &&
-	       stm32_clock_is_enabled(CRYP1));
+	assert(clk_is_enabled(BKPSRAM) &&
+	       clk_is_enabled(CRYP1));
 
 	memcpy(ctx->resume_sequence,
 	       (void *)(vaddr_t)stm32mp_bkpsram_resume, size);
@@ -419,8 +420,8 @@ static void enable_pm_mailbox(unsigned int suspend)
 	uint32_t magic = 0;
 	uint32_t hint = 0;
 
-	assert(stm32_clock_is_enabled(BKPSRAM) &&
-	       stm32_clock_is_enabled(RTCAPB));
+	assert(clk_is_enabled(BKPSRAM) &&
+	       clk_is_enabled(RTCAPB));
 
 	if (suspend) {
 		magic = BOOT_API_A7_CORE0_MAGIC_NUMBER;
@@ -443,18 +444,18 @@ static void gate_pm_context_clocks(bool enable)
 
 	if (enable) {
 		assert(!clocks_enabled);
-		stm32_clock_enable(BKPSRAM);
-		stm32_clock_enable(RTCAPB);
-		stm32_clock_enable(CRYP1);
+		clk_enable(BKPSRAM);
+		clk_enable(RTCAPB);
+		clk_enable(CRYP1);
 		clocks_enabled = true;
 		return;
 	}
 
 	/* Suspended TEE RAM state left the clocks enabled */
 	if (clocks_enabled) {
-		stm32_clock_disable(BKPSRAM);
-		stm32_clock_disable(RTCAPB);
-		stm32_clock_disable(CRYP1);
+		clk_disable(BKPSRAM);
+		clk_disable(RTCAPB);
+		clk_disable(CRYP1);
 		clocks_enabled = false;
 	}
 }

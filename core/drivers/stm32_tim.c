@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * Copyright (c) 2018, STMicroelectronics
+ * Copyright (c) 2018-2020, STMicroelectronics
  */
 
 #include <arm.h>
+#include <drivers/clk.h>
 #include <drivers/serial.h>
 #include <drivers/stm32_tim.h>
 #include <initcall.h>
@@ -97,12 +98,12 @@ static int timer_config(struct stm32_tim_instance *timer)
 {
 	vaddr_t base = timer_base(timer);
 
-	stm32_clock_enable(timer->clk);
+	clk_enable(timer->clk);
 
-	timer->freq = stm32_clock_get_rate(timer->clk);
+	timer->freq = clk_get_rate(timer->clk);
 	if (timer->freq < TIM_MIN_FREQ_CALIB) {
 		EMSG("Calibration: timer not accurate enough");
-		stm32_clock_disable(timer->clk);
+		clk_disable(timer->clk);
 		return -1;
 	}
 
@@ -125,7 +126,7 @@ static int timer_config(struct stm32_tim_instance *timer)
 		io_setbits32(base + TIM_CCER, TIM_CCER_CC1E);
 	}
 
-	stm32_clock_disable(timer->clk);
+	clk_disable(timer->clk);
 
 	return 0;
 }
@@ -141,7 +142,7 @@ static uint32_t timer_start_capture(struct stm32_tim_instance *timer)
 	if (timer_config(timer))
 		return 0;
 
-	stm32_clock_enable(timer->clk);
+	clk_enable(timer->clk);
 
 	io_write32(base + TIM_SR, 0);
 
@@ -180,7 +181,7 @@ static uint32_t timer_start_capture(struct stm32_tim_instance *timer)
 		 TIM_THRESHOLD);
 
 bail:
-	stm32_clock_disable(timer->clk);
+	clk_disable(timer->clk);
 
 	return counter;
 }
@@ -243,7 +244,7 @@ static void _init_stm32_tim(void)
 			timer = &stm32_tim[HSI_CAL];
 			timer->base.pa = dt_timer.reg;
 			timer->clk = dt_timer.clock;
-			timer->freq = stm32_clock_get_rate(timer->clk);
+			timer->freq = clk_get_rate(timer->clk);
 			timer->cal_input = fdt32_to_cpu(*cuint);
 			if (timer_config(timer)) {
 				timer->base.pa = 0;
@@ -256,7 +257,7 @@ static void _init_stm32_tim(void)
 			timer = &stm32_tim[CSI_CAL];
 			timer->base.pa = dt_timer.reg;
 			timer->clk = dt_timer.clock;
-			timer->freq = stm32_clock_get_rate(timer->clk);
+			timer->freq = clk_get_rate(timer->clk);
 			timer->cal_input = fdt32_to_cpu(*cuint);
 			if (timer_config(timer)) {
 				timer->base.pa = 0;

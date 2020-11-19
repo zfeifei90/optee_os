@@ -7,6 +7,7 @@
 #include <boot_api.h>
 #include <config.h>
 #include <console.h>
+#include <drivers/clk.h>
 #include <drivers/gic.h>
 #include <drivers/stm32_etzpc.h>
 #include <drivers/stm32_iwdg.h>
@@ -625,13 +626,13 @@ bool stm32_rtc_get_read_twice(void)
 	switch ((io_read32(rcc_base + RCC_BDCR) &
 		 RCC_BDCR_RTCSRC_MASK) >> RCC_BDCR_RTCSRC_SHIFT) {
 	case 1:
-		rtc_freq = stm32_clock_get_rate(CK_LSE);
+		rtc_freq = clk_get_rate(CK_LSE);
 		break;
 	case 2:
-		rtc_freq = stm32_clock_get_rate(CK_LSI);
+		rtc_freq = clk_get_rate(CK_LSI);
 		break;
 	case 3:
-		rtc_freq = stm32_clock_get_rate(CK_HSE);
+		rtc_freq = clk_get_rate(CK_HSE);
 		rtc_freq /= (io_read32(rcc_base + RCC_RTCDIVR) &
 			     RCC_DIVR_DIV_MASK) + 1U;
 		break;
@@ -640,7 +641,7 @@ bool stm32_rtc_get_read_twice(void)
 	}
 
 	apb1_div = io_read32(rcc_base + RCC_APB1DIVR) & RCC_APBXDIV_MASK;
-	apb1_freq = stm32_clock_get_rate(CK_MCU) >> apb1_div;
+	apb1_freq = clk_get_rate(CK_MCU) >> apb1_div;
 
 	return apb1_freq < (rtc_freq * 7U);
 }

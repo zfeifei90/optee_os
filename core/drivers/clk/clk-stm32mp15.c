@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: (BSD-3-Clause OR GPL-2.0+)
 /*
- * Copyright (C) 2018-2019, STMicroelectronics
+ * Copyright (C) 2018-2020, STMicroelectronics
  */
 
 #include <assert.h>
+#include <drivers/clk.h>
 #include <drivers/stm32mp1_rcc.h>
 #include <dt-bindings/clock/stm32mp1-clks.h>
 #include <dt-bindings/clock/stm32mp1-clksrc.h>
@@ -699,7 +700,7 @@ static enum stm32mp1_parent_id stm32mp1_clk_get_fixed_parent(int i)
 	return (enum stm32mp1_parent_id)gate_ref(i)->fixed;
 }
 
-static int stm32mp1_clk_get_parent(unsigned long id)
+static int __clk_get_parent(unsigned long id)
 {
 	const struct stm32mp1_clk_sel *sel = NULL;
 	enum stm32mp1_parent_id parent_id = 0;
@@ -955,7 +956,7 @@ static int pll_config(enum stm32mp1_pll_id pll_id, uint32_t *pllcfg,
 	return 0;
 }
 
-static unsigned long get_clock_rate(int p)
+static unsigned long __clk_get_parent_rate(enum stm32mp1_parent_id p)
 {
 	uint32_t reg = 0;
 	unsigned long clock = 0;
@@ -1218,7 +1219,7 @@ static bool clock_is_always_on(unsigned long id)
 	}
 }
 
-bool stm32_clock_is_enabled(unsigned long id)
+static bool clk_stm32_is_enabled(unsigned long id)
 {
 	int i = 0;
 
@@ -1232,13 +1233,13 @@ bool stm32_clock_is_enabled(unsigned long id)
 	return __clk_is_enabled(gate_ref(i));
 }
 
-void stm32_clock_enable(unsigned long id)
+static TEE_Result clk_stm32_enable(unsigned long id)
 {
 	int i = 0;
 	uint32_t exceptions = 0;
 
 	if (clock_is_always_on(id))
-		return;
+		return TEE_SUCCESS;
 
 	i = stm32mp1_clk_get_gated_id(id);
 	if (i < 0) {
@@ -1249,7 +1250,7 @@ void stm32_clock_enable(unsigned long id)
 	if (gate_is_non_secure(gate_ref(i))) {
 		/* Enable non-secure clock w/o any refcounting */
 		__clk_enable(gate_ref(i));
-		return;
+		return TEE_SUCCESS;
 	}
 
 	exceptions = may_spin_lock(&refcount_lock);
@@ -1260,9 +1261,11 @@ void stm32_clock_enable(unsigned long id)
 	gate_refcounts[i]++;
 
 	may_spin_unlock(&refcount_lock, exceptions);
+
+	return TEE_SUCCESS;
 }
 
-void stm32_clock_disable(unsigned long id)
+static void clk_stm32_disable(unsigned long id)
 {
 	int i = 0;
 	uint32_t exceptions = 0;
@@ -1321,16 +1324,16 @@ static long get_timer_rate(long parent_rate, unsigned int apb_bus)
 	return parent_rate * (timgxpre + 1) * 2;
 }
 
-unsigned long stm32_clock_get_rate(unsigned long id)
+static unsigned long clk_stm32_get_rate(unsigned long id)
 {
-	int p = 0;
+	enum stm32mp1_parent_id p = _UNKNOWN_ID;
 	unsigned long rate = 0;
 
-	p = stm32mp1_clk_get_parent(id);
+	p = __clk_get_parent(id);
 	if (p < 0)
 		return 0;
 
-	rate = get_clock_rate(p);
+	rate = __clk_get_parent_rate(p);
 
 	if ((id >= TIM2_K) && (id <= TIM14_K))
 		rate = get_timer_rate(rate, 1);
@@ -1464,7 +1467,7 @@ static void secure_parent_clocks(unsigned long parent_id)
 
 void stm32mp_register_clock_parents_secure(unsigned long clock_id)
 {
-	int parent_id = stm32mp1_clk_get_parent(clock_id);
+	enum stm32mp1_parent_id parent_id = __clk_get_parent(clock_id);
 
 	if (parent_id < 0) {
 		DMSG("No parent for clock %lu", clock_id);
@@ -1473,6 +1476,14 @@ void stm32mp_register_clock_parents_secure(unsigned long clock_id)
 
 	secure_parent_clocks(parent_id);
 }
+
+static const struct clk_ops stm32mp_clk_ops = {
+	.enable		= clk_stm32_enable,
+	.disable	= clk_stm32_disable,
+	.is_enabled	= clk_stm32_is_enabled,
+	.get_rate	= clk_stm32_get_rate,
+};
+DECLARE_KEEP_PAGER(stm32mp_clk_ops);
 
 #ifdef CFG_EMBED_DTB
 static const char *stm32mp_osc_node_label[NB_OSC] = {
@@ -1545,12 +1556,12 @@ static void enable_static_secure_clocks(void)
 	};
 
 	for (idx = 0; idx < ARRAY_SIZE(secure_enable); idx++) {
-		stm32_clock_enable(secure_enable[idx]);
+		clk_stm32_enable(secure_enable[idx]);
 		stm32mp_register_clock_parents_secure(secure_enable[idx]);
 	}
 
 	if (CFG_TEE_CORE_NB_CORE > 1)
-		stm32_clock_enable(RTCAPB);
+		clk_stm32_enable(RTCAPB);
 }
 
 static void stm32mp1_clk_early_init(void)
@@ -1821,10 +1832,10 @@ static int clk_get_pll1_settings(uint32_t clksrc, int index)
 		 */
 		switch (clksrc) {
 		case CLK_PLL12_HSI:
-			input_freq = stm32_clock_get_rate(CK_HSI);
+			input_freq = clk_stm32_get_rate(CK_HSI);
 			break;
 		case CLK_PLL12_HSE:
-			input_freq = stm32_clock_get_rate(CK_HSE);
+			input_freq = clk_stm32_get_rate(CK_HSE);
 			break;
 		default:
 			panic();
@@ -1858,7 +1869,7 @@ static int clk_save_current_pll1_settings(uint32_t buck1_voltage)
 	uint32_t freq = 0;
 	unsigned int i = 0;
 
-	freq = UDIV_ROUND_NEAREST(stm32_clock_get_rate(CK_MPU), 1000L);
+	freq = UDIV_ROUND_NEAREST(clk_stm32_get_rate(CK_MPU), 1000L);
 
 	for (i = 0; i < PLAT_MAX_OPP_NB; i++)
 		if (pll1_settings.freq[i] == freq)
@@ -1997,7 +2008,7 @@ static void enable_static_secure_clocks(void)
 }
 #endif /*CFG_EMBED_DTB*/
 
-/* Start PMU OPP */
+/* Start MPU OPP */
 #define CLKSRC_TIMEOUT_US	(200 * 1000)
 #define CLKDIV_TIMEOUT_US	(200 * 1000)
 #define CLK_MPU_PLL1P		0x00000202
@@ -2088,7 +2099,7 @@ static int stm32mp1_get_mpu_div(uint32_t freq_khz)
 	unsigned long freq_pll1_p;
 	unsigned long div;
 
-	freq_pll1_p = get_clock_rate(_PLL1_P) / 1000UL;
+	freq_pll1_p = __clk_get_parent_rate(_PLL1_P) / 1000UL;
 	if ((freq_pll1_p % freq_khz) != 0U)
 		return -1;
 
@@ -2179,7 +2190,7 @@ static int pll1_config_from_opp_khz(uint32_t freq_khz)
 
 static void save_current_opp(void)
 {
-	unsigned long freq_khz = UDIV_ROUND_NEAREST(stm32_clock_get_rate(CK_MPU),
+	unsigned long freq_khz = UDIV_ROUND_NEAREST(clk_stm32_get_rate(CK_MPU),
 						    1000UL);
 	if (freq_khz > (unsigned long)UINT32_MAX)
 		panic();
@@ -2617,6 +2628,8 @@ static TEE_Result stm32_clk_probe(void)
 	save_current_opp();
 	init_non_secure_rcc();
 	register_pm_core_service_cb(stm32_clock_pm, NULL);
+
+	clk_provider_register(&stm32mp_clk_ops);
 
 	return TEE_SUCCESS;
 }
