@@ -4,9 +4,19 @@
 # Copyright (C) 2020, STMicroelectronics - All Rights Reserved
 #
 
-from elftools.elf.elffile import ELFFile
-from elftools.elf.sections import SymbolTableSection
-from elftools.elf.enums import *
+try:
+    from elftools.elf.elffile import ELFFile
+    from elftools.elf.sections import SymbolTableSection
+    from elftools.elf.enums import ENUM_P_TYPE_BASE
+    from elftools.elf.enums import *
+except ImportError:
+    print("""
+***
+ERROR: pyelftools python module is not installed or version < 0.25.
+***
+""")
+    raise
+
 from Cryptodome.Hash import SHA256
 from Cryptodome.Signature import pkcs1_15
 from Cryptodome.PublicKey import RSA
@@ -113,7 +123,7 @@ class SegmentHash(object):
             logging.debug("hash computed: %s" % seg.hash)
             del h
             struct.pack_into('<I', self._bufview_, self._offset,
-                             ENUM_P_TYPE[seg.header.p_type])
+                             ENUM_P_TYPE_BASE[seg.header.p_type])
             self._offset += 4
             struct.pack_into('<7I', self._bufview_, self._offset,
                              seg.header.p_offset, seg.header.p_vaddr,
