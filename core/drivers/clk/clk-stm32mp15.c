@@ -2554,6 +2554,16 @@ void stm32mp1_clk_restore_context_for_stop(void)
 	disable_kernel_clocks();
 }
 
+void stm32mp1_clk_mcuss_protect(bool enable)
+{
+	uintptr_t rcc_base = stm32_rcc_base();
+
+	if (enable)
+		io_setbits32(rcc_base + RCC_TZCR, RCC_TZCR_MCKPROT);
+	else
+		io_clrbits32(rcc_base + RCC_TZCR, RCC_TZCR_MCKPROT);
+}
+
 static void stm32_clock_suspend(void)
 {
 	backup_regular_cfg();

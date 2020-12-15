@@ -104,6 +104,9 @@ static inline bool stm32mp_nsec_can_access_pmic_regu(const char *name __unused)
 void stm32mp1_clk_save_context_for_stop(void);
 void stm32mp1_clk_restore_context_for_stop(void);
 
+/* Protect the MCU clock subsytem */
+void stm32mp1_clk_mcuss_protect(bool enable);
+
 /*
  * Util for PLL1 settings management based on DT OPP table content.
  */
