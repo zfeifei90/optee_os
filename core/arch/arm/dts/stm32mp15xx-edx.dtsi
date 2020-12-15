@@ -13,6 +13,10 @@
 		reg = <0xC0000000 0x40000000>;
 	};
 
+	aliases {
+		serial0 = &uart4;
+	};
+
 	vin: vin {
 		compatible = "regulator-fixed";
 		regulator-name = "vin";
@@ -34,6 +38,10 @@
 };
 
 &cpu0{
+	cpu-supply = <&vddcore>;
+};
+
+&cpu1{
 	cpu-supply = <&vddcore>;
 };
 
@@ -83,20 +91,6 @@
 				regulator-always-on;
 				regulator-initial-mode = <0>;
 				regulator-over-current-protection;
-				lp-stop {
-					regulator-on-in-suspend;
-					regulator-suspend-microvolt = <1200000>;
-				};
-				lplv-stop {
-					regulator-on-in-suspend;
-					regulator-suspend-microvolt = <900000>;
-				};
-				standby-ddr-sr {
-					regulator-off-in-suspend;
-				};
-				standby-ddr-off {
-					regulator-off-in-suspend;
-				};
 			};
 
 			vdd_ddr: buck2 {
@@ -106,21 +100,6 @@
 				regulator-always-on;
 				regulator-initial-mode = <0>;
 				regulator-over-current-protection;
-				lp-stop {
-					regulator-suspend-microvolt = <1350000>;
-					regulator-on-in-suspend;
-				};
-				lplv-stop {
-					regulator-suspend-microvolt = <1350000>;
-					regulator-on-in-suspend;
-				};
-				standby-ddr-sr {
-					regulator-suspend-microvolt = <1350000>;
-					regulator-on-in-suspend;
-				};
-				standby-ddr-off {
-					regulator-off-in-suspend;
-				};
 			};
 
 			vdd: buck3 {
@@ -131,22 +110,6 @@
 				st,mask-reset;
 				regulator-initial-mode = <0>;
 				regulator-over-current-protection;
-				lp-stop {
-					regulator-suspend-microvolt = <3300000>;
-					regulator-on-in-suspend;
-				};
-				lplv-stop {
-					regulator-suspend-microvolt = <3300000>;
-					regulator-on-in-suspend;
-				};
-				standby-ddr-sr {
-					regulator-suspend-microvolt = <3300000>;
-					regulator-on-in-suspend;
-				};
-				standby-ddr-off {
-					regulator-suspend-microvolt = <3300000>;
-					regulator-on-in-suspend;
-				};
 			};
 
 			v3v3: buck4 {
@@ -156,36 +119,18 @@
 				regulator-always-on;
 				regulator-over-current-protection;
 				regulator-initial-mode = <0>;
-				standby-ddr-sr {
-					regulator-off-in-suspend;
-				};
-				standby-ddr-off {
-					regulator-off-in-suspend;
-				};
 			};
 
 			vdda: ldo1 {
 				regulator-name = "vdda";
 				regulator-min-microvolt = <2900000>;
 				regulator-max-microvolt = <2900000>;
-				standby-ddr-sr {
-					regulator-off-in-suspend;
-				};
-				standby-ddr-off {
-					regulator-off-in-suspend;
-				};
 			};
 
 			v2v8: ldo2 {
 				regulator-name = "v2v8";
 				regulator-min-microvolt = <2800000>;
 				regulator-max-microvolt = <2800000>;
-				standby-ddr-sr {
-					regulator-off-in-suspend;
-				};
-				standby-ddr-off {
-					regulator-off-in-suspend;
-				};
 			};
 
 			vtt_ddr: ldo3 {
@@ -194,31 +139,10 @@
 				regulator-max-microvolt = <750000>;
 				regulator-always-on;
 				regulator-over-current-protection;
-				lp-stop {
-					regulator-off-in-suspend;
-				};
-				lplv-stop {
-					regulator-off-in-suspend;
-				};
-				standby-ddr-sr {
-					regulator-off-in-suspend;
-				};
-				standby-ddr-off {
-					regulator-off-in-suspend;
-				};
 			};
 
 			vdd_usb: ldo4 {
 				regulator-name = "vdd_usb";
-				regulator-min-microvolt = <3300000>;
-				regulator-max-microvolt = <3300000>;
-				regulator-always-on;
-				standby-ddr-sr {
-					regulator-off-in-suspend;
-				};
-				standby-ddr-off {
-					regulator-off-in-suspend;
-				};
 			};
 
 			vdd_sd: ldo5 {
@@ -226,42 +150,18 @@
 				regulator-min-microvolt = <2900000>;
 				regulator-max-microvolt = <2900000>;
 				regulator-boot-on;
-				standby-ddr-sr {
-					regulator-off-in-suspend;
-				};
-				standby-ddr-off {
-					regulator-off-in-suspend;
-				};
 			};
 
 			v1v8: ldo6 {
 				regulator-name = "v1v8";
 				regulator-min-microvolt = <1800000>;
 				regulator-max-microvolt = <1800000>;
-				standby-ddr-sr {
-					regulator-off-in-suspend;
-				};
-				standby-ddr-off {
-					regulator-off-in-suspend;
-				};
 			};
 
 			vref_ddr: vref_ddr {
 				regulator-name = "vref_ddr";
 				regulator-always-on;
 				regulator-over-current-protection;
-				lp-stop {
-					regulator-on-in-suspend;
-				};
-				lplv-stop {
-					regulator-on-in-suspend;
-				};
-				standby-ddr-sr {
-					regulator-on-in-suspend;
-				};
-				standby-ddr-off {
-					regulator-off-in-suspend;
-				};
 			};
 
 			bst_out: boost {
@@ -282,6 +182,7 @@
 
 &iwdg2 {
 	timeout-sec = <32>;
+	secure-timeout-sec = <5>;
 	status = "okay";
 	secure-status = "okay";
 };
@@ -435,7 +336,6 @@
 	sd-uhs-sdr25;
 	sd-uhs-sdr50;
 	sd-uhs-ddr50;
-	sd-uhs-sdr104;
 	status = "okay";
 };
 
@@ -475,4 +375,143 @@
 
 &usbphyc_port1 {
 	phy-supply = <&vdd_usb>;
+};
+
+/* Low-power states of regulators */
+&v1v8 {
+	standby-ddr-sr {
+		regulator-off-in-suspend;
+	};
+	standby-ddr-off {
+		regulator-off-in-suspend;
+	};
+};
+
+&v2v8 {
+	standby-ddr-sr {
+		regulator-off-in-suspend;
+	};
+	standby-ddr-off {
+		regulator-off-in-suspend;
+	};
+};
+
+&v3v3 {
+	standby-ddr-sr {
+		regulator-off-in-suspend;
+	};
+	standby-ddr-off {
+		regulator-off-in-suspend;
+	};
+};
+
+&vdd {
+	lp-stop {
+		regulator-suspend-microvolt = <3300000>;
+		regulator-on-in-suspend;
+	};
+	lplv-stop {
+		regulator-suspend-microvolt = <3300000>;
+		regulator-on-in-suspend;
+	};
+	standby-ddr-sr {
+		regulator-suspend-microvolt = <3300000>;
+		regulator-on-in-suspend;
+	};
+	standby-ddr-off {
+		regulator-suspend-microvolt = <3300000>;
+		regulator-on-in-suspend;
+	};
+};
+
+&vdda {
+	standby-ddr-sr {
+		regulator-off-in-suspend;
+	};
+	standby-ddr-off {
+		regulator-off-in-suspend;
+	};
+};
+
+&vddcore {
+	lp-stop {
+		regulator-on-in-suspend;
+		regulator-suspend-microvolt = <1200000>;
+	};
+	lplv-stop {
+		regulator-on-in-suspend;
+		regulator-suspend-microvolt = <900000>;
+	};
+	standby-ddr-sr {
+		regulator-off-in-suspend;
+	};
+	standby-ddr-off {
+		regulator-off-in-suspend;
+	};
+};
+
+&vdd_ddr {
+	lp-stop {
+		regulator-suspend-microvolt = <1350000>;
+		regulator-on-in-suspend;
+	};
+	lplv-stop {
+		regulator-suspend-microvolt = <1350000>;
+		regulator-on-in-suspend;
+	};
+	standby-ddr-sr {
+		regulator-suspend-microvolt = <1350000>;
+		regulator-on-in-suspend;
+	};
+	standby-ddr-off {
+		regulator-off-in-suspend;
+	};
+};
+
+&vdd_sd {
+	standby-ddr-sr {
+		regulator-off-in-suspend;
+	};
+	standby-ddr-off {
+		regulator-off-in-suspend;
+	};
+};
+
+&vdd_usb {
+	standby-ddr-sr {
+		regulator-off-in-suspend;
+	};
+	standby-ddr-off {
+		regulator-off-in-suspend;
+	};
+};
+
+&vref_ddr {
+	lp-stop {
+		regulator-on-in-suspend;
+	};
+	lplv-stop {
+		regulator-on-in-suspend;
+	};
+	standby-ddr-sr {
+		regulator-on-in-suspend;
+	};
+	standby-ddr-off {
+		regulator-off-in-suspend;
+	};
+};
+
+&vtt_ddr {
+	lp-stop {
+		regulator-off-in-suspend;
+	};
+	lplv-stop {
+		regulator-off-in-suspend;
+	};
+	standby-ddr-sr {
+		regulator-off-in-suspend;
+	};
+	standby-ddr-off {
+		regulator-off-in-suspend;
+	};
 };
