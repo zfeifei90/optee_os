@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: BSD-3-Clause */
 /*
- * Copyright (c) 2017-2018, STMicroelectronics
+ * Copyright (c) 2017-2020, STMicroelectronics
  */
 
 #ifndef __STM32MP1_RCC_H__
@@ -548,6 +548,7 @@
 #define RCC_MP_IWDGFZSETR_IWDG2			BIT(1)
 
 #define DT_RCC_CLK_COMPAT	"st,stm32mp1-rcc"
+#define DT_RCC_SEC_CLK_COMPAT	"st,stm32mp1-rcc-secure"
 
 #ifndef __ASSEMBLER__
 #include <io.h>
