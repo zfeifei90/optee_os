@@ -110,7 +110,10 @@ $(call force,CFG_STM32_TIM,n)
 $(call force,CFG_STPMIC1,n)
 endif
 
-CFG_RPROC_PTA ?= n
+# Enable remoteproc early TA for coprocessor firmware management
+CFG_RPROC_PTA ?= y
+CFG_IN_TREE_EARLY_TAS += remoteproc/80a4c275-0a47-4905-8285-1486a9771a08
+
 CFG_STM32_BSEC ?= y
 CFG_STM32_CLKCALIB ?= y
 CFG_STM32_CRYP ?= y
