@@ -138,6 +138,11 @@ int e32_parser_find_rsc_table(uint8_t *fw, size_t fw_size,
 		if (strcmp(name_table + shdr->sh_name, ".resource_table"))
 			continue;
 
+		if (!size) {
+			IMSG("Ignore empty resource table section");
+			return TEE_ERROR_NO_DATA;
+		}
+
 		if (offset + size > fw_size || offset + size < size) {
 			EMSG("Resource table truncated");
 			return TEE_ERROR_BAD_FORMAT;
