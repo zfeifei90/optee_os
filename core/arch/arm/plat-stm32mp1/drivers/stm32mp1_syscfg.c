@@ -17,6 +17,7 @@
  */
 #define SYSCFG_CMPCR				0x20U
 #define SYSCFG_CMPENSETR			0x24U
+#define SYSCFG_CMPENCLRR			0x28U
 
 /*
  * SYSCFG_CMPCR Register
@@ -71,6 +72,9 @@ void stm32mp_syscfg_disable_io_compensation(void)
 	vaddr_t syscfg_base = get_syscfg_base();
 	uint32_t value = 0;
 
+	 /* No refcount balance needed on non-secure SYSCFG clock */
+	stm32_clock_enable(SYSCFG);
+
 	value = io_read32(syscfg_base + SYSCFG_CMPCR) >>
 		SYSCFG_CMPCR_ANSRC_SHIFT;
 
@@ -84,9 +88,8 @@ void stm32mp_syscfg_disable_io_compensation(void)
 
 	DMSG("SYSCFG.cmpcr = %#"PRIx32, io_read32(syscfg_base + SYSCFG_CMPCR));
 
-	io_clrbits32(syscfg_base + SYSCFG_CMPENSETR, SYSCFG_CMPENSETR_MPU_EN);
+	io_setbits32(syscfg_base + SYSCFG_CMPENCLRR, SYSCFG_CMPENSETR_MPU_EN);
 
-	stm32_clock_disable(SYSCFG);
 	stm32_clock_disable(CK_CSI);
 }
 
