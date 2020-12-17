@@ -2673,6 +2673,7 @@ static struct backup_clock_cfg backup_clock_sc_cfg[] = {
 };
 
 static struct backup_clock_cfg backup_clock_cfg[] = {
+	{ .offset = RCC_TZCR},
 	{ .offset = RCC_MCO1CFGR },
 	{ .offset = RCC_MCO2CFGR },
 	{ .offset = RCC_PLL3CR },
