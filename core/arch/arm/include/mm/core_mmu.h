@@ -613,6 +613,18 @@ enum teecore_tlb_op {
 /* TLB invalidation for a range of virtual address */
 void tlbi_mva_range(vaddr_t va, size_t size, size_t granule);
 
+/*
+ * tlbi_mva_range_asid() - Invalidate TLB for virtual address range for
+ *			   a specific ASID
+ * @va:		start virtual address, must be a multiple of @granule
+ * @len:	length in bytes of range, must be a multiple of @granule
+ * @granule:	granularity of mapping, supported values are
+ *		CORE_MMU_PGDIR_SIZE or SMALL_PAGE_SIZE. This value must
+ *		match the actual mappings.
+ * @asid:	Address space identifier
+ */
+void tlbi_mva_range_asid(vaddr_t va, size_t len, size_t granule, uint32_t asid);
+
 /* deprecated: please call straight tlbi_all() and friends */
 int core_tlb_maintenance(int op, unsigned long a) __deprecated;
 
