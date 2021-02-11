@@ -962,7 +962,7 @@ static unsigned long __clk_get_parent_rate(enum stm32mp1_parent_id p)
 	unsigned long clock = 0;
 	vaddr_t rcc_base = stm32_rcc_base();
 
-	switch (p) {
+	switch ((unsigned int)p) {
 	case _CK_MPU:
 	/* MPU sub system */
 		reg = io_read32(rcc_base + RCC_MPCKSELR);
