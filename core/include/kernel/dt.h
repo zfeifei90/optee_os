@@ -193,6 +193,39 @@ int _fdt_get_status(const void *fdt, int offs);
  */
 void _fdt_fill_device_info(const void *fdt, struct dt_node_info *info,
 			   int node);
+/*
+ * Read cells from a given property of the given node. Any number of 32-bit
+ * cells of the property can be read. Returns 0 on success, or a negative
+ * FDT error value otherwise.
+ */
+int _fdt_read_uint32_array(const void *fdt, int node, const char *prop_name,
+			   uint32_t *array, uint32_t count);
+
+/*
+ * Read one cell from a given property of the given node.
+ * Returns 0 on success, or a negative
+ * FDT error value otherwise.
+ */
+int _fdt_read_uint32(const void *fdt, int node, const char *prop_name,
+		     uint32_t *value);
+
+/*
+ * Read one cell from a given property of the given node.
+ * if cell is empty then return the default value (dflt_value)
+ * Returns 0 on success, or a negative
+ * FDT error value otherwise.
+ */
+uint32_t _fdt_read_uint32_default(const void *fdt, int node,
+				  const char *prop_name, uint32_t dflt_value);
+
+/*
+ * Check whether the node at @node contains a property.
+ *
+ * @node is the offset of the node that describes the device in @fdt.
+ *
+ * Returns true on success or false if no property
+ */
+bool _fdt_check_node(const void *fdt, int node);
 
 #else /* !CFG_DT */
 
@@ -233,6 +266,31 @@ static inline void _fdt_fill_device_info(const void *fdt __unused,
 {
 	panic();
 }
+
+static inline int _fdt_read_uint32_array(const void *fdt, int node,
+					 const char *prop_name,
+					 uint32_t *array, uint32_t count) {
+	return -1;
+}
+
+static inline int _fdt_read_uint32(const void *fdt, int node,
+				   const char *prop_name,
+				   uint32_t *value) {
+	return -1;
+}
+
+static inline uint32_t _fdt_read_uint32_default(const void *fdt, int node,
+						const char *prop_name,
+						uint32_t dflt_value)
+{
+	return dflt_value;
+}
+
+static inline bool _fdt_check_node(const void *fdt, int node)
+{
+	return false;
+}
+
 #endif /* !CFG_DT */
 
 #define for_each_dt_driver(drv) \
