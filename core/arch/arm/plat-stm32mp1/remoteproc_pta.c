@@ -492,13 +492,10 @@ static TEE_Result
 			       TEE_Param params[TEE_NUM_PARAMS] __unused,
 			       void **sess_ctx __unused)
 {
-	struct tee_ta_session *s = tee_ta_get_calling_session();
+	struct ts_session *s = ts_get_calling_session();
 
-	/* Check that we're called from a user TA */
-	if (!s)
-		return TEE_ERROR_ACCESS_DENIED;
-
-	if (!is_user_ta_ctx(s->ctx))
+	/* TODO: check that we're called the remove proc TA (check UUID) */
+	if (!s || !is_user_ta_ctx(s->ctx))
 		return TEE_ERROR_ACCESS_DENIED;
 
 	return TEE_SUCCESS;
