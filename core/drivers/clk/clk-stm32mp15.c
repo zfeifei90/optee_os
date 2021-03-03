@@ -44,25 +44,27 @@
 
 /* Identifiers for root oscillators */
 enum stm32mp_osc_id {
-	_HSI = 0,
-	_HSE,
-	_CSI,
-	_LSI,
-	_LSE,
-	_I2S_CKIN,
-	_USB_PHY_48,
+	OSC_HSI,
+	OSC_HSE,
+	OSC_CSI,
+	OSC_LSI,
+	OSC_LSE,
+	OSC_I2S_CKIN,
+	OSC_USB_PHY_48,
 	NB_OSC,
 	_UNKNOWN_OSC_ID = 0xffU
 };
 
 /* Identifiers for parent clocks */
 enum stm32mp1_parent_id {
-/*
- * Oscillators are valid IDs for parent clock and are already
- * defined in enum stm32mp_osc_id, ending at NB_OSC - 1.
- * This enum defines IDs are the other possible clock parents.
- */
-	_HSI_KER = NB_OSC,
+	_HSI,
+	_HSE,
+	_CSI,
+	_LSI,
+	_LSE,
+	_I2S_CKIN,
+	_USB_PHY_48,
+	_HSI_KER,
 	_HSE_KER,
 	_HSE_KER_DIV2,
 	_CSI_KER,
@@ -968,10 +970,10 @@ static unsigned long __clk_get_parent_rate(enum stm32mp1_parent_id p)
 		reg = io_read32(rcc_base + RCC_MPCKSELR);
 		switch (reg & RCC_SELR_SRC_MASK) {
 		case RCC_MPCKSELR_HSI:
-			clock = osc_frequency(_HSI);
+			clock = osc_frequency(OSC_HSI);
 			break;
 		case RCC_MPCKSELR_HSE:
-			clock = osc_frequency(_HSE);
+			clock = osc_frequency(OSC_HSE);
 			break;
 		case RCC_MPCKSELR_PLL:
 			clock = stm32mp1_read_pll_freq(_PLL1, _DIV_P);
@@ -997,10 +999,10 @@ static unsigned long __clk_get_parent_rate(enum stm32mp1_parent_id p)
 		reg = io_read32(rcc_base + RCC_ASSCKSELR);
 		switch (reg & RCC_SELR_SRC_MASK) {
 		case RCC_ASSCKSELR_HSI:
-			clock = osc_frequency(_HSI);
+			clock = osc_frequency(OSC_HSI);
 			break;
 		case RCC_ASSCKSELR_HSE:
-			clock = osc_frequency(_HSE);
+			clock = osc_frequency(OSC_HSE);
 			break;
 		case RCC_ASSCKSELR_PLL:
 			clock = stm32mp1_read_pll_freq(_PLL2, _DIV_P);
@@ -1034,13 +1036,13 @@ static unsigned long __clk_get_parent_rate(enum stm32mp1_parent_id p)
 		reg = io_read32(rcc_base + RCC_MSSCKSELR);
 		switch (reg & RCC_SELR_SRC_MASK) {
 		case RCC_MSSCKSELR_HSI:
-			clock = osc_frequency(_HSI);
+			clock = osc_frequency(OSC_HSI);
 			break;
 		case RCC_MSSCKSELR_HSE:
-			clock = osc_frequency(_HSE);
+			clock = osc_frequency(OSC_HSE);
 			break;
 		case RCC_MSSCKSELR_CSI:
-			clock = osc_frequency(_CSI);
+			clock = osc_frequency(OSC_CSI);
 			break;
 		case RCC_MSSCKSELR_PLL:
 			clock = stm32mp1_read_pll_freq(_PLL3, _DIV_P);
@@ -1075,13 +1077,13 @@ static unsigned long __clk_get_parent_rate(enum stm32mp1_parent_id p)
 		reg = io_read32(rcc_base + RCC_CPERCKSELR);
 		switch (reg & RCC_SELR_SRC_MASK) {
 		case RCC_CPERCKSELR_HSI:
-			clock = osc_frequency(_HSI);
+			clock = osc_frequency(OSC_HSI);
 			break;
 		case RCC_CPERCKSELR_HSE:
-			clock = osc_frequency(_HSE);
+			clock = osc_frequency(OSC_HSE);
 			break;
 		case RCC_CPERCKSELR_CSI:
-			clock = osc_frequency(_CSI);
+			clock = osc_frequency(OSC_CSI);
 			break;
 		default:
 			break;
@@ -1089,24 +1091,24 @@ static unsigned long __clk_get_parent_rate(enum stm32mp1_parent_id p)
 		break;
 	case _HSI:
 	case _HSI_KER:
-		clock = osc_frequency(_HSI);
+		clock = osc_frequency(OSC_HSI);
 		break;
 	case _CSI:
 	case _CSI_KER:
-		clock = osc_frequency(_CSI);
+		clock = osc_frequency(OSC_CSI);
 		break;
 	case _HSE:
 	case _HSE_KER:
-		clock = osc_frequency(_HSE);
+		clock = osc_frequency(OSC_HSE);
 		break;
 	case _HSE_KER_DIV2:
-		clock = osc_frequency(_HSE) >> 1;
+		clock = osc_frequency(OSC_HSE) >> 1;
 		break;
 	case _LSI:
-		clock = osc_frequency(_LSI);
+		clock = osc_frequency(OSC_LSI);
 		break;
 	case _LSE:
-		clock = osc_frequency(_LSE);
+		clock = osc_frequency(OSC_LSE);
 		break;
 	/* PLL */
 	case _PLL1_P:
@@ -1147,7 +1149,7 @@ static unsigned long __clk_get_parent_rate(enum stm32mp1_parent_id p)
 		break;
 	/* Other */
 	case _USB_PHY_48:
-		clock = osc_frequency(_USB_PHY_48);
+		clock = osc_frequency(OSC_USB_PHY_48);
 		break;
 	default:
 		break;
@@ -1347,7 +1349,7 @@ static unsigned long clk_stm32_get_rate(unsigned long id)
 /*
  * Get the parent ID of the target parent clock, or -1 if no parent found.
  */
-static int get_parent_id_parent(unsigned int parent_id)
+static int get_parent_id_parent(enum stm32mp1_parent_id parent_id)
 {
 	enum stm32mp1_parent_sel s = _UNKNOWN_SEL;
 	enum stm32mp1_pll_id pll_id = _PLL_NB;
@@ -1419,9 +1421,9 @@ static int get_parent_id_parent(unsigned int parent_id)
 }
 
 /* We are only interested in knowing if PLL3 shall be secure or not */
-static void secure_parent_clocks(unsigned long parent_id)
+static void secure_parent_clocks(enum stm32mp1_parent_id parent_id)
 {
-	int grandparent_id = 0;
+	enum stm32mp1_parent_id grandparent_id = 0;
 
 	switch (parent_id) {
 	case _ACLK:
@@ -1487,13 +1489,13 @@ DECLARE_KEEP_PAGER(stm32mp_clk_ops);
 
 #ifdef CFG_EMBED_DTB
 static const char *stm32mp_osc_node_label[NB_OSC] = {
-	[_LSI] = "clk-lsi",
-	[_LSE] = "clk-lse",
-	[_HSI] = "clk-hsi",
-	[_HSE] = "clk-hse",
-	[_CSI] = "clk-csi",
-	[_I2S_CKIN] = "i2s_ckin",
-	[_USB_PHY_48] = "ck_usbo_48m"
+	[OSC_LSI] = "clk-lsi",
+	[OSC_LSE] = "clk-lse",
+	[OSC_HSI] = "clk-hsi",
+	[OSC_HSE] = "clk-hse",
+	[OSC_CSI] = "clk-csi",
+	[OSC_I2S_CKIN] = "i2s_ckin",
+	[OSC_USB_PHY_48] = "ck_usbo_48m"
 };
 
 static unsigned int clk_freq_prop(void *fdt, int node)
@@ -1520,8 +1522,8 @@ static void get_osc_freq_from_dt(void *fdt)
 	if (clk_node < 0)
 		panic();
 
-	COMPILE_TIME_ASSERT((int)_HSI == 0);
-	for (idx = _HSI; idx < NB_OSC; idx++) {
+	COMPILE_TIME_ASSERT((int)OSC_HSI == 0);
+	for (idx = OSC_HSI; idx < NB_OSC; idx++) {
 		const char *name = stm32mp_osc_node_label[idx];
 		int subnode = 0;
 
