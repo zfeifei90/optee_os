@@ -60,6 +60,17 @@ void itr_handle(size_t it);
  * otherwise DT_INFO_INVALID_INTERRUPT
  */
 int dt_get_irq(const void *fdt, int node);
+
+/*
+ * Get the DT secure-interrupt property at @node.
+ *
+ * @fdt reference to the Device Tree
+ * @node is the node offset to read
+ *
+ * Returns the interrupt number if value >= 0
+ * otherwise DT_INFO_INVALID_INTERRUPT
+ */
+int dt_get_irq_secure(const void *fdt, int node);
 #endif
 
 void itr_add(struct itr_handler *handler);

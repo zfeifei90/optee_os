@@ -286,7 +286,10 @@ void _fdt_fill_device_info(void *fdt, struct dt_node_info *info, int offs)
 		dinfo.reset = (int)fdt32_to_cpu(*cuint);
 	}
 
-	dinfo.interrupt = dt_get_irq(fdt, offs);
+	/* We first look for the secure interrupt, if not found the interrupt */
+	dinfo.interrupt = dt_get_irq_secure(fdt, offs);
+	if (dinfo.interrupt == DT_INFO_INVALID_INTERRUPT)
+		dinfo.interrupt = dt_get_irq(fdt, offs);
 
 	dinfo.status = _fdt_get_status(fdt, offs);
 

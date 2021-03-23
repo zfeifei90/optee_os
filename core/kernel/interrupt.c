@@ -28,7 +28,7 @@ void itr_init(struct itr_chip *chip)
 }
 
 #ifdef CFG_DT
-int dt_get_irq(const void *fdt, int node)
+static int _dt_get_irq(const void *fdt, int node,  const char *prop_name)
 {
 	const uint32_t *prop = NULL;
 	int len = 0;
@@ -37,11 +37,21 @@ int dt_get_irq(const void *fdt, int node)
 	if (!itr_chip || !itr_chip->dt_get_irq)
 		return it_num;
 
-	prop = fdt_getprop(fdt, node, "interrupts", &len);
+	prop = fdt_getprop(fdt, node, prop_name, &len);
 	if (!prop)
 		return it_num;
 
 	return itr_chip->dt_get_irq(prop, len);
+}
+
+int dt_get_irq(const void *fdt, int node)
+{
+	return _dt_get_irq(fdt, node, "interrupts");
+}
+
+int dt_get_irq_secure(const void *fdt, int node)
+{
+	return _dt_get_irq(fdt, node, "secure-interrupts");
 }
 #endif
 
