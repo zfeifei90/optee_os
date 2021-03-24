@@ -275,6 +275,13 @@
 			};
 		};
 
+		tamp: tamp@5c00a000 {
+			compatible = "st,stm32-tamp", "syscon", "simple-mfd";
+			reg = <0x5c00a000 0x400>;
+			interrupts = <GIC_SPI 197 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&rcc RTCAPB>;
+		};
+
 		tzc400: tzc@5c006000 {
 			compatible = "st,stm32mp1-tzc";
 			reg = <0x5c006000 0x1000>;
