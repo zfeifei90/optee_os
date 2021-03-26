@@ -133,6 +133,10 @@
 	st,protreg = < (TZPROT(8)) >;
 };
 
+&hse_monitor {
+	status = "okay";
+};
+
 &i2c4 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&i2c4_pins_a>;
@@ -315,6 +319,14 @@
 	timeout-sec = <32>;
 	secure-timeout-sec = <5>;
 	status = "okay";
+};
+
+&lptimer3 {
+	status = "okay";
+
+	counter {
+		status = "okay";
+	};
 };
 
 &nvmem_layout {
