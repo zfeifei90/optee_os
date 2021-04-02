@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 /*
- * Copyright (c) 2017-2020, STMicroelectronics
  * Copyright (c) 2016-2018, Linaro Limited
+ * Copyright (c) 2017-2021, STMicroelectronics
  */
 
 #include <boot_api.h>
@@ -260,6 +260,26 @@ static TEE_Result initialize_pll1_settings(void)
 /* Compute PLL1 settings once PMIC init is completed */
 driver_init_late(initialize_pll1_settings);
 
+static TEE_Result disable_usb_phy_regulator(void)
+{
+	if (stm32mp_dt_pmic_status() > 0) {
+		const char *name = stm32mp_pmic_get_usb_supply_name();
+
+		if (!name)
+			return TEE_SUCCESS;
+
+		stm32mp_get_pmic();
+		if (stpmic1_regulator_disable(name))
+			panic();
+
+		stm32mp_put_pmic();
+	}
+
+	return TEE_SUCCESS;
+}
+
+/* Disable USB regulator to avoid initialization issues */
+driver_init_late(disable_usb_phy_regulator);
 #endif
 
 static uintptr_t stm32_dbgmcu_base(void)
