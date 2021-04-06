@@ -11,6 +11,8 @@
 #include <drivers/gic.h>
 #include <drivers/stm32_etzpc.h>
 #include <drivers/stm32_iwdg.h>
+#include <drivers/stm32_rtc.h>
+#include <drivers/stm32_tamp.h>
 #include <drivers/stm32_uart.h>
 #include <drivers/stm32mp1_pmic.h>
 #include <drivers/stm32mp1_rcc.h>
@@ -665,4 +667,79 @@ bool stm32_rtc_get_read_twice(void)
 
 	return apb1_freq < (rtc_freq * 7U);
 }
+#endif
+
+#ifdef CFG_STM32_TAMP
+
+static const char * const itamper_name[] = {
+	[INT_TAMP1] = "RTC power domain",
+	[INT_TAMP2] = "Temperature monitoring",
+	[INT_TAMP3] = "LSE monitoring",
+	[INT_TAMP4] = "HSE monitoring",
+};
+
+DECLARE_KEEP_PAGER(itamper_name);
+
+static int stm32mp1_itamper_action(int id)
+{
+	const char *tamp_name = NULL;
+
+	if (id >= 0 && ((size_t)id < ARRAY_SIZE(itamper_name)))
+		tamp_name = itamper_name[id];
+
+	MSG("Internal tamper %u (%s) occurs\n", id + 1, tamp_name);
+
+	return 1; /* Ack TAMPER and reset system */
+}
+DECLARE_KEEP_PAGER(stm32mp1_itamper_action);
+
+static int __unused stm32mp1_etamper_action(int id)
+{
+	MSG("External tamper %u occurs\n", id + 1);
+
+	return 1; /* Ack TAMPER and reset system */
+}
+DECLARE_KEEP_PAGER(stm32mp1_etamper_action);
+
+static TEE_Result stm32_configure_tamp(void)
+{
+	struct stm32_bkpregs_conf bkpregs_conf = {
+		.nb_zone1_regs = 10, /* 10 registers in zone 1 */
+		.nb_zone2_regs = 0   /* No register in zone 2 */
+				     /* Zone3 all remaining */
+	};
+
+	/* Enable BKP Register protection */
+	if (stm32_tamp_set_secure_bkpregs(&bkpregs_conf) != TEE_SUCCESS)
+		panic();
+
+	/*
+	 * Configure TAMP to accept only secure access,
+	 * and use secure Interrupt.
+	 */
+	stm32_tamp_configure_secure_access(TAMP_REGS_IT_SECURE);
+
+	stm32_tamp_configure_internal(INT_TAMP1, TAMP_ENABLE,
+				      stm32mp1_itamper_action);
+	stm32_tamp_configure_internal(INT_TAMP2, TAMP_ENABLE,
+				      stm32mp1_itamper_action);
+	stm32_tamp_configure_internal(INT_TAMP3, TAMP_ENABLE,
+				      stm32mp1_itamper_action);
+	stm32_tamp_configure_internal(INT_TAMP4, TAMP_ENABLE,
+				      stm32mp1_itamper_action);
+
+	stm32_tamp_configure_active(TAMP_ACTIVE_FILTER_OFF);
+
+	stm32_tamp_configure_passive(0);
+
+	if (stm32_tamp_set_config() != TEE_SUCCESS)
+		panic();
+
+	/* Enable timestamp for tamper */
+	stm32_rtc_set_tamper_timestamp();
+
+	return TEE_SUCCESS;
+}
+
+boot_final(stm32_configure_tamp);
 #endif
