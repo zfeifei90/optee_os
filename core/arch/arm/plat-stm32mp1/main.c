@@ -12,6 +12,8 @@
 #include <drivers/stm32_etzpc.h>
 #include <drivers/stm32_firewall.h>
 #include <drivers/stm32_iwdg.h>
+#include <drivers/stm32_rtc.h>
+#include <drivers/stm32_tamp.h>
 #include <drivers/stm32_uart.h>
 #include <drivers/stm32mp_dt_bindings.h>
 #include <drivers/stm32mp1_pmic.h>
@@ -629,4 +631,115 @@ static TEE_Result init_debug(void)
 	return res;
 }
 early_init_late(init_debug);
+#endif
+
+#ifdef CFG_STM32_TAMP
+
+#ifdef CFG_STM32MP13
+static const char * const itamper_name[] = {
+	[INT_TAMP1] = "Backup domain voltage threshold monitoring",
+	[INT_TAMP2] = "Temperature monitoring",
+	[INT_TAMP3] = "LSE monitoring",
+	[INT_TAMP4] = "HSE monitoring",
+	[INT_TAMP7] = "ADC2 analog watchdog monitoring 1",
+	[INT_TAMP12] = "ADC2 analog watchdog monitoring 2",
+	[INT_TAMP13] = "ADC2 analog watchdog monitoring 3",
+};
+#endif
+
+#ifdef CFG_STM32MP15
+static const char * const itamper_name[] = {
+	[INT_TAMP1] = "RTC power domain",
+	[INT_TAMP2] = "Temperature monitoring",
+	[INT_TAMP3] = "LSE monitoring",
+	[INT_TAMP4] = "HSE monitoring",
+};
+#endif
+DECLARE_KEEP_PAGER(itamper_name);
+
+static uint32_t stm32mp1_itamper_action(int id __maybe_unused)
+{
+	const char __maybe_unused *tamp_name = NULL;
+
+	if (id >= 0 && ((size_t)id < ARRAY_SIZE(itamper_name)))
+		tamp_name = itamper_name[id];
+
+	MSG("Internal tamper %u (%s) occurs", id - INT_TAMP1 + 1, tamp_name);
+
+	return TAMP_CB_ACK_AND_RESET;
+}
+DECLARE_KEEP_PAGER(stm32mp1_itamper_action);
+
+static uint32_t __unused stm32mp1_etamper_action(int id __maybe_unused)
+{
+	MSG("External tamper %u occurs", id - EXT_TAMP1 + 1);
+
+	return TAMP_CB_ACK_AND_RESET;
+}
+DECLARE_KEEP_PAGER(stm32mp1_etamper_action);
+
+static TEE_Result stm32_configure_tamp(void)
+{
+	TEE_Result res __maybe_unused = TEE_SUCCESS;
+	struct stm32_bkpregs_conf bkpregs_conf = {
+#ifdef CFG_STM32MP15
+		.nb_zone1_regs = 10, /* 10 registers in zone 1 */
+#endif
+#ifdef CFG_STM32MP13
+		.nb_zone1_regs = 0,  /* No register in zone 1 */
+#endif
+		.nb_zone2_regs = 0   /* No register in zone 2 */
+				     /* Zone3 all remaining */
+	};
+
+	/* Enable BKP Register protection */
+	if (stm32_tamp_set_secure_bkpregs(&bkpregs_conf))
+		panic();
+
+	/*
+	 * The stm32_tamp_activate_tamp() for INT_TAMPx returns an error code
+	 * only if INT_TAMPx doesn't exist on the SoC or if 'mode' is
+	 * incompatible. Here 'mode' is the simplest one, and we only activate
+	 * existing INT_TAMPx.
+	 */
+	stm32_tamp_activate_tamp(INT_TAMP1, TAMP_ERASE,
+				 stm32mp1_itamper_action);
+	stm32_tamp_activate_tamp(INT_TAMP2, TAMP_ERASE,
+				 stm32mp1_itamper_action);
+	stm32_tamp_activate_tamp(INT_TAMP3, TAMP_ERASE,
+				 stm32mp1_itamper_action);
+	stm32_tamp_activate_tamp(INT_TAMP4, TAMP_ERASE,
+				 stm32mp1_itamper_action);
+#ifdef CFG_STM32MP13
+	stm32_tamp_activate_tamp(INT_TAMP7, TAMP_ERASE,
+				 stm32mp1_itamper_action);
+	stm32_tamp_activate_tamp(INT_TAMP12, TAMP_ERASE,
+				 stm32mp1_itamper_action);
+	stm32_tamp_activate_tamp(INT_TAMP13, TAMP_ERASE,
+				 stm32mp1_itamper_action);
+#endif
+
+#ifdef CFG_STM32MP13
+	/*
+	 * EXT_TAMPx needs to exist but also to be activated in DT. Here, we
+	 * check if the EXT_TAMP2 is defined in DT.
+	 */
+	res = stm32_tamp_activate_tamp(EXT_TAMP2, TAMP_ERASE,
+				       stm32mp1_etamper_action);
+	if (res == TEE_ERROR_BAD_PARAMETERS)
+		DMSG("no EXT_TAMP2 on this platform");
+	else if (res == TEE_ERROR_ITEM_NOT_FOUND)
+		DMSG("EXT_TAMP2 in pin was not found in device tree");
+#endif
+
+	if (stm32_tamp_set_config())
+		panic();
+
+	/* Enable timestamp for tamper */
+	stm32_rtc_set_tamper_timestamp();
+
+	return TEE_SUCCESS;
+}
+
+driver_init_late(stm32_configure_tamp);
 #endif
