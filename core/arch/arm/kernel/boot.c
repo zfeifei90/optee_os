@@ -759,6 +759,11 @@ static int add_optee_dt_node(struct dt_descriptor *dt)
 		if (ret < 0)
 			return -1;
 	}
+	
+	ret = fdt_setprop(dt->blob, offs, "u-boot,dm-pre-reloc",
+			  NULL, 0);
+	if (ret < 0)
+		return -1;
 	return 0;
 }
 
