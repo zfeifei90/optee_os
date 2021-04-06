@@ -196,6 +196,9 @@ int32_t plat_scmi_voltd_set_config(unsigned int channel_id,
 	switch (config) {
 	case SCMI_VOLTAGE_DOMAIN_CONFIG_ARCH_ON:
 		if (!voltd->enabled) {
+			if (voltd->rdev->flags & REGUL_ALWAYS_ON)
+				return SCMI_SUCCESS;
+
 			if (regulator_enable(voltd->rdev))
 				return SCMI_GENERIC_ERROR;
 
@@ -205,6 +208,9 @@ int32_t plat_scmi_voltd_set_config(unsigned int channel_id,
 		return TEE_SUCCESS;
 	case SCMI_VOLTAGE_DOMAIN_CONFIG_ARCH_OFF:
 		if (voltd->enabled) {
+			if (voltd->rdev->flags & REGUL_ALWAYS_ON)
+				return SCMI_SUCCESS;
+
 			if (regulator_disable(voltd->rdev))
 				return SCMI_GENERIC_ERROR;
 
@@ -325,12 +331,18 @@ static TEE_Result scmi_regulator_consumer_init(void)
 
 		voltd->rdev = rdev;
 
-		/* Boot-on: non-secure will be able to disable if necessary */
-		if (rdev->flags & REGUL_BOOT_ON) {
+		/*
+		 * Synchronize SCMI regulator current configuration
+		 * Boot-on can be disabled by non secure
+		 * Always-on can not be updated but status will be synchronized
+		 * in non secure.
+		 */
+		if (rdev->flags & REGUL_BOOT_ON ||
+		    rdev->flags & REGUL_ALWAYS_ON) {
 			if (regulator_enable(rdev))
-				panic();
-
-			voltd->enabled = true;
+				IMSG("Failed to enable SCMI regul");
+			else
+				voltd->enabled = true;
 		}
 
 		DMSG("scmi voltd shares %s (node %s) on domain ID %"PRIu32,
