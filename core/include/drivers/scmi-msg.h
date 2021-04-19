@@ -358,4 +358,55 @@ int32_t plat_scmi_voltd_get_config(unsigned int channel_id,
 int32_t plat_scmi_voltd_set_config(unsigned int channel_id,
 				   unsigned int scmi_id, uint32_t config);
 
+/* Handlers for SCMI Performances Management protocol services */
+
+/*
+ * Return number of voltage domain for an agent
+ * @channel_id: SCMI channel ID
+ * Return number of performances management domains
+ */
+size_t plat_scmi_perf_count(unsigned int channel_id);
+
+/*
+ * Get performance domain string ID (aka name)
+ * @channel_id: SCMI channel ID
+ * @scmi_id: SCMI performance domain ID
+ * Return pointer to name or NULL
+ */
+const char *plat_scmi_perf_domain_name(unsigned int channel_id,
+				       unsigned int domain_id);
+
+/*
+ * Get performance domain possible levels as an array
+ *
+ * @channel_id: SCMI channel ID
+ * @scmi_id: SCMI domain ID
+ * @start_index: Level index to start from.
+ * @levels: If NULL, function returns, else output rates array
+ * @nb_elts: Array size of @levels.
+ * Return an SCMI compliant error code
+ */
+int32_t plat_scmi_perf_levels_array(unsigned int channel_id,
+				    unsigned int domain_id, size_t start_index,
+				    unsigned int *levels, size_t *nb_elts);
+
+/*
+ * Get performance domain level
+ * @channel_id: SCMI channel ID
+ * @scmi_id: SCMI domain ID
+ * @level: output level value
+ * Return a compliant SCMI error code
+ */
+int32_t plat_scmi_perf_level_get(unsigned int channel_id,
+				 unsigned int domain_id, unsigned int *level);
+
+/*
+ * Set performance domain level
+ * @channel_id: SCMI channel ID
+ * @scmi_id: SCMI domain ID
+ * @level: Target level value
+ * Return a compliant SCMI error code
+ */
+int32_t plat_scmi_perf_level_set(unsigned int channel_id,
+				 unsigned int domain_id, unsigned int level);
 #endif /* SCMI_MSG_H */
