@@ -286,7 +286,7 @@ int32_t plat_scmi_rd_set_state(unsigned int channel_id, unsigned int scmi_id,
 size_t plat_scmi_voltd_count(unsigned int channel_id);
 
 /*
- * Get clock controller string ID (aka name)
+ * Get voltage domain string ID (aka name)
  * @channel_id: SCMI channel ID
  * @scmi_id: SCMI voltage domain ID
  * Return pointer to name or NULL
@@ -324,14 +324,14 @@ int32_t plat_scmi_voltd_levels_by_step(unsigned int channel_id,
  * Get current voltage domain level in microvolt
  * @channel_id: SCMI channel ID
  * @scmi_id: SCMI voltage domain ID
- * Return clock rate or 0 if not supported
+ * Return voltage domain level or 0 if not supported
  */
 long plat_scmi_voltd_get_level(unsigned int channel_id, unsigned int scmi_id);
 
 /*
  * Set voltage domain level voltage domain
  * @channel_id: SCMI channel ID
- * @scmi_id: SCMI clock ID
+ * @scmi_id: SCMI voltage domain ID
  * @level: Target voltage domain level in microvolt
  * Return a compliant SCMI error code
  */
