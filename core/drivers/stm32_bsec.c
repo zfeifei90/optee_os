@@ -646,7 +646,7 @@ static void bsec_dt_otp_nsec_access(void *fdt, int bsec_node)
 
 		size = length / sizeof(uint32_t);
 
-		if (otp_id + size > STM32MP1_OTP_MAX_ID)
+		if (otp_id + size > OTP_MAX_SIZE)
 			panic("OTP range oversized");
 
 		for (i = otp_id; i < otp_id + size; i++)
