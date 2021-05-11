@@ -311,11 +311,27 @@ TEE_Result regulator_set_voltage(struct rdev *rdev, uint16_t mvolt)
 	res = rdev->desc->ops->set_voltage(rdev->desc, mvolt);
 	unlock_driver(rdev);
 
-	if (res)
+	if (res) {
 		EMSG("regul %s set volt failed with %#"PRIx32,
 		     rdev->desc->node_name, res);
-	else
-		rdev->cur_mv = mvolt;
+		return res;
+	}
+
+	if (rdev->ramp_delay_uv_per_us > 0) {
+		unsigned int d = 0;
+
+		if (rdev->cur_mv > mvolt)
+			d = rdev->cur_mv - mvolt;
+		else
+			d = mvolt - rdev->cur_mv;
+
+		d = (d * 1000) / rdev->ramp_delay_uv_per_us;
+
+		FMSG("%s %"PRIu32"uS", rdev->desc->node_name, d);
+		udelay(d);
+	}
+
+	rdev->cur_mv = mvolt;
 
 	return res;
 }
@@ -544,6 +560,13 @@ static TEE_Result parse_properties(const void *fdt, struct rdev *rdev, int node)
 		}
 	}
 
+	cuint = fdt_getprop(fdt, node, "regulator-ramp-delay", NULL);
+	if (cuint) {
+		rdev->ramp_delay_uv_per_us = (uint32_t)(fdt32_to_cpu(*cuint));
+		FMSG("%s: ramp delay = %u (uV/us)", rdev->desc->node_name,
+		     rdev->ramp_delay_uv_per_us);
+	}
+
 	cuint = fdt_getprop(fdt, node, "regulator-enable-ramp-delay", NULL);
 	if (cuint) {
 		rdev->enable_ramp_delay_us = (uint32_t)(fdt32_to_cpu(*cuint));
@@ -726,6 +749,7 @@ TEE_Result regulator_register(const struct regul_desc *desc, int node)
 		}
 	}
 
+	rdev->ramp_delay_uv_per_us = desc->ramp_delay_uv_per_us;
 	rdev->enable_ramp_delay_us = desc->enable_ramp_delay_us;
 	rdev->desc = desc;
 
@@ -935,6 +959,8 @@ static TEE_Result regulator_core_config(void)
 		res = regulator_get_voltage(rdev, &mv);
 		if (res)
 		    break;
+
+		rdev->cur_mv = mv;
 
 		if ((mv < min_mv) || (mv > max_mv)) {
 			res = regulator_set_voltage(rdev, min_mv);

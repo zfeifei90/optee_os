@@ -81,7 +81,8 @@ struct regul_desc {
 	const struct regul_ops *ops;
 	const void *driver_data;
 	const char *supply_name;
-	const uint32_t enable_ramp_delay_us;
+	const uint32_t ramp_delay_uv_per_us;
+;	const uint32_t enable_ramp_delay_us;
 };
 
 struct regul_ops {
@@ -112,6 +113,7 @@ struct rdev {
 	uint16_t max_mv;
 	uint16_t cur_mv;
 	uint16_t flags;
+	uint32_t ramp_delay_uv_per_us;
 	unsigned int enable_ramp_delay_us;
 	const char *reg_name;
 	uint8_t use_count;
