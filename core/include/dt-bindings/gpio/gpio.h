@@ -39,7 +39,4 @@
 /* Bit 5 express pull down */
 #define GPIO_PULL_DOWN 32
 
-/* Macro to define the security for GPIO */
-#define TZPROT(id) (1 << (id))
-
 #endif
