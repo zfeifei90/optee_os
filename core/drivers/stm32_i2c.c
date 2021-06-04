@@ -869,6 +869,33 @@ static int wait_isr_event(struct i2c_handle_s *hi2c, uint32_t bit_mask,
 	return -1;
 }
 
+static int wait_isr_event_nack(struct i2c_handle_s *hi2c, uint32_t bit_mask,
+			       unsigned int awaited_value, uint64_t timeout_ref)
+{
+	vaddr_t isr = get_base(hi2c) + I2C_ISR;
+	uint32_t val;
+
+	assert(IS_POWER_OF_TWO(bit_mask) && !(awaited_value & ~1U));
+
+	/* May timeout while TEE thread is suspended */
+	while (!timeout_elapsed(timeout_ref)) {
+		val = io_read32(isr);
+		if (val & I2C_ISR_NACKF)
+			return -1;
+		if (!!(val & bit_mask) == awaited_value)
+			break;
+	}
+
+	val = io_read32(isr);
+	if (val & I2C_ISR_NACKF)
+		return -1;
+	if (!!(val & bit_mask) == awaited_value)
+		return 0;
+
+	notif_i2c_timeout(hi2c);
+	return -1;
+}
+
 /* Handle Acknowledge-Failed sequence detection during an I2C Communication */
 static int i2c_ack_failed(struct i2c_handle_s *hi2c, uint64_t timeout_ref)
 {
@@ -1326,6 +1353,12 @@ static int i2c_read(struct i2c_handle_s *hi2c, struct i2c_request *request,
 		xfer_size = xfer_count;
 		i2c_transfer_config(hi2c, request->dev_addr, xfer_size,
 				    I2C_AUTOEND_MODE, I2C_GENERATE_START_READ);
+	}
+
+	/* Start polling for data but return if NACK indicates we should poll later */
+	if (wait_isr_event_nack(hi2c, I2C_ISR_RXNE, 1, timeout_ref)) {
+		i2c_ack_failed(hi2c, timeout_ref);
+		goto bail;
 	}
 
 	do {
