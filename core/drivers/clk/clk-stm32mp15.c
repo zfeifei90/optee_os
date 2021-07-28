@@ -67,6 +67,7 @@ enum stm32mp1_parent_id {
 	_HSI_KER,
 	_HSE_KER,
 	_HSE_KER_DIV2,
+	_HSE_RTC,
 	_CSI_KER,
 	_PLL1_P,
 	_PLL1_Q,
@@ -132,6 +133,7 @@ static const uint8_t parent_id_clock_id[_PARENT_NB] = {
 	[_HSI_KER] = CK_HSI,
 	[_HSE_KER] = CK_HSE,
 	[_HSE_KER_DIV2] = CK_HSE_DIV2,
+	[_HSE_RTC] = _UNKNOWN_ID,
 	[_CSI_KER] = CK_CSI,
 	[_PLL1_P] = PLL1_P,
 	[_PLL1_Q] = PLL1_Q,
@@ -494,7 +496,7 @@ static const uint8_t mcuss_parents[] = {
 };
 
 static const uint8_t rtc_parents[] = {
-	_UNKNOWN_ID, _LSE, _LSI, _HSE
+	_UNKNOWN_ID, _LSE, _LSI, _HSE_RTC
 };
 
 #ifdef STM32MP1_USE_MPU0_RESET
@@ -609,6 +611,7 @@ static const char __maybe_unused *const stm32mp1_clk_parent_name[_PARENT_NB] = {
 	[_HSI_KER] = "HSI_KER",
 	[_HSE_KER] = "HSE_KER",
 	[_HSE_KER_DIV2] = "HSE_KER_DIV2",
+	[_HSE_RTC] = "HSE_RTC",
 	[_CSI_KER] = "CSI_KER",
 	[_PLL1_P] = "PLL1_P",
 	[_PLL1_Q] = "PLL1_Q",
@@ -1104,6 +1107,10 @@ static unsigned long __clk_get_parent_rate(enum stm32mp1_parent_id p)
 	case _HSE_KER_DIV2:
 		clock = osc_frequency(OSC_HSE) >> 1;
 		break;
+	case _HSE_RTC:
+		clock = osc_frequency(OSC_HSE);
+		clock /= (io_read32(rcc_base + RCC_RTCDIVR) & RCC_DIVR_DIV_MASK) + 1U;
+		break;
 	case _LSI:
 		clock = osc_frequency(OSC_LSI);
 		break;
@@ -1441,6 +1448,7 @@ static void secure_parent_clocks(enum stm32mp1_parent_id parent_id)
 	case _HSE:
 	case _HSE_KER:
 	case _HSE_KER_DIV2:
+	case _HSE_RTC:
 	case _LSE:
 	case _PLL1_P:
 	case _PLL1_Q:
