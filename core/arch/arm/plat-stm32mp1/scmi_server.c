@@ -89,6 +89,11 @@ register_phys_mem(MEM_AREA_IO_NSEC, CFG_STM32MP1_SCMI_SHM_BASE,
 		.name = _name, \
 	}
 
+#define PERFD_CELL(_scmi_id, _name) \
+	[_scmi_id] = { \
+		.name = (_name), \
+	}
+
 struct channel_resources {
 	struct scmi_msg_channel *channel;
 	struct stm32_scmi_clk *clock;
@@ -138,11 +143,6 @@ static struct stm32_scmi_rd stm32_scmi0_reset_domain[] = {
 	RESET_CELL(RST_SCMI0_MDMA, MDMA_R, MDMA_BASE, "mdma"),
 };
 
-#define PERFD_CELL(_scmi_id, _name) \
-	[_scmi_id] = { \
-		.name = (_name), \
-	}
-
 struct stm32_scmi_perfd scmi0_performance_domain[] = {
 	PERFD_CELL(0 /* PERFD_SCMI0_CPU_OPP */, "cpu-opp"),
 };
@@ -154,10 +154,9 @@ static const uint8_t plat_protocol_list[] = {
 #ifdef CFG_SCMI_MSG_REGULATOR_CONSUMER
 	SCMI_PROTOCOL_ID_VOLTAGE_DOMAIN,
 #endif
-#ifdef CFG_STM32MP1_CPU_OPP
+#ifdef CFG_SCMI_MSG_PERF_DOMAIN
 	SCMI_PROTOCOL_ID_PERF,
 #endif
-
 	0 /* Null termination */
 };
 
@@ -171,6 +170,8 @@ static const struct channel_resources scmi_channel[] = {
 		.clock_count = ARRAY_SIZE(stm32_scmi0_clock),
 		.rd = stm32_scmi0_reset_domain,
 		.rd_count = ARRAY_SIZE(stm32_scmi0_reset_domain),
+		.perfd = scmi0_performance_domain,
+		.perfd_count = ARRAY_SIZE(scmi0_performance_domain),
 	},
 	[1] = {
 		.channel = &(struct scmi_msg_channel){
@@ -229,24 +230,12 @@ static struct stm32_scmi_rd stm32_scmi0_reset_domain[] = {
 		   "mcu_hold_boot"),
 };
 
-#define PERFD_CELL(_scmi_id, _name) \
-	[_scmi_id] = { \
-		.name = (_name), \
-	}
-
-struct stm32_scmi_perfd scmi0_performance_domain[] = {
-	PERFD_CELL(0 /* PERFD_SCMI0_CPU_OPP */, "cpu-opp"),
-};
-
 /* Currently supporting Clocks and Reset Domains */
 static const uint8_t plat_protocol_list[] = {
 	SCMI_PROTOCOL_ID_CLOCK,
 	SCMI_PROTOCOL_ID_RESET_DOMAIN,
 #ifdef CFG_SCMI_MSG_REGULATOR_CONSUMER
 	SCMI_PROTOCOL_ID_VOLTAGE_DOMAIN,
-#endif
-#ifdef CFG_STM32MP1_CPU_OPP
-	SCMI_PROTOCOL_ID_PERF,
 #endif
 	0 /* Null termination */
 };
@@ -261,8 +250,6 @@ static const struct channel_resources scmi_channel[] = {
 		.clock_count = ARRAY_SIZE(stm32_scmi0_clock),
 		.rd = stm32_scmi0_reset_domain,
 		.rd_count = ARRAY_SIZE(stm32_scmi0_reset_domain),
-		.perfd = scmi0_performance_domain,
-		.perfd_count = ARRAY_SIZE(scmi0_performance_domain),
 	},
 	[1] = {
 		.channel = &(struct scmi_msg_channel){
@@ -732,6 +719,7 @@ int32_t plat_scmi_perf_level_set(unsigned int channel_id,
 		return SCMI_GENERIC_ERROR;
 	}
 }
+#endif
 
 static TEE_Result stm32_scmi_pm(enum pm_op op, unsigned int pm_hint __unused,
 				const struct pm_callback_handle *hdl __unused)
