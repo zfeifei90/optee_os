@@ -41,6 +41,10 @@
 #define RNG_TIMEOUT_US_1MS	U(1000)
 #define RNG_FIFO_BYTE_DEPTH	U(16)
 
+#define RNG_NIST_CONFIG_A	0x0F00D00
+#define RNG_NIST_CONFIG_B	0x1801000
+#define RNG_NIST_CONFIG_MASK	GENMASK_32(25, 8)
+
 struct stm32_rng_driver_data {
 	bool has_cond_reset;
 };
@@ -130,6 +134,8 @@ static TEE_Result stm32_rng_init(struct stm32_rng_device *dev)
 
 	if (ddata->has_cond_reset) {
 		io_setbits32(base + RNG_CR, RNG_CR_CONDRST | cr);
+		io_clrsetbits32(base + RNG_CR, RNG_NIST_CONFIG_MASK,
+				RNG_NIST_CONFIG_B);
 		io_clrsetbits32(base + RNG_CR, RNG_CR_CONDRST,
 				RNG_CR_RNGEN | cr);
 	} else {
