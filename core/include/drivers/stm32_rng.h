@@ -7,13 +7,14 @@
 #define __STM32_RNG_H__
 
 #include <drivers/clk.h>
+#include <mm/core_memprot.h>
 #include <stdint.h>
 #include <stddef.h>
 #include <tee_api_types.h>
 #include <types_ext.h>
 
 struct stm32_rng_platdata {
-	uintptr_t base;
+	struct io_pa_va base;
 	struct clk *clock;
 	unsigned long reset;
 	unsigned int lock;
@@ -31,5 +32,4 @@ TEE_Result stm32_rng_read(void *buf, size_t blen);
 #endif
 
 int stm32_rng_get_platdata(struct stm32_rng_platdata *pdata __unused);
-int stm32_rng_probe(void);
 #endif /*__STM32_RNG_H__*/
