@@ -14,6 +14,7 @@
 #include <kernel/dt.h>
 #include <kernel/boot.h>
 #include <kernel/panic.h>
+#include <kernel/pm.h>
 #include <kernel/spinlock.h>
 #include <libfdt.h>
 #include <mm/core_memprot.h>
@@ -54,6 +55,14 @@
 
 #define PROP_NAME_MAX		U(20)
 
+struct stm32_pinctrl_backup {
+	struct stm32_pinctrl pinctrl;
+
+	STAILQ_ENTRY(stm32_pinctrl_backup) link;
+};
+
+STAILQ_HEAD(stm32_pinctrl_backup_head, stm32_pinctrl_backup);
+
 /**
  * struct stm32_gpio_bank describes a GPIO bank instance
  * @base: base address of the GPIO controller registers.
@@ -62,6 +71,7 @@
  * @bank_id: Id of the bank.
  * @lock: lock protecting the GPIO bank access.
  * @link: Link in bank list
+ * @backups: Backup copy of applied pinctrl
  */
 struct stm32_gpio_bank {
 	vaddr_t base;
@@ -69,6 +79,7 @@ struct stm32_gpio_bank {
 	unsigned int ngpios;
 	unsigned int bank_id;
 	unsigned int lock;
+	struct stm32_pinctrl_backup_head backups;
 
 	STAILQ_ENTRY(stm32_gpio_bank) link;
 };
@@ -147,6 +158,31 @@ static void set_gpio_cfg(uint32_t bank_id, uint32_t pin, struct gpio_cfg *cfg)
 
 	cpu_spin_unlock_xrestore(&bank->lock, exceptions);
 	clk_disable(bank->clock);
+}
+
+static int stm32_pinctrl_backup(struct stm32_pinctrl *pinctrl)
+{
+	struct stm32_pinctrl_backup *backup = NULL;
+	struct stm32_gpio_bank *bank = stm32_gpio_get_bank(pinctrl->bank);
+
+	if (!bank) {
+		EMSG("Error: can not find GPIO bank %c", pinctrl->bank + 'A');
+		return -1;
+	}
+
+	backup = calloc(1, sizeof(*backup));
+	if (!backup) {
+		EMSG("Error: can't backup pinctrl of %c%d", pinctrl->bank + 'A',
+		     pinctrl->pin);
+		return -1;
+	}
+
+	backup->pinctrl.bank = pinctrl->bank;
+	backup->pinctrl.pin = pinctrl->pin;
+	backup->pinctrl.active_cfg = pinctrl->active_cfg;
+
+	STAILQ_INSERT_TAIL(&bank->backups, backup, link);
+	return 0;
 }
 
 void stm32_pinctrl_load_active_cfg(struct stm32_pinctrl_list *list)
@@ -418,6 +454,7 @@ struct stm32_pinctrl_list *stm32_pinctrl_fdt_get_pinctrl(const void *fdt,
 {
 	TEE_Result res = TEE_ERROR_GENERIC;
 	struct stm32_pinctrl_list *list = NULL;
+	struct stm32_pinctrl *pinctrl = NULL;
 	const fdt32_t *cuint = NULL;
 	int lenp = 0;
 	int i = 0;
@@ -435,6 +472,9 @@ struct stm32_pinctrl_list *stm32_pinctrl_fdt_get_pinctrl(const void *fdt,
 
 		cuint++;
 	}
+
+	STAILQ_FOREACH(pinctrl, list, link)
+		stm32_pinctrl_backup(pinctrl);
 
 	return list;
 }
@@ -489,6 +529,9 @@ stm32_pinctrl_dt_get_by_idx_prop(const char *prop_name, const void *fdt,
 		else
 			STAILQ_CONCAT(glist, list);
 	}
+
+	STAILQ_FOREACH(pinctrl, glist, link)
+		stm32_pinctrl_backup(pinctrl);
 
 	*plist = glist;
 
@@ -678,9 +721,48 @@ static TEE_Result stm32_gpio_parse_pinctrl_node(const void *fdt, int node)
 	return res;
 }
 
+static TEE_Result stm32_gpio_pm_resume(void)
+{
+	struct stm32_gpio_bank *bank = NULL;
+	struct stm32_pinctrl_backup *backup = NULL;
+
+	STAILQ_FOREACH(bank, &bank_list, link)
+		STAILQ_FOREACH(backup, &bank->backups, link)
+			set_gpio_cfg(backup->pinctrl.bank, backup->pinctrl.pin,
+				     &backup->pinctrl.active_cfg);
+
+	return TEE_SUCCESS;
+}
+
+static TEE_Result stm32_gpio_pm_suspend(void)
+{
+	struct stm32_gpio_bank *bank = NULL;
+
+	STAILQ_FOREACH(bank, &bank_list, link)
+		clk_disable(bank->clock);
+
+	return TEE_SUCCESS;
+}
+
+static TEE_Result
+stm32_gpio_pm(enum pm_op op, unsigned int pm_hint __unused,
+	      const struct pm_callback_handle *pm_handle __unused)
+{
+	TEE_Result ret = 0;
+
+	if (op == PM_OP_RESUME)
+		ret = stm32_gpio_pm_resume();
+	else
+		ret = stm32_gpio_pm_suspend();
+
+	return ret;
+}
+DECLARE_KEEP_PAGER(stm32_gpio_pm);
+
 static TEE_Result stm32_gpio_probe(const void *fdt, int offs,
 				   const __maybe_unused void *compat_data)
 {
+	static bool pm_register;
 	TEE_Result res = TEE_ERROR_GENERIC;
 	struct stm32_gpio_bank *bank = NULL;
 
@@ -691,10 +773,20 @@ static TEE_Result stm32_gpio_probe(const void *fdt, int offs,
 
 	if (STAILQ_EMPTY(&bank_list))
 		DMSG("no gpio bank for that driver");
-	else
-		STAILQ_FOREACH(bank, &bank_list, link)
-			DMSG("Registered GPIO bank %c (%d pins) @%lx",
-			     bank->bank_id + 'A', bank->ngpios, bank->base);
+
+	STAILQ_FOREACH(bank, &bank_list, link) {
+		STAILQ_INIT(&bank->backups);
+		DMSG("Registered GPIO bank %c (%d pins) @%lx",
+		     bank->bank_id + 'A', bank->ngpios, bank->base);
+	}
+
+	if (!pm_register) {
+		/* Register to PM once for all probed banks */
+		register_pm_core_service_cb(stm32_gpio_pm, NULL,
+					    "stm32-gpio-service");
+		pm_register = true;
+	}
+
 
 	return TEE_SUCCESS;
 }
