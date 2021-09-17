@@ -148,6 +148,13 @@ else
 $(call force,CFG_DRIVERS_CLK_DT,y)
 endif
 
+# Enable Early TA NVMEM for provisioning management
+CFG_TA_STM32MP_NVMEM ?= y
+ifeq ($(CFG_TA_STM32MP_NVMEM),y)
+$(call force,CFG_BSEC_PTA,y,Mandated by CFG_TA_STM32MP_NVMEM)
+CFG_IN_TREE_EARLY_TAS += stm32mp_nvmem/1a8342cc-81a5-4512-99fe-9e2b3e37d626
+endif
+
 # Enable BSEC Pseudo TA for fuses access management
 CFG_BSEC_PTA ?= y
 ifeq ($(CFG_BSEC_PTA),y)
