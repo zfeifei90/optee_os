@@ -48,6 +48,7 @@ srcs-$(CFG_ZYNQMP_PM) += zynqmp_pm.c
 srcs-$(CFG_ZYNQMP_HUK) += zynqmp_huk.c
 
 subdirs-y += crypto
+subdirs-y += firewall
 subdirs-$(CFG_BNXT_FW) += bnxt
 subdirs-$(CFG_DRIVERS_CLK) += clk
 subdirs-$(CFG_DRIVERS_RSTCTRL) += rstctrl
