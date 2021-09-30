@@ -466,7 +466,6 @@ void __noreturn stm32_enter_cstop_shutdown(uint32_t mode)
 				stm32_iwdg_refresh(IWDG2_INST);
 		}
 		break;
-	case STM32_PM_CSTOP_ALLOW_STANDBY_DDR_SR:
 	case STM32_PM_CSTOP_ALLOW_STANDBY_DDR_OFF:
 #ifdef STM32MP1_USE_MPU0_RESET
 		stm32mp_pm_shutdown_context();

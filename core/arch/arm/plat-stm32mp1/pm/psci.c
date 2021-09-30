@@ -335,17 +335,10 @@ int psci_system_suspend(uintptr_t entry, uint32_t context_id __unused,
 
 	soc_mode = stm32mp1_get_lp_soc_mode(PSCI_MODE_SYSTEM_SUSPEND);
 
-	switch (soc_mode) {
-	case STM32_PM_CSLEEP_RUN:
+	if (soc_mode == STM32_PM_CSLEEP_RUN) {
 		stm32_enter_csleep();
 		nsec->mon_lr = (uint32_t)entry;
 		return PSCI_RET_SUCCESS;
-	case STM32_PM_SHUTDOWN:
-		stm32_enter_cstop_shutdown(soc_mode);
-		panic();
-	default:
-		/* Others are suspended mode: at least some context to backup */
-		break;
 	}
 
 	assert(cpu_mmu_enabled() && core_state[pos] == CORE_ON);
