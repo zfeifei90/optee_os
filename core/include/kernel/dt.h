@@ -294,6 +294,9 @@ static inline bool _fdt_check_node(const void *fdt, int node)
 
 #endif /* !CFG_DT */
 
+TEE_Result add_probe_node_by_compat(const void *fdt, int node,
+				    const char *compat);
+
 #define for_each_dt_driver(drv) \
 	for (drv = SCATTERED_ARRAY_BEGIN(dt_drivers, struct dt_driver); \
 	     drv < SCATTERED_ARRAY_END(dt_drivers, struct dt_driver); \
