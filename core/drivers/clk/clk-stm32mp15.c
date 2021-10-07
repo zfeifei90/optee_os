@@ -87,6 +87,7 @@ enum stm32mp1_parent_id {
 	_PCLK3,
 	_PCLK4,
 	_PCLK5,
+	_HCLK5,
 	_HCLK6,
 	_HCLK2,
 	_CK_PER,
@@ -153,6 +154,7 @@ static const uint8_t parent_id_clock_id[_PARENT_NB] = {
 	[_PCLK3] = CK_AXI,
 	[_PCLK4] = CK_AXI,
 	[_PCLK5] = CK_AXI,
+	[_HCLK5] = CK_AXI,
 	[_HCLK6] = CK_AXI,
 	[_HCLK2] = CK_AXI,
 	[_CK_PER] = CK_PER,
@@ -394,13 +396,13 @@ static const struct stm32mp1_clk_gate stm32mp1_clk_gate[] = {
 	_CLK_SC2_FIXED(SEC, RCC_MP_APB5ENSETR, BSECEN, BSEC, _PCLK5),
 	_CLK_SC2_SELEC(SEC, RCC_MP_APB5ENSETR, STGENEN, STGEN_K, _STGEN_SEL),
 
-	_CLK_SC2_FIXED(SEC, RCC_MP_AHB5ENSETR, GPIOZEN, GPIOZ, _PCLK5),
-	_CLK_SC2_FIXED(SEC, RCC_MP_AHB5ENSETR, CRYP1EN, CRYP1, _PCLK5),
-	_CLK_SC2_FIXED(SEC, RCC_MP_AHB5ENSETR, HASH1EN, HASH1, _PCLK5),
+	_CLK_SC2_FIXED(SEC, RCC_MP_AHB5ENSETR, GPIOZEN, GPIOZ, _HCLK5),
+	_CLK_SC2_FIXED(SEC, RCC_MP_AHB5ENSETR, CRYP1EN, CRYP1, _HCLK5),
+	_CLK_SC2_FIXED(SEC, RCC_MP_AHB5ENSETR, HASH1EN, HASH1, _HCLK5),
 	_CLK_SC2_SELEC(SEC, RCC_MP_AHB5ENSETR, RNG1EN, RNG1_K, _RNG1_SEL),
-	_CLK_SC2_FIXED(SEC, RCC_MP_AHB5ENSETR, BKPSRAMEN, BKPSRAM, _PCLK5),
+	_CLK_SC2_FIXED(SEC, RCC_MP_AHB5ENSETR, BKPSRAMEN, BKPSRAM, _HCLK5),
 
-	_CLK_SC2_FIXED(SEC, RCC_MP_TZAHB6ENSETR, MDMA, MDMA, _PCLK5),
+	_CLK_SC2_FIXED(SEC, RCC_MP_TZAHB6ENSETR, MDMA, MDMA, _HCLK6),
 
 	_CLK_SELEC(SEC, RCC_BDCR, RCC_BDCR_RTCCKEN_POS, RTC, _RTC_SEL),
 
@@ -631,8 +633,9 @@ static const char __maybe_unused *const stm32mp1_clk_parent_name[_PARENT_NB] = {
 	[_PCLK3] = "PCLK3",
 	[_PCLK4] = "PCLK4",
 	[_PCLK5] = "PCLK5",
-	[_HCLK6] = "KCLK6",
 	[_HCLK2] = "HCLK2",
+	[_HCLK5] = "HCLK5",
+	[_HCLK6] = "HCLK6",
 	[_CK_PER] = "CK_PER",
 	[_CK_MPU] = "CK_MPU",
 	[_CK_MCU] = "CK_MCU",
@@ -996,6 +999,7 @@ static unsigned long __clk_get_parent_rate(enum stm32mp1_parent_id p)
 	/* AXI sub system */
 	case _ACLK:
 	case _HCLK2:
+	case _HCLK5:
 	case _HCLK6:
 	case _PCLK4:
 	case _PCLK5:
@@ -1364,6 +1368,8 @@ static int get_parent_id_parent(enum stm32mp1_parent_id parent_id)
 
 	switch (parent_id) {
 	case _ACLK:
+	case _HCLK5:
+	case _HCLK6:
 	case _PCLK4:
 	case _PCLK5:
 		s = _AXISS_SEL;
@@ -1391,7 +1397,6 @@ static int get_parent_id_parent(enum stm32mp1_parent_id parent_id)
 	case _PCLK1:
 	case _PCLK2:
 	case _HCLK2:
-	case _HCLK6:
 	case _CK_PER:
 	case _CK_MPU:
 	case _CK_MCU:
@@ -1435,6 +1440,7 @@ static void secure_parent_clocks(enum stm32mp1_parent_id parent_id)
 	switch (parent_id) {
 	case _ACLK:
 	case _HCLK2:
+	case _HCLK5:
 	case _HCLK6:
 	case _PCLK4:
 	case _PCLK5:
