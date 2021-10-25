@@ -1893,6 +1893,17 @@ static TEE_Result clk_stm32_composite_get_duty_cycle(struct clk *clk,
 	return 0;
 }
 
+static unsigned long clk_stm32_composite_round_rate(__maybe_unused struct clk *clk,
+						    unsigned long rate,
+						    unsigned long prate)
+{
+	unsigned int div = 0U;
+
+	div = UDIV_ROUND_NEAREST((uint64_t)prate, rate);
+
+	return UDIV_ROUND_NEAREST((uint64_t)prate, div);
+}
+
 static const struct clk_ops clk_stm32_composite_duty_cycle_ops = {
 	.get_parent	= clk_stm32_composite_get_parent,
 	.set_parent	= clk_stm32_composite_set_parent,
@@ -1901,6 +1912,7 @@ static const struct clk_ops clk_stm32_composite_duty_cycle_ops = {
 	.enable		= clk_stm32_composite_gate_enable,
 	.disable	= clk_stm32_composite_gate_disable,
 	.is_enabled	= clk_stm32_composite_gate_is_enabled,
+	.round_rate	= clk_stm32_composite_round_rate,
 	.get_duty_cycle	= clk_stm32_composite_get_duty_cycle,
 };
 
