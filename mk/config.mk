@@ -670,12 +670,14 @@ CFG_CORE_TPM_EVENT_LOG ?= n
 # CFG_SCMI_MSG_REGULATOR_CONSUMER uses DT to list regulators exposed thru SCMI
 # CFG_SCMI_MSG_SMT embeds SMT based message buffer of communication channel
 # CFG_SCMI_MSG_VOLTAGE_DOMAIN embeds SCMI voltage domain protocol support.
+# CFG_SCMI_MSG_PERF_DOMAIN embeds SCMI performance domain management protocol
 CFG_SCMI_MSG_DRIVERS ?= n
 CFG_SCMI_MSG_CLOCK ?= n
 CFG_SCMI_MSG_RESET_DOMAIN ?= n
 CFG_SCMI_MSG_SMT ?= n
 CFG_SCMI_MSG_REGULATOR_CONSUMER ?= n
 CFG_SCMI_MSG_VOLTAGE_DOMAIN ?= n
+CFG_SCMI_MSG_PERF_DOMAIN ?=n
 
 # Enable SCMI PTA interface for REE SCMI agents
 CFG_SCMI_PTA ?= n
