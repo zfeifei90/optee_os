@@ -64,6 +64,7 @@ endif
 
 include core/arch/arm/cpu/cortex-a7.mk
 
+$(call force,CFG_ARM_GIC_PM,y)
 $(call force,CFG_BOOT_SECONDARY_REQUEST,y)
 $(call force,CFG_DRIVERS_CLK,y)
 $(call force,CFG_DRIVERS_CLK_FIXED,n)
