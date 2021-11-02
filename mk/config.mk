@@ -746,6 +746,13 @@ CFG_DRIVERS_RSTCTRL ?= n
 # configuration.
 CFG_WARN_INSECURE ?= y
 
+# CFG_CORE_OCALL=y enables support for OCALLs, allowing core to return
+# from an session or command invocation with an Ocall RPC context.
+CFG_CORE_OCALL ?= n
+ifeq ($(CFG_CORE_SEL1_SPMC)-$(CFG_CORE_OCALL),y-y)
+$(error "SPMC at SEL-1 does not comply with CFG_CORE_OCALL=y")
+endif
+
 # Enables warnings for declarations mixed with statements
 CFG_WARN_DECL_AFTER_STATEMENT ?= y
 

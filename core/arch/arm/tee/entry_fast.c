@@ -100,6 +100,9 @@ static void tee_entry_exchange_capabilities(struct thread_smc_args *args)
 	DMSG("Asynchronous notifications are %sabled",
 	     IS_ENABLED(CFG_CORE_ASYNC_NOTIF) ? "en" : "dis");
 
+	if (IS_ENABLED(CFG_CORE_OCALL))
+		args->a1 |= OPTEE_SMC_SEC_CAP_OCALL;
+		
 #if defined(CFG_CORE_DYN_SHM)
 	dyn_shm_en = core_mmu_nsec_ddr_is_defined();
 	if (dyn_shm_en)

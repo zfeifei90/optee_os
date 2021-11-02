@@ -2,7 +2,7 @@
 /*
  * Copyright (c) 2014, STMicroelectronics International N.V.
  * Copyright (c) 2016-2017, Linaro Limited
- * Copyright (c) 2020-2021, Arm Limited
+ * Copyright (c) 2020, Arm Limited
  */
 
 #ifndef KERNEL_THREAD_H
@@ -20,7 +20,7 @@
 #define THREAD_ID_0		0
 #define THREAD_ID_INVALID	-1
 
-#define THREAD_RPC_MAX_NUM_PARAMS	U(4)
+#define THREAD_RPC_MAX_NUM_PARAMS	U(6)
 
 #ifndef __ASSEMBLER__
 
