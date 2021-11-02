@@ -6,6 +6,7 @@
 #define OPTEE_SMC_H
 
 #include <stdint.h>
+#include <util.h>
 
 /*
  * This file is exported by OP-TEE and is in kept in sync between secure
