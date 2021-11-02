@@ -352,6 +352,10 @@
 			   "oem_enc_key";
 };
 
+&oem_enc_key {
+	st,non-secure-otp-provisioning;
+};
+
 &pka {
 	status = "okay";
 };
