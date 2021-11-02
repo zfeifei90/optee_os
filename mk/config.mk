@@ -689,6 +689,9 @@ $(call force,CFG_SCMI_PTA,y,Mandated by CFG_SCMI_SERVER)
 $(call force,CFG_CORE_OCALL,y,Mandated by CFG_SCMI_SERVER)
 endif
 
+# Enable Trusted User Interface
+CFG_WITH_TUI ?= n
+
 ifneq ($(CFG_STMM_PATH),)
 $(call force,CFG_WITH_STMM_SP,y)
 else
