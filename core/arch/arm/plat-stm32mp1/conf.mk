@@ -46,11 +46,24 @@ endif
 CFG_EMBED_DTB_SOURCE_FILE ?= $(flavor_dts_file-$(PLATFORM_FLAVOR))
 endif
 
+ifneq ($(filter $(CFG_EMBED_DTB_SOURCE_FILE),$(flavorlist-MP13)),)
+$(call force,CFG_STM32MP13,y)
+endif
+
+ifneq ($(filter $(CFG_EMBED_DTB_SOURCE_FILE),$(flavorlist-MP15)),)
+$(call force,CFG_STM32MP15,y)
+endif
+
+ifeq ($(filter $(CFG_STM32MP15) $(CFG_STM32MP13),y),)
+$(error STM32 Platform must be defined)
+endif
+
 include core/arch/arm/cpu/cortex-a7.mk
 
 $(call force,CFG_BOOT_SECONDARY_REQUEST,y)
 $(call force,CFG_DRIVERS_CLK,y)
 $(call force,CFG_DRIVERS_CLK_FIXED,n)
+$(call force,CFG_ARM_GIC_PM,y)
 $(call force,CFG_GIC,y)
 $(call force,CFG_INIT_CNTVOFF,y)
 $(call force,CFG_PSCI_ARM32,y)
@@ -58,6 +71,37 @@ $(call force,CFG_SECONDARY_INIT_CNTFRQ,y)
 $(call force,CFG_SECURE_TIME_SOURCE_CNTPCT,y)
 $(call force,CFG_SM_PLATFORM_HANDLER,y)
 $(call force,CFG_WITH_SOFTWARE_PRNG,y)
+
+ifeq ($(CFG_STM32MP13),y)
+$(call force,CFG_SCMI_PTA,n)
+$(call force,CFG_STM32_BSEC_SIP,n)
+$(call force,CFG_STM32_CRYP,n)
+$(call force,CFG_STM32_GPIO,n)
+$(call force,CFG_STM32_I2C,n)
+$(call force,CFG_STM32_RNG,n)
+$(call force,CFG_SYSCFG,n)
+$(call force,CFG_STM32MP1_SCMI_SIP,n)
+$(call force,CFG_STM32MP15,n)
+$(call force,CFG_STPMIC1,n)
+$(call force,CFG_TEE_CORE_NB_CORE,1)
+$(call force,CFG_TZC400,n)
+$(call force,CFG_TZSRAM_START,0x2ffe0000)
+$(call force,CFG_TZSRAM_SIZE,0x0001f000)
+$(call force,CFG_WITH_NSEC_GPIOS,n)
+
+CFG_NUM_THREADS ?= 5
+CFG_WITH_PAGER ?= n
+else
+$(call force,CFG_BOOT_SECONDARY_REQUEST,y)
+$(call force,CFG_SECONDARY_INIT_CNTFRQ,y)
+$(call force,CFG_STM32MP13,n)
+$(call force,CFG_STM32MP15,y)
+$(call force,CFG_STM32MP15_CLK,y)
+$(call force,CFG_WITH_NSEC_GPIOS,y)
+CFG_NUM_THREADS ?= 3
+CFG_TEE_CORE_NB_CORE ?= 2
+CFG_WITH_PAGER ?= y
+endif # CFG_STM32MPx
 
 ifneq ($(filter $(CFG_EMBED_DTB_SOURCE_FILE),$(flavorlist-512M)),)
 CFG_TZDRAM_START ?= 0xde000000
@@ -75,8 +119,6 @@ CFG_SHMEM_START  ?= 0xffe00000
 CFG_SHMEM_SIZE   ?= 0x00200000
 CFG_DRAM_SIZE    ?= 0x40000000
 
-CFG_TEE_CORE_NB_CORE ?= 2
-CFG_WITH_PAGER ?= y
 CFG_WITH_LPAE ?= y
 CFG_MMAP_REGIONS ?= 23
 CFG_DTB_MAX_SIZE ?= (256 * 1024)
@@ -102,9 +144,9 @@ CFG_STM32_GPIO ?= y
 CFG_STM32_I2C ?= y
 CFG_STM32_RNG ?= y
 CFG_STM32_UART ?= y
-$(call force,CFG_STM32MP15_CLK,y)
 CFG_STPMIC1 ?= y
 CFG_TZC400 ?= y
+CFG_SYSCFG ?= y
 
 ifeq ($(CFG_STPMIC1),y)
 $(call force,CFG_STM32_I2C,y)
@@ -156,8 +198,7 @@ CFG_CORE_ASLR ?= n
 CFG_TA_BGET_TEST ?= n
 endif
 
-# Non-secure UART and GPIO/pinctrl for the output console
-CFG_WITH_NSEC_GPIOS ?= y
+# Non-secure UART for the output console
 CFG_WITH_NSEC_UARTS ?= y
 # UART instance used for early console (0 disables early console)
 CFG_STM32_EARLY_CONSOLE_UART ?= 4
