@@ -5,6 +5,8 @@
  */
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/clock/stm32mp13-clks.h>
+#include <dt-bindings/reset/stm32mp13-resets.h>
 
 / {
 	#address-cells = <1>;
@@ -18,6 +20,8 @@
 			compatible = "arm,cortex-a7";
 			device_type = "cpu";
 			reg = <0>;
+			clocks = <&rcc CK_MPU>;
+			clock-names = "cpu";
 			nvmem-cells = <&part_number_otp>;
 			nvmem-cell-names = "part_number";
 		};
@@ -66,6 +70,12 @@
 			compatible = "fixed-clock";
 			clock-frequency = <4000000>;
 		};
+
+		clk_i2sin: clk-i2sin {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <19000000>;
+		};
 	};
 
 	soc {
@@ -79,6 +89,8 @@
 			compatible = "st,stm32h7-uart";
 			reg = <0x4000f000 0x400>;
 			interrupts = <GIC_SPI 40 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&rcc USART3_K>;
+			resets = <&rcc USART3_R>;
 			status = "disabled";
 		};
 
@@ -86,6 +98,8 @@
 			compatible = "st,stm32h7-uart";
 			reg = <0x40010000 0x400>;
 			interrupts = <GIC_SPI 53 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&rcc UART4_K>;
+			resets = <&rcc UART4_R>;
 			status = "disabled";
 		};
 
@@ -93,6 +107,8 @@
 			compatible = "st,stm32h7-uart";
 			reg = <0x40011000 0x400>;
 			interrupts = <GIC_SPI 54 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&rcc UART5_K>;
+			resets = <&rcc UART5_R>;
 			status = "disabled";
 		};
 
@@ -100,6 +116,8 @@
 			compatible = "st,stm32h7-uart";
 			reg = <0x40018000 0x400>;
 			interrupts = <GIC_SPI 83 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&rcc UART7_K>;
+			resets = <&rcc UART7_R>;
 			status = "disabled";
 		};
 
@@ -107,6 +125,8 @@
 			compatible = "st,stm32h7-uart";
 			reg = <0x40019000 0x400>;
 			interrupts = <GIC_SPI 84 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&rcc UART8_K>;
+			resets = <&rcc UART8_R>;
 			status = "disabled";
 		};
 
@@ -114,6 +134,8 @@
 			compatible = "st,stm32h7-uart";
 			reg = <0x44003000 0x400>;
 			interrupts = <GIC_SPI 72 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&rcc USART6_K>;
+			resets = <&rcc USART6_R>;
 			status = "disabled";
 		};
 
@@ -121,6 +143,8 @@
 			compatible = "st,stm32h7-uart";
 			reg = <0x4c000000 0x400>;
 			interrupts = <GIC_SPI 38 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&rcc USART1_K>;
+			resets = <&rcc USART1_R>;
 			status = "disabled";
 		};
 
@@ -128,12 +152,16 @@
 			compatible = "st,stm32h7-uart";
 			reg = <0x4c001000 0x400>;
 			interrupts = <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&rcc USART2_K>;
+			resets = <&rcc USART2_R>;
 			status = "disabled";
 		};
 
 		i2c3: i2c@4c004000 {
 			compatible = "st,stm32mp13-i2c";
 			reg = <0x4c004000 0x400>;
+			clocks = <&rcc I2C3_K>;
+			resets = <&rcc I2C3_R>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			st,syscfg-fmp = <&syscfg 0x4 0x4>;
@@ -144,6 +172,8 @@
 		i2c4: i2c@4c005000 {
 			compatible = "st,stm32mp13-i2c";
 			reg = <0x4c005000 0x400>;
+			clocks = <&rcc I2C4_K>;
+			resets = <&rcc I2C4_R>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			st,syscfg-fmp = <&syscfg 0x4 0x8>;
@@ -154,6 +184,8 @@
 		i2c5: i2c@4c006000 {
 			compatible = "st,stm32mp13-i2c";
 			reg = <0x4c006000 0x400>;
+			clocks = <&rcc I2C5_K>;
+			resets = <&rcc I2C5_R>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			st,syscfg-fmp = <&syscfg 0x4 0x10>;
@@ -161,14 +193,30 @@
 			status = "disabled";
 		};
 
+		rcc: rcc@50000000 {
+			compatible = "st,stm32mp13-rcc", "syscon";
+			reg = <0x50000000 0x1000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			#clock-cells = <1>;
+			#reset-cells = <1>;
+			clocks = <&clk_hse>, <&clk_hsi>, <&clk_lse>, <&clk_lsi>, <&clk_csi>, <&clk_i2sin>;
+			clock-names = "clk-hse", "clk-hsi", "clk-lse", "clk-lsi", "clk-csi", "clk-i2sin";
+			interrupts = <GIC_SPI 5 IRQ_TYPE_LEVEL_HIGH>;
+			secure-interrupts = <GIC_SPI 122 IRQ_TYPE_LEVEL_HIGH>;
+			secure-interrupt-names = "wakeup";
+		};
+
 		syscfg: syscon@50020000 {
 			compatible = "st,stm32mp157-syscfg", "syscon";
 			reg = <0x50020000 0x400>;
+			clocks = <&rcc SYSCFG>;
 		};
 
 		bsec: efuse@5c005000 {
 			compatible = "st,stm32mp15-bsec";
 			reg = <0x5c005000 0x400>;
+			clocks = <&rcc BSEC>;
 			#address-cells = <1>;
 			#size-cells = <1>;
 
@@ -199,11 +247,13 @@
 			compatible = "st,stm32mp1-tzc";
 			reg = <0x5c006000 0x1000>;
 			interrupts = <GIC_SPI 4 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&rcc TZC>;
 		};
 
 		etzpc: etzpc@5c007000 {
 			compatible = "st,stm32-etzpc";
 			reg = <0x5C007000 0x400>;
+			clocks = <&rcc TZPC>;
 		};
 
 		stgen: stgen@5c008000 {
@@ -224,6 +274,7 @@
 				interrupt-controller;
 				#interrupt-cells = <2>;
 				reg = <0x0 0x400>;
+				clocks = <&rcc GPIOA>;
 				st,bank-name = "GPIOA";
 				ngpios = <16>;
 				gpio-ranges = <&pinctrl 0 0 16>;
@@ -235,6 +286,7 @@
 				interrupt-controller;
 				#interrupt-cells = <2>;
 				reg = <0x1000 0x400>;
+				clocks = <&rcc GPIOB>;
 				st,bank-name = "GPIOB";
 				ngpios = <16>;
 				gpio-ranges = <&pinctrl 0 16 16>;
@@ -246,6 +298,7 @@
 				interrupt-controller;
 				#interrupt-cells = <2>;
 				reg = <0x2000 0x400>;
+				clocks = <&rcc GPIOC>;
 				st,bank-name = "GPIOC";
 				ngpios = <16>;
 				gpio-ranges = <&pinctrl 0 32 16>;
@@ -257,6 +310,7 @@
 				interrupt-controller;
 				#interrupt-cells = <2>;
 				reg = <0x3000 0x400>;
+				clocks = <&rcc GPIOD>;
 				st,bank-name = "GPIOD";
 				ngpios = <16>;
 				gpio-ranges = <&pinctrl 0 48 16>;
@@ -268,6 +322,7 @@
 				interrupt-controller;
 				#interrupt-cells = <2>;
 				reg = <0x4000 0x400>;
+				clocks = <&rcc GPIOE>;
 				st,bank-name = "GPIOE";
 				ngpios = <16>;
 				gpio-ranges = <&pinctrl 0 64 16>;
@@ -279,6 +334,7 @@
 				interrupt-controller;
 				#interrupt-cells = <2>;
 				reg = <0x5000 0x400>;
+				clocks = <&rcc GPIOF>;
 				st,bank-name = "GPIOF";
 				ngpios = <16>;
 				gpio-ranges = <&pinctrl 0 80 16>;
@@ -290,6 +346,7 @@
 				interrupt-controller;
 				#interrupt-cells = <2>;
 				reg = <0x6000 0x400>;
+				clocks = <&rcc GPIOG>;
 				st,bank-name = "GPIOG";
 				ngpios = <16>;
 				gpio-ranges = <&pinctrl 0 96 16>;
@@ -301,6 +358,7 @@
 				interrupt-controller;
 				#interrupt-cells = <2>;
 				reg = <0x7000 0x400>;
+				clocks = <&rcc GPIOH>;
 				st,bank-name = "GPIOH";
 				ngpios = <15>;
 				gpio-ranges = <&pinctrl 0 112 15>;
@@ -312,6 +370,7 @@
 				interrupt-controller;
 				#interrupt-cells = <2>;
 				reg = <0x8000 0x400>;
+				clocks = <&rcc GPIOI>;
 				st,bank-name = "GPIOI";
 				ngpios = <8>;
 				gpio-ranges = <&pinctrl 0 128 8>;
