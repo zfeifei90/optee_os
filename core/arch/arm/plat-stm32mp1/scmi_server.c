@@ -413,13 +413,13 @@ int32_t plat_scmi_clock_set_state(unsigned int channel_id, unsigned int scmi_id,
 
 	if (enable_not_disable) {
 		if (!clock->enabled) {
-			DMSG("SCMI clock %u enable", scmi_id);
+			FMSG("SCMI clock %u enable", scmi_id);
 			clk_enable(clock->clk);
 			clock->enabled = true;
 		}
 	} else {
 		if (clock->enabled) {
-			DMSG("SCMI clock %u disable", scmi_id);
+			FMSG("SCMI clock %u disable", scmi_id);
 			clk_disable(clock->clk);
 			clock->enabled = false;
 		}
@@ -490,7 +490,7 @@ int32_t plat_scmi_rd_autonomous(unsigned int channel_id, unsigned int scmi_id,
 	if (state)
 		return SCMI_NOT_SUPPORTED;
 
-	DMSG("SCMI reset %u cycle", scmi_id);
+	FMSG("SCMI reset %u cycle", scmi_id);
 
 	if (stm32_reset_assert(rd->reset_id, TIMEOUT_US_1MS))
 		return SCMI_HARDWARE_ERROR;
@@ -518,7 +518,7 @@ int32_t plat_scmi_rd_set_state(unsigned int channel_id, unsigned int scmi_id,
 
 #ifdef CFG_STM32MP15
 	if (rd->reset_id == MCU_HOLD_BOOT_R) {
-		DMSG("SCMI MCU hold boot %s",
+		FMSG("SCMI MCU hold boot %s",
 		     assert_not_deassert ? "set" : "release");
 		stm32_reset_assert_deassert_mcu(assert_not_deassert);
 		return SCMI_SUCCESS;
@@ -526,10 +526,10 @@ int32_t plat_scmi_rd_set_state(unsigned int channel_id, unsigned int scmi_id,
 #endif
 
 	if (assert_not_deassert) {
-		DMSG("SCMI reset %u set", scmi_id);
+		FMSG("SCMI reset %u set", scmi_id);
 		stm32_reset_set(rd->reset_id);
 	} else {
-		DMSG("SCMI reset %u release", scmi_id);
+		FMSG("SCMI reset %u release", scmi_id);
 		stm32_reset_release(rd->reset_id);
 	}
 
