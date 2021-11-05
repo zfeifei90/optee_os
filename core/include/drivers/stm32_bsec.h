@@ -189,9 +189,9 @@ TEE_Result stm32_bsec_find_otp_in_nvmem_layout(const char *name,
  */
 TEE_Result stm32_bsec_get_state(uint32_t *state);
 
-#define BSEC_STATE_SEC_OPEN	0x0U
-#define BSEC_STATE_SEC_CLOSED	0x1U
-#define BSEC_STATE_INVALID	0x3U
+#define BSEC_STATE_SEC_OPEN	U(0x0)
+#define BSEC_STATE_SEC_CLOSED	U(0x1)
+#define BSEC_STATE_INVALID	U(0x3)
 
 #define BSEC_HARDWARE_KEY	BIT(8)
 
