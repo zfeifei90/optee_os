@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-2-Clause
 /*
- * Copyright (c) 2019-2020, STMicroelectronics
+ * Copyright (c) 2019-2021, STMicroelectronics
  */
 
 #include <assert.h>
@@ -37,7 +37,7 @@ static bool tzc_region_is_non_secure(unsigned int i, vaddr_t base, size_t size)
 {
 	struct tzc_region_config region_cfg = { };
 	uint32_t ns_cpu_mask = TZC_REGION_ACCESS_RDWR(STM32MP1_TZC_A7_ID);
-	uint32_t filters_mask = GENMASK_32(1, 0);
+	uint32_t filters_mask = STM32MP_TZC_FILTERS;
 
 	if (tzc_get_region_config(i, &region_cfg))
 		panic();
@@ -51,7 +51,7 @@ static bool tzc_region_is_non_secure(unsigned int i, vaddr_t base, size_t size)
 static bool tzc_region_is_secure(unsigned int i, vaddr_t base, size_t size)
 {
 	struct tzc_region_config region_cfg = { };
-	uint32_t filters_mask = GENMASK_32(1, 0);
+	uint32_t filters_mask = STM32MP_TZC_FILTERS;
 
 	if (tzc_get_region_config(i, &region_cfg))
 		panic();
