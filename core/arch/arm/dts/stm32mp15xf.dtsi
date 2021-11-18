@@ -4,14 +4,5 @@
  * Author: Alexandre Torgue <alexandre.torgue@st.com> for STMicroelectronics.
  */
 
-#include "stm32mp151.dtsi"
+#include "stm32mp15xd.dtsi"
 
-/ {
-	cpus {
-		cpu1: cpu@1 {
-			compatible = "arm,cortex-a7";
-			device_type = "cpu";
-			reg = <1>;
-		};
-	};
-};
