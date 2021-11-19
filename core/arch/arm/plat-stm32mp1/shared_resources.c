@@ -716,8 +716,7 @@ static void check_rcc_secure_configuration(void)
 	if (need_secure && !secure)
 		panic();
 
-	if (need_mckprot)
-		io_setbits32(stm32_rcc_base() + RCC_TZCR, RCC_TZCR_MCKPROT);
+	stm32mp1_clk_mcuss_protect(need_mckprot);
 }
 
 static void set_gpio_secure_configuration(void)

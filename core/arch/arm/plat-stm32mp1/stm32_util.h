@@ -94,6 +94,9 @@ static inline bool stm32mp_nsec_can_access_pmic_regu(const char *name __unused)
 }
 #endif
 
+/* Protect the MCU clock subsytem */
+void stm32mp1_clk_mcuss_protect(bool enable);
+
 /*
  * Util for reset signal assertion/desassertion for stm32 and platform drivers
  * @id: Target peripheral ID, ID used in reset DT bindings
