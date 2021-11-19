@@ -5,6 +5,8 @@
 
 #include <drivers/clk.h>
 #include <dt-bindings/clock/stm32mp1-clks.h>
+#include <config.h>
+#include <drivers/clk.h>
 #include <initcall.h>
 #include <kernel/delay.h>
 #include <mm/core_memprot.h>
@@ -19,6 +21,7 @@
 #define SYSCFG_CMPCR				0x20U
 #define SYSCFG_CMPENSETR			0x24U
 #define SYSCFG_CMPENCLRR			0x28U
+#define SYSCFG_IDC				0x380U
 
 /*
  * SYSCFG_CMPCR Register
@@ -37,11 +40,27 @@
  */
 #define SYSCFG_CMPENSETR_MPU_EN			BIT(0)
 
+/*
+ * SYSCFG_IDC Register
+ */
+#define SYSCFG_IDC_DEV_ID_MASK			GENMASK_32(11, 0)
+#define SYSCFG_IDC_REV_ID_MASK			GENMASK_32(31, 16)
+#define SYSCFG_IDC_REV_ID_SHIFT			U(16)
+
 static vaddr_t get_syscfg_base(void)
 {
-	struct io_pa_va base = { .pa = SYSCFG_BASE };
+	static struct io_pa_va base = { .pa = SYSCFG_BASE };
 
-	return io_pa_or_va(&base, 1);
+	return io_pa_or_va(&base, SYSCFG_IDC);
+}
+
+uint32_t stm32mp_syscfg_get_chip_dev_id(void)
+{
+	if (IS_ENABLED(CFG_STM32MP13))
+		return io_read32(get_syscfg_base() + SYSCFG_IDC) &
+			SYSCFG_IDC_DEV_ID_MASK;
+
+	return 0;
 }
 
 void stm32mp_syscfg_enable_io_compensation(void)

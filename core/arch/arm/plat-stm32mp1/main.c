@@ -357,3 +357,14 @@ struct clk *stm32_get_gpio_bank_clk(unsigned int bank)
 }
 #endif
 #endif /* CFG_STM32_GPIO */
+
+static int get_chip_dev_id(uint32_t *dev_id)
+{
+#ifdef CFG_STM32MP13
+	*dev_id = stm32mp_syscfg_get_chip_dev_id();
+#else /* assume CFG_STM32MP15 */
+	if (stm32mp1_dbgmcu_get_chip_dev_id(dev_id) != TEE_SUCCESS)
+		return -1;
+#endif
+	return 0;
+}
