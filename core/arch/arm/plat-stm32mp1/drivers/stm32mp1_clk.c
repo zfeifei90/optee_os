@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: (BSD-3-Clause OR GPL-2.0+)
 /*
- * Copyright (C) 2018-2019, STMicroelectronics
+ * Copyright (C) 2018-2021, STMicroelectronics
  */
 
 #include <assert.h>
@@ -1105,7 +1105,7 @@ static unsigned long get_clock_rate(int p)
 		clock = osc_frequency(_HSE) >> 1;
 		break;
 	case _HSE_RTC:
-		clock = osc_frequency(OSC_HSE);
+		clock = osc_frequency(_HSE);
 		clock /= (io_read32(rcc_base + RCC_RTCDIVR) & RCC_DIVR_DIV_MASK) + 1U;
 		break;
 	case _LSI:
