@@ -91,3 +91,10 @@ void stm32_reset_assert_deassert_mcu(bool assert_not_deassert)
 	else
 		io_setbits32(rcc_base + RCC_MP_GCR, RCC_MP_GCR_BOOT_MCU);
 }
+
+void stm32_reset_system(void)
+{
+	vaddr_t rcc = stm32_rcc_base();
+
+	io_write32(rcc + RCC_MP_GRSTCSETR, RCC_MP_GRSTCSETR_MPSYSRST);
+}
