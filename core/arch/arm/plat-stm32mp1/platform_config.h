@@ -375,4 +375,10 @@
 
 #define STM32MP1_CHIP_DEFAULT_VERSION	U(0)
 
+/* OPP */
+#define PLAT_OPP_ID1			1U
+#define PLAT_OPP_ID2			2U
+#define PLAT_MAX_OPP_NB			2U
+#define PLAT_MAX_PLLCFG_NB		6U
+
 #endif /*PLATFORM_CONFIG_H*/
