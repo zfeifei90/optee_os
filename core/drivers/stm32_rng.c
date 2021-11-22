@@ -30,6 +30,8 @@
 #define RNG_CR_IE		BIT(3)
 #define RNG_CR_CED		BIT(5)
 #define RNG_CR_CONDRST		BIT(30)
+#define RNG_CR_CLKDIV		GENMASK_32(19, 16)
+#define RNG_CR_CLKDIV_SHIFT	U(16)
 
 #define RNG_SR_DRDY		BIT(0)
 #define RNG_SR_CECS		BIT(1)
@@ -41,9 +43,11 @@
 #define RNG_TIMEOUT_US_1MS	U(1000)
 #define RNG_FIFO_BYTE_DEPTH	U(16)
 
-#define RNG_NIST_CONFIG_A	0x0F00D00
-#define RNG_NIST_CONFIG_B	0x1801000
+#define RNG_NIST_CONFIG_A	U(0x0F00D00)
+#define RNG_NIST_CONFIG_B	U(0x1801000)
 #define RNG_NIST_CONFIG_MASK	GENMASK_32(25, 8)
+
+#define RNG_MAX_CLOCK_FREQ	U(750000)
 
 struct stm32_rng_driver_data {
 	bool has_cond_reset;
@@ -116,30 +120,56 @@ static void conceal_seed_error(struct stm32_rng_device *dev)
 		panic("RNG noise");
 }
 
+static uint32_t stm32_rng_clock_freq_restrain(struct stm32_rng_device *dev)
+{
+	unsigned long clock_rate = 0;
+	uint32_t clock_div = 0;
+
+	clock_rate = clk_get_rate(dev->pdata.clock);
+
+	/*
+	 * Get the exponent to apply on the CLKDIV field in RNG_CR register
+	 * No need to handle the case when clock-div > 0xF as it is physically
+	 * impossible
+	 */
+	while ((clock_rate >> clock_div) > RNG_MAX_CLOCK_FREQ)
+		clock_div++;
+
+	DMSG("RNG clk rate : %lu", clk_get_rate(dev->pdata.clock) >> clock_div);
+
+	return clock_div;
+}
+
 static TEE_Result stm32_rng_init(struct stm32_rng_device *dev)
 {
 	struct stm32_rng_platdata *pdata = &dev->pdata;
 	struct stm32_rng_driver_data *ddata = dev->ddata;
 	uintptr_t base = pdata->base;
 	uint64_t timeout_ref = 0;
-	uint32_t cr = 0;
+	uint32_t clock_div = 0;
 	uint32_t sr = 0;
+	uint32_t cr_ced_mask = 0;
 
-	cr = io_read32(base + RNG_CR);
 	if (!pdata->clock_error)
-		cr |= RNG_CR_CED;
+		cr_ced_mask = RNG_CR_CED;
 
 	/* Clean error indications */
 	io_write32(base + RNG_SR, 0);
 
 	if (ddata->has_cond_reset) {
-		io_setbits32(base + RNG_CR, RNG_CR_CONDRST | cr);
+		clock_div = stm32_rng_clock_freq_restrain(dev);
+
+		/* Update configuration fields */
 		io_clrsetbits32(base + RNG_CR, RNG_NIST_CONFIG_MASK,
-				RNG_NIST_CONFIG_B);
-		io_clrsetbits32(base + RNG_CR, RNG_CR_CONDRST,
-				RNG_CR_RNGEN | cr);
+				RNG_NIST_CONFIG_B | RNG_CR_CONDRST |
+				cr_ced_mask);
+		io_clrsetbits32(base + RNG_CR, RNG_CR_CLKDIV,
+				(clock_div << RNG_CR_CLKDIV_SHIFT));
+
+		/* No need to wait for RNG_CR_CONDRST toggle as we enable clk */
+		io_clrsetbits32(base + RNG_CR, RNG_CR_CONDRST, RNG_CR_RNGEN);
 	} else {
-		io_setbits32(base + RNG_CR, RNG_CR_RNGEN | cr);
+		io_setbits32(base + RNG_CR, RNG_CR_RNGEN | cr_ced_mask);
 	}
 
 	timeout_ref = timeout_init_us(RNG_TIMEOUT_US_10MS);
