@@ -102,6 +102,15 @@ static inline bool stm32mp_nsec_can_access_pmic_regu(const char *name __unused)
 void stm32mp1_clk_mcuss_protect(bool enable);
 
 /*
+ * Util for PLL1 settings management based on DT OPP table content.
+ */
+int stm32mp1_clk_compute_all_pll1_settings(uint32_t buck1_voltage);
+void stm32mp1_clk_lp_save_opp_pll1_settings(uint8_t *data, size_t size);
+bool stm32mp1_clk_pll1_settings_are_valid(void);
+int stm32mp1_set_opp_khz(uint32_t freq_khz);
+int stm32mp1_round_opp_khz(uint32_t *freq_khz);
+
+/*
  * Util for reset signal assertion/desassertion for stm32 and platform drivers
  * @id: Target peripheral ID, ID used in reset DT bindings
  * @to_us: Timeout out in microsecond, or 0 if not waiting signal state
