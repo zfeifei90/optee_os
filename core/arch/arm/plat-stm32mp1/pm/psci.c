@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: BSD-2-Clause
 /*
- * Copyright (c) 2017-2018, STMicroelectronics
+ * Copyright (c) 2017-2021, STMicroelectronics
  */
 
 #include <arm.h>
 #include <boot_api.h>
 #include <console.h>
+#include <drivers/clk.h>
 #include <drivers/stm32mp1_pmic.h>
 #include <drivers/stm32mp1_rcc.h>
 #include <drivers/stpmic1.h>
@@ -103,6 +104,9 @@ void stm32mp_register_online_cpu(void)
 {
 	size_t pos = get_core_pos();
 	uint32_t exceptions = lock_state_access();
+	struct clk *clk_rtc = stm32mp_rcc_clock_id_to_clk(RTCAPB);
+
+	assert(clk_rtc);
 
 	if (pos == 0) {
 		assert(core_state[pos] == CORE_OFF);
@@ -113,7 +117,8 @@ void stm32mp_register_online_cpu(void)
 			stm32_pm_cpu_power_down_wfi();
 			panic();
 		}
-		stm32_clock_disable(RTCAPB);
+
+		clk_disable(clk_rtc);
 	}
 
 	core_state[pos] = CORE_ON;
@@ -130,14 +135,21 @@ static void raise_sgi0_as_secure(void)
 
 static void release_secondary_early_hpen(size_t __unused pos)
 {
+	struct clk *clk_rtc = stm32mp_rcc_clock_id_to_clk(RTCAPB);
+
 	/* Need to send SIG#0 over Group0 after individual core 1 reset */
 	raise_sgi0_as_secure();
 	udelay(20);
+
+	clk_enable(clk_rtc);
 
 	io_write32(stm32mp_bkpreg(BCKR_CORE1_BRANCH_ADDRESS),
 		   TEE_LOAD_ADDR);
 	io_write32(stm32mp_bkpreg(BCKR_CORE1_MAGIC_NUMBER),
 		   BOOT_API_A7_CORE1_MAGIC_NUMBER);
+
+	dsb_ishst();
+	clk_disable(clk_rtc);
 
 	dsb_ishst();
 	itr_raise_sgi(GIC_SEC_SGI_0, TARGET_CPU1_GIC_MASK);
@@ -191,6 +203,9 @@ int psci_cpu_off(void)
 {
 	unsigned int pos = get_core_pos();
 	uint32_t exceptions = 0;
+	struct clk *clk_rtc = stm32mp_rcc_clock_id_to_clk(RTCAPB);
+
+	assert(clk_rtc);
 
 	if (pos == 0) {
 		EMSG("PSCI_CPU_OFF not supported for core #0");
@@ -207,7 +222,7 @@ int psci_cpu_off(void)
 	unlock_state_access(exceptions);
 
 	/* Enable BKPREG access for the disabled CPU */
-	stm32_clock_enable(RTCAPB);
+	clk_enable(clk_rtc);
 
 	thread_mask_exceptions(THREAD_EXCP_ALL);
 	stm32_pm_cpu_power_down_wfi();
