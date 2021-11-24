@@ -9,6 +9,7 @@ srcs-y += shared_resources.c
 srcs-$(CFG_TZC400) += plat_tzc400.c
 srcs-$(CFG_WITH_PAGER) += link_dummies_paged.c
 srcs-$(CFG_RPROC_PTA) += remoteproc_pta.c
+srcs-$(CFG_STM32MP1_CPU_OPP) += cpu_opp.c
 
 ifeq ($(CFG_RPROC_PTA),y)
 gensrcs-y += rproc_pub_key
