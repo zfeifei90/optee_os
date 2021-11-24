@@ -9,7 +9,7 @@
 #include <console.h>
 #include <drivers/gic.h>
 #include <drivers/stm32_etzpc.h>
-#include <drivers/stm32mp1_etzpc.h>
+#include <drivers/stm32_firewall.h>
 #include <drivers/stm32_uart.h>
 #include <dt-bindings/clock/stm32mp1-clks.h>
 #include <io.h>
@@ -232,24 +232,27 @@ void main_secondary_init_gic(void)
 
 static TEE_Result init_stm32mp1_drivers(void)
 {
+	TEE_Result res = TEE_ERROR_GENERIC;
+	const struct stm32_firewall_cfg sec_cfg[] = {
+		{ FWLL_SEC_RW | FWLL_MASTER(0) },
+		{ }, /* Null terminated */
+	};
+
 	/* Without secure DTB support, some drivers must be inited */
 	if (!IS_ENABLED(CFG_EMBED_DTB))
 		stm32_etzpc_init(ETZPC_BASE);
-
-	/* Secure internal memories for the platform, once ETZPC is ready */
-	etzpc_configure_tzma(0, ETZPC_TZMA_ALL_SECURE);
-	etzpc_lock_tzma(0);
 
 	COMPILE_TIME_ASSERT(((SYSRAM_BASE + SYSRAM_SIZE) <= CFG_TZSRAM_START) ||
 			    ((SYSRAM_BASE <= CFG_TZSRAM_START) &&
 			     (SYSRAM_SEC_SIZE >= CFG_TZSRAM_SIZE)));
 
-	etzpc_configure_tzma(1, SYSRAM_SEC_SIZE >> SMALL_PAGE_SHIFT);
-	etzpc_lock_tzma(1);
+	res = stm32_firewall_set_config(SYSRAM_BASE, SYSRAM_SEC_SIZE, sec_cfg);
+	if (res)
+		panic("Unable to secure SYSRAM");
 
 	return TEE_SUCCESS;
 }
-service_init_late(init_stm32mp1_drivers);
+driver_init_late(init_stm32mp1_drivers);
 
 vaddr_t get_gicc_base(void)
 {
