@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: BSD-2-Clause
 /*
- * Copyright (c) 2019-2020, STMicroelectronics
+ * Copyright (c) 2019-2021, STMicroelectronics
  */
 
+#include <drivers/clk.h>
 #include <dt-bindings/clock/stm32mp1-clks.h>
 #include <initcall.h>
 #include <kernel/delay.h>
@@ -45,10 +46,12 @@ static vaddr_t get_syscfg_base(void)
 void stm32mp_syscfg_enable_io_compensation(void)
 {
 	vaddr_t syscfg_base = get_syscfg_base();
+	struct clk *csi_clk = stm32mp_rcc_clock_id_to_clk(CK_CSI);
+	struct clk *syscfg_clk = stm32mp_rcc_clock_id_to_clk(SYSCFG);
 	uint64_t timeout_ref = 0;
 
-	stm32_clock_enable(CK_CSI);
-	stm32_clock_enable(SYSCFG);
+	clk_enable(csi_clk);
+	clk_enable(syscfg_clk);
 
 	io_setbits32(syscfg_base + SYSCFG_CMPENSETR, SYSCFG_CMPENSETR_MPU_EN);
 
@@ -69,7 +72,11 @@ void stm32mp_syscfg_enable_io_compensation(void)
 void stm32mp_syscfg_disable_io_compensation(void)
 {
 	vaddr_t syscfg_base = get_syscfg_base();
+	struct clk *csi_clk = stm32mp_rcc_clock_id_to_clk(CK_CSI);
+	struct clk *syscfg_clk = stm32mp_rcc_clock_id_to_clk(SYSCFG);
 	uint32_t value = 0;
+
+	assert(csi_clk && syscfg_clk);
 
 	value = io_read32(syscfg_base + SYSCFG_CMPCR) >>
 		SYSCFG_CMPCR_ANSRC_SHIFT;
@@ -86,8 +93,8 @@ void stm32mp_syscfg_disable_io_compensation(void)
 
 	io_clrbits32(syscfg_base + SYSCFG_CMPENSETR, SYSCFG_CMPENSETR_MPU_EN);
 
-	stm32_clock_disable(SYSCFG);
-	stm32_clock_disable(CK_CSI);
+	clk_disable(syscfg_clk);
+	clk_disable(csi_clk);
 }
 
 static TEE_Result stm32mp1_iocomp(void)
