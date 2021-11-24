@@ -252,11 +252,9 @@ void __noreturn psci_system_off(void)
 /* Override default psci_system_reset() with platform specific sequence */
 void __noreturn psci_system_reset(void)
 {
-	vaddr_t rcc_base = stm32_rcc_base();
-
 	DMSG("core %u", get_core_pos());
 
-	io_write32(rcc_base + RCC_MP_GRSTCSETR, RCC_MP_GRSTCSETR_MPSYSRST);
+	stm32_reset_system();
 	udelay(100);
 	panic();
 }
