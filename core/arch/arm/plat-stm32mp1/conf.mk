@@ -161,6 +161,10 @@ CFG_STPMIC1 ?= y
 CFG_TZC400 ?= y
 CFG_SYSCFG ?= y
 
+ifeq ($(CFG_STM32_ETZPC),y)
+$(call force,CFG_STM32_FIREWALL,y)
+endif
+
 ifeq ($(CFG_STPMIC1),y)
 $(call force,CFG_STM32_I2C,y)
 $(call force,CFG_STM32_GPIO,y)
