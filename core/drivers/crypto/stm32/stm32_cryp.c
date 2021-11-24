@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-2-Clause
 /*
- * Copyright (c) 2021, STMicroelectronics - All Rights Reserved
+ * Copyright (c) 2021-2022, STMicroelectronics - All Rights Reserved
  */
 #include <assert.h>
 #include <config.h>
@@ -1240,39 +1240,45 @@ out:
 	return res;
 }
 
-static int fdt_stm32_cryp(struct stm32_cryp_platdata *pdata)
+static TEE_Result fdt_stm32_cryp(struct stm32_cryp_platdata *pdata)
 {
+	TEE_Result res = TEE_ERROR_GENERIC;
 	int node = -1;
 	struct dt_node_info dt_cryp = { };
 	void *fdt = NULL;
 
 	fdt = get_embedded_dt();
 	if (!fdt)
-		return -FDT_ERR_NOTFOUND;
+		return TEE_ERROR_ITEM_NOT_FOUND;
 
 	node = fdt_node_offset_by_compatible(fdt, node, "st,stm32mp1-cryp");
 	if (node < 0) {
 		EMSG("No CRYP entry in DT");
-		return -FDT_ERR_NOTFOUND;
+		return TEE_ERROR_ITEM_NOT_FOUND;
 	}
 
 	_fdt_fill_device_info(fdt, &dt_cryp, node);
 
 	if (dt_cryp.status == DT_STATUS_DISABLED)
-		return -FDT_ERR_NOTFOUND;
+		return TEE_ERROR_ITEM_NOT_FOUND;
 
-	if (dt_cryp.clock == DT_INFO_INVALID_CLOCK ||
-	    dt_cryp.reset == DT_INFO_INVALID_RESET ||
-	    dt_cryp.reg == DT_INFO_INVALID_REG)
-		return -FDT_ERR_BADVALUE;
+	if (dt_cryp.reg == DT_INFO_INVALID_REG ||
+	    dt_cryp.reg_size == DT_INFO_INVALID_REG_SIZE ||
+	    dt_cryp.reset == DT_INFO_INVALID_RESET)
+		return TEE_ERROR_BAD_PARAMETERS;
 
 	pdata->base.pa = dt_cryp.reg;
-	io_pa_or_va_secure(&pdata->base, 1);
+	io_pa_or_va_secure(&pdata->base, dt_cryp.reg_size);
+	if (!pdata->base.va)
+		panic();
 
-	pdata->clock_id = (unsigned long)dt_cryp.clock;
 	pdata->reset_id = (unsigned int)dt_cryp.reset;
 
-	return 0;
+	res= clk_dt_get_by_index(fdt, node, 0, &pdata->clock);
+	if (!pdata->clock)
+		return res;
+
+	return TEE_SUCCESS;
 }
 
 static TEE_Result stm32_cryp_driver_init(void)
@@ -1280,9 +1286,9 @@ static TEE_Result stm32_cryp_driver_init(void)
 	TEE_Result res = TEE_SUCCESS;
 
 	switch (fdt_stm32_cryp(&cryp_pdata)) {
-	case 0:
+	case TEE_SUCCESS:
 		break;
-	case -FDT_ERR_NOTFOUND:
+	case TEE_ERROR_ITEM_NOT_FOUND:
 		return TEE_SUCCESS;
 	default:
 		panic();
@@ -1290,7 +1296,7 @@ static TEE_Result stm32_cryp_driver_init(void)
 
 	stm32mp_register_secure_periph_iomem(cryp_pdata.base.pa);
 
-	stm32_clock_enable(cryp_pdata.clock_id);
+	clk_enable(cryp_pdata.clock);
 
 	if (stm32_reset_assert(cryp_pdata.reset_id, TIMEOUT_US_1MS))
 		panic();

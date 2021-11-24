@@ -1,11 +1,13 @@
 /* SPDX-License-Identifier: BSD-2-Clause */
 /*
- * Copyright (c) 2021, STMicroelectronics - All Rights Reserved
+ * Copyright (c) 2021-2022, STMicroelectronics - All Rights Reserved
  */
 
 #ifndef STM32_CRYP_H
 #define STM32_CRYP_H
 
+#include <drivers/clk.h>
+#include <drivers/clk_dt.h>
 #include <kernel/mutex.h>
 #include <mm/core_memprot.h>
 #include <stdbool.h>
@@ -14,7 +16,7 @@
 
 struct stm32_cryp_platdata {
 	struct io_pa_va base;
-	unsigned long clock_id;
+	struct clk *clock;
 	unsigned int reset_id;
 };
 
