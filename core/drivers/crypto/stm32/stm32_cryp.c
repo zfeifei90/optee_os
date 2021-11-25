@@ -1240,27 +1240,14 @@ out:
 	return res;
 }
 
-static TEE_Result fdt_stm32_cryp(struct stm32_cryp_platdata *pdata)
+static TEE_Result fdt_stm32_cryp(struct stm32_cryp_platdata *pdata,
+				 const void *fdt, int node)
+
 {
 	TEE_Result res = TEE_ERROR_GENERIC;
-	int node = -1;
 	struct dt_node_info dt_cryp = { };
-	void *fdt = NULL;
-
-	fdt = get_embedded_dt();
-	if (!fdt)
-		return TEE_ERROR_ITEM_NOT_FOUND;
-
-	node = fdt_node_offset_by_compatible(fdt, node, "st,stm32mp1-cryp");
-	if (node < 0) {
-		EMSG("No CRYP entry in DT");
-		return TEE_ERROR_ITEM_NOT_FOUND;
-	}
 
 	_fdt_fill_device_info(fdt, &dt_cryp, node);
-
-	if (dt_cryp.status == DT_STATUS_DISABLED)
-		return TEE_ERROR_ITEM_NOT_FOUND;
 
 	if (dt_cryp.reg == DT_INFO_INVALID_REG ||
 	    dt_cryp.reg_size == DT_INFO_INVALID_REG_SIZE ||
@@ -1281,20 +1268,14 @@ static TEE_Result fdt_stm32_cryp(struct stm32_cryp_platdata *pdata)
 	return TEE_SUCCESS;
 }
 
-static TEE_Result stm32_cryp_driver_init(void)
+static TEE_Result stm32_cryp_probe(const void *fdt, int node,
+				   const void *compt_data __unused)
 {
 	TEE_Result res = TEE_SUCCESS;
 
-	switch (fdt_stm32_cryp(&cryp_pdata)) {
-	case TEE_SUCCESS:
-		break;
-	case TEE_ERROR_ITEM_NOT_FOUND:
-		return TEE_SUCCESS;
-	default:
-		panic();
-	}
-
-	stm32mp_register_secure_periph_iomem(cryp_pdata.base.pa);
+	res = fdt_stm32_cryp(&cryp_pdata, fdt, node);
+	if (res)
+		return res;
 
 	clk_enable(cryp_pdata.clock);
 
@@ -1320,7 +1301,18 @@ static TEE_Result stm32_cryp_driver_init(void)
 		}
 	}
 
+	stm32mp_register_secure_periph_iomem(cryp_pdata.base.pa);
+
 	return TEE_SUCCESS;
 }
 
-driver_init(stm32_cryp_driver_init);
+static const struct dt_device_match stm32_cryp_match_table[] = {
+	{ .compatible = "st,stm32mp1-cryp"},
+	{ }
+};
+
+DEFINE_DT_DRIVER(stm32_cryp_dt_driver) = {
+	.name = "stm32-cryp",
+	.match_table = stm32_cryp_match_table,
+	.probe = stm32_cryp_probe,
+};
