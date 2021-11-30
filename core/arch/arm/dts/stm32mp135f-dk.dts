@@ -46,6 +46,13 @@
 	};
 };
 
+&bsec {
+	board_id: board_id@f0 {
+		reg = <0xf0 0x4>;
+		st,non-secure-otp;
+	};
+};
+
 &cryp {
 	status = "okay";
 };
@@ -226,6 +233,28 @@
 			};
 		};
 	};
+};
+
+&nvmem_layout {
+	nvmem-cells = <&cfg0_otp>,
+		      <&part_number_otp>,
+		      <&monotonic_otp>,
+		      <&nand_otp>,
+		      <&uid_otp>,
+		      <&hw2_otp>,
+		      <&pkh_otp>,
+		      <&board_id>,
+		      <&oem_enc_key>;
+
+	nvmem-cell-names = "cfg0_otp",
+			   "part_number_otp",
+			   "monotonic_otp",
+			   "nand_otp",
+			   "uid_otp",
+			   "hw2_otp",
+			   "pkh_otp",
+			   "board_id",
+			   "oem_enc_key";
 };
 
 &rcc {
