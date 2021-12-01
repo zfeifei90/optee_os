@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-2-Clause
 /*
- * Copyright (c) 2019, STMicroelectronics
+ * Copyright (c) 2019-2021, STMicroelectronics
  */
 #include <assert.h>
 #include <compiler.h>
@@ -93,6 +93,108 @@ register_phys_mem(MEM_AREA_IO_NSEC, CFG_STM32MP1_SCMI_SHM_BASE,
 		.enabled = _init_enabled, \
 	}
 
+#define RESET_CELL(_scmi_id, _id, _name) \
+	[_scmi_id] = { \
+		.reset_id = _id, \
+		.name = _name, \
+	}
+
+#define VOLTD_CELL(_scmi_id, _dev_id, _priv_id, _name) \
+	[_scmi_id] = { \
+		.priv_id = (_priv_id), \
+		.priv_dev = (_dev_id), \
+		.name = (_name), \
+	}
+
+struct channel_resources {
+	struct scmi_msg_channel *channel;
+	struct stm32_scmi_clk *clock;
+	size_t clock_count;
+	struct stm32_scmi_rd *rd;
+	size_t rd_count;
+	struct stm32_scmi_voltd *voltd;
+	size_t voltd_count;
+};
+
+#define PWR_REG11_NAME_ID		"0"
+#define PWR_REG18_NAME_ID		"1"
+#define PWR_USB33_NAME_ID		"2"
+
+struct stm32_scmi_voltd scmi0_voltage_domain[] = {
+	VOLTD_CELL(VOLTD_SCMI0_REG11, VOLTD_PWR, PWR_REG11_NAME_ID, "reg11"),
+	VOLTD_CELL(VOLTD_SCMI0_REG18, VOLTD_PWR, PWR_REG18_NAME_ID, "reg18"),
+	VOLTD_CELL(VOLTD_SCMI0_USB33, VOLTD_PWR, PWR_USB33_NAME_ID, "usb33"),
+};
+
+#ifdef CFG_STM32MP13
+static struct stm32_scmi_clk stm32_scmi0_clock[] = {
+	CLOCK_CELL(CK_SCMI0_HSE, CK_HSE, "ck_hse", true),
+	CLOCK_CELL(CK_SCMI0_HSI, CK_HSI, "ck_hsi", true),
+	CLOCK_CELL(CK_SCMI0_CSI, CK_CSI, "ck_csi", true),
+	CLOCK_CELL(CK_SCMI0_LSE, CK_LSE, "ck_lse", true),
+	CLOCK_CELL(CK_SCMI0_LSI, CK_LSI, "ck_lsi", true),
+	CLOCK_CELL(CK_SCMI0_HSE_DIV2, CK_HSE_DIV2, "clk-hse-div2", true),
+	CLOCK_CELL(CK_SCMI0_PLL2_Q, PLL2_Q, "pll2_q", true),
+	CLOCK_CELL(CK_SCMI0_PLL2_R, PLL2_R, "pll2_r", true),
+	CLOCK_CELL(CK_SCMI0_PLL3_P, PLL3_P, "pll3_p", true),
+	CLOCK_CELL(CK_SCMI0_PLL3_Q, PLL3_Q, "pll3_q", true),
+	CLOCK_CELL(CK_SCMI0_PLL3_R, PLL3_R, "pll3_r", true),
+	CLOCK_CELL(CK_SCMI0_PLL4_P, PLL4_P, "pll4_p", true),
+	CLOCK_CELL(CK_SCMI0_PLL4_Q, PLL4_Q, "pll4_q", true),
+	CLOCK_CELL(CK_SCMI0_PLL4_R, PLL4_R, "pll4_r", true),
+	CLOCK_CELL(CK_SCMI0_MPU, CK_MPU, "ck_mpu", true),
+	CLOCK_CELL(CK_SCMI0_AXI, CK_AXI, "ck_axi", true),
+	CLOCK_CELL(CK_SCMI0_MLAHB, CK_MLAHB, "ck_mlahb", true),
+	CLOCK_CELL(CK_SCMI0_CKPER, CK_PER, "ck_per", true),
+	CLOCK_CELL(CK_SCMI0_PCLK1, PCLK1, "pclk1", true),
+	CLOCK_CELL(CK_SCMI0_PCLK2, PCLK2, "pclk2", true),
+	CLOCK_CELL(CK_SCMI0_PCLK3, PCLK3, "pclk3", true),
+	CLOCK_CELL(CK_SCMI0_PCLK4, PCLK4, "pclk4", true),
+	CLOCK_CELL(CK_SCMI0_PCLK5, PCLK5, "pclk5", true),
+	CLOCK_CELL(CK_SCMI0_PCLK6, PCLK6, "pclk6", true),
+	CLOCK_CELL(CK_SCMI0_CKTIMG1, CK_TIMG1, "timg1_ck", true),
+	CLOCK_CELL(CK_SCMI0_CKTIMG2, CK_TIMG2, "timg2_ck", true),
+	CLOCK_CELL(CK_SCMI0_CKTIMG3, CK_TIMG3, "timg3_ck", true),
+	CLOCK_CELL(CK_SCMI0_RTC, RTC, "ck_rtc", true),
+	CLOCK_CELL(CK_SCMI0_RTCAPB, RTCAPB, "rtcapb", true),
+	CLOCK_CELL(CK_SCMI0_BSEC, BSEC, "bsec", true),
+};
+
+static struct stm32_scmi_rd stm32_scmi0_reset_domain[] = {
+	RESET_CELL(RST_SCMI0_LTDC, LTDC_R, "ltdc"),
+	RESET_CELL(RST_SCMI0_MDMA, MDMA_R, "mdma"),
+};
+
+/* Currently supporting Clocks and Reset Domains */
+static const uint8_t plat_protocol_list[] = {
+	SCMI_PROTOCOL_ID_CLOCK,
+	SCMI_PROTOCOL_ID_RESET_DOMAIN,
+	SCMI_PROTOCOL_ID_VOLTAGE_DOMAIN,
+	0 /* Null termination */
+};
+
+static const struct channel_resources scmi_channel[] = {
+	[0] = {
+		.channel = &(struct scmi_msg_channel){
+			.shm_addr = { .pa = SMT_BUFFER0_BASE },
+			.shm_size = SMT_BUF_SLOT_SIZE,
+		},
+		.clock = stm32_scmi0_clock,
+		.clock_count = ARRAY_SIZE(stm32_scmi0_clock),
+		.rd = stm32_scmi0_reset_domain,
+		.rd_count = ARRAY_SIZE(stm32_scmi0_reset_domain),
+	},
+	[1] = {
+		.channel = &(struct scmi_msg_channel){
+			.shm_addr = { .pa = SMT_BUFFER1_BASE },
+			.shm_size = SMT_BUF_SLOT_SIZE,
+		},
+	},
+};
+
+#endif /* CFG_STM32MP13 */
+
+#ifdef CFG_STM32MP15
 static struct stm32_scmi_clk stm32_scmi0_clock[] = {
 	CLOCK_CELL(CK_SCMI0_HSE, CK_HSE, "ck_hse", true),
 	CLOCK_CELL(CK_SCMI0_HSI, CK_HSI, "ck_hsi", true),
@@ -123,12 +225,6 @@ static struct stm32_scmi_clk stm32_scmi1_clock[] = {
 	CLOCK_CELL(CK_SCMI1_MCU, CK_MCU, "ck_mcu", false),
 };
 
-#define RESET_CELL(_scmi_id, _id, _name) \
-	[_scmi_id] = { \
-		.reset_id = _id, \
-		.name = _name, \
-	}
-
 static struct stm32_scmi_rd stm32_scmi0_reset_domain[] = {
 	RESET_CELL(RST_SCMI0_SPI6, SPI6_R, "spi6"),
 	RESET_CELL(RST_SCMI0_I2C4, I2C4_R, "i2c4"),
@@ -144,31 +240,12 @@ static struct stm32_scmi_rd stm32_scmi0_reset_domain[] = {
 	RESET_CELL(RST_SCMI0_MCU_HOLD_BOOT, MCU_HOLD_BOOT_R, "mcu_hold_boot"),
 };
 
-#define VOLTD_CELL(_scmi_id, _dev_id, _priv_id, _name) \
-	[_scmi_id] = { \
-		.priv_id = (_priv_id), \
-		.priv_dev = (_dev_id), \
-		.name = (_name), \
-	}
-
-#define PWR_REG11_NAME_ID		"0"
-#define PWR_REG18_NAME_ID		"1"
-#define PWR_USB33_NAME_ID		"2"
-
-struct stm32_scmi_voltd scmi0_voltage_domain[] = {
-	VOLTD_CELL(VOLTD_SCMI0_REG11, VOLTD_PWR, PWR_REG11_NAME_ID, "reg11"),
-	VOLTD_CELL(VOLTD_SCMI0_REG18, VOLTD_PWR, PWR_REG18_NAME_ID, "reg18"),
-	VOLTD_CELL(VOLTD_SCMI0_USB33, VOLTD_PWR, PWR_USB33_NAME_ID, "usb33"),
-};
-
-struct channel_resources {
-	struct scmi_msg_channel *channel;
-	struct stm32_scmi_clk *clock;
-	size_t clock_count;
-	struct stm32_scmi_rd *rd;
-	size_t rd_count;
-	struct stm32_scmi_voltd *voltd;
-	size_t voltd_count;
+/* Currently supporting Clocks and Reset Domains */
+static const uint8_t plat_protocol_list[] = {
+	SCMI_PROTOCOL_ID_CLOCK,
+	SCMI_PROTOCOL_ID_RESET_DOMAIN,
+	SCMI_PROTOCOL_ID_VOLTAGE_DOMAIN,
+	0 /* Null termination */
 };
 
 static const struct channel_resources scmi_channel[] = {
@@ -193,6 +270,7 @@ static const struct channel_resources scmi_channel[] = {
 		.clock_count = ARRAY_SIZE(stm32_scmi1_clock),
 	},
 };
+#endif /* CFG_STM32MP15 */
 
 static const struct channel_resources *find_resource(unsigned int channel_id)
 {
@@ -251,14 +329,6 @@ const char *plat_scmi_sub_vendor_name(void)
 {
 	return sub_vendor;
 }
-
-/* Currently supporting Clocks and Reset Domains */
-static const uint8_t plat_protocol_list[] = {
-	SCMI_PROTOCOL_ID_CLOCK,
-	SCMI_PROTOCOL_ID_RESET_DOMAIN,
-	SCMI_PROTOCOL_ID_VOLTAGE_DOMAIN,
-	0 /* Null termination */
-};
 
 size_t plat_scmi_protocol_count(void)
 {
@@ -440,8 +510,10 @@ int32_t plat_scmi_rd_autonomous(unsigned int channel_id, unsigned int scmi_id,
 	if (!stm32mp_nsec_can_access_reset(rd->reset_id))
 		return SCMI_DENIED;
 
+#ifdef CFG_STM32MP15
 	if (rd->reset_id == MCU_HOLD_BOOT_R)
 		return SCMI_NOT_SUPPORTED;
+#endif
 
 	/* Supports only reset with context loss */
 	if (state)
@@ -469,12 +541,14 @@ int32_t plat_scmi_rd_set_state(unsigned int channel_id, unsigned int scmi_id,
 	if (!stm32mp_nsec_can_access_reset(rd->reset_id))
 		return SCMI_DENIED;
 
+#ifdef CFG_STM32MP15
 	if (rd->reset_id == MCU_HOLD_BOOT_R) {
 		DMSG("SCMI MCU hold boot %s",
 		     assert_not_deassert ? "set" : "release");
 		stm32_reset_assert_deassert_mcu(assert_not_deassert);
 		return SCMI_SUCCESS;
 	}
+#endif
 
 	if (assert_not_deassert) {
 		DMSG("SCMI reset %u set", scmi_id);
