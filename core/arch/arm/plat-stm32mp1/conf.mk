@@ -197,6 +197,7 @@ endif
 CFG_STM32MP_PANIC_ON_TZC_PERM_VIOLATION ?= y
 
 # SiP/OEM service for non-secure world
+CFG_STM32_PWR_SIP ?= y
 CFG_STM32MP1_SCMI_SIP ?= y
 ifeq ($(CFG_STM32MP1_SCMI_SIP),y)
 $(call force,CFG_SCMI_MSG_DRIVERS,y,Mandated by CFG_STM32MP1_SCMI_SIP)
