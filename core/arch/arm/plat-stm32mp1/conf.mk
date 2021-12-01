@@ -64,12 +64,12 @@ endif
 
 include core/arch/arm/cpu/cortex-a7.mk
 
-$(call force,CFG_ARM_GIC_PM,y)
 $(call force,CFG_DRIVERS_CLK,y)
 $(call force,CFG_ARM_GIC_PM,y)
 $(call force,CFG_GIC,y)
 $(call force,CFG_INIT_CNTVOFF,y)
 $(call force,CFG_PSCI_ARM32,y)
+$(call force,CFG_REGULATOR_DRIVERS,y)
 $(call force,CFG_SECURE_TIME_SOURCE_CNTPCT,y)
 $(call force,CFG_SM_PLATFORM_HANDLER,y)
 $(call force,CFG_WITH_SOFTWARE_PRNG,y)
@@ -100,6 +100,7 @@ else # Assume CFG_STM32MP15
 $(call force,CFG_BOOT_SECONDARY_REQUEST,y)
 $(call force,CFG_DRIVERS_CLK_FIXED,n)
 $(call force,CFG_SECONDARY_INIT_CNTFRQ,y)
+$(call force,CFG_STM32_VREFBUF,n)
 $(call force,CFG_STM32MP13,n)
 $(call force,CFG_STM32MP15,y)
 $(call force,CFG_STM32MP13_CLK,n)
@@ -138,9 +139,12 @@ CFG_PREALLOC_RPC_CACHE ?= n
 ifeq ($(CFG_EMBED_DTB_SOURCE_FILE),)
 # Some drivers mandate DT support
 $(call force,CFG_DRIVERS_CLK_DT,n)
+$(call force,CFG_REGULATOR_FIXED,n)
 $(call force,CFG_STM32_CRYP,n)
 $(call force,CFG_STM32_GPIO,n)
 $(call force,CFG_STM32_I2C,n)
+$(call force,CFG_STM32_REGULATOR_GPIO,n)
+$(call force,CFG_STM32_VREFBUF,y)
 $(call force,CFG_STPMIC1,n)
 $(call force,CFG_STM32MP1_SCMI_SIP,n)
 $(call force,CFG_SCMI_PTA,n)
@@ -161,13 +165,16 @@ ifeq ($(CFG_BSEC_PTA),y)
 $(call force,CFG_STM32_BSEC,y,Mandated by CFG_BSEC_PTA)
 endif
 
+CFG_REGULATOR_FIXED ?= y
 CFG_STM32_BSEC ?= y
 CFG_STM32_CRYP ?= y
 CFG_STM32_ETZPC ?= y
 CFG_STM32_GPIO ?= y
 CFG_STM32_I2C ?= y
+CFG_STM32_REGULATOR_GPIO ?= y
 CFG_STM32_RNG ?= y
 CFG_STM32_UART ?= y
+CFG_STM32_VREFBUF ?= y
 CFG_STPMIC1 ?= y
 CFG_TZC400 ?= y
 CFG_SYSCFG ?= y
