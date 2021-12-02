@@ -45,6 +45,14 @@ register_phys_mem_pgdir(MEM_AREA_IO_SEC, GIC_BASE, GIC_SIZE);
 
 register_ddr(DDR_BASE, CFG_DRAM_SIZE);
 
+#ifdef CFG_RPROC_PTA
+/* Map MCU RETRAM as read write for Cortex-M4 firmware management */
+register_phys_mem(MEM_AREA_IO_SEC, RETRAM_BASE, RETRAM_SIZE);
+
+/* Map MCU SRAM as read write for Cortex-M4 firmware management */
+register_phys_mem(MEM_AREA_IO_SEC, MCUSRAM_BASE, MCUSRAM_SIZE);
+#endif
+
 #define _ID2STR(id)		(#id)
 #define ID2STR(id)		_ID2STR(id)
 
