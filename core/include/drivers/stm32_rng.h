@@ -1,15 +1,24 @@
 /* SPDX-License-Identifier: BSD-3-Clause */
 /*
- * Copyright (c) 2018-2019, STMicroelectronics
+ * Copyright (c) 2018-2021, STMicroelectronics
  */
 
 #ifndef __STM32_RNG_H__
 #define __STM32_RNG_H__
 
+#include <drivers/clk.h>
 #include <stdint.h>
 #include <stddef.h>
 #include <tee_api_types.h>
 #include <types_ext.h>
+
+struct stm32_rng_platdata {
+	uintptr_t base;
+	struct clk *clock;
+	unsigned long reset;
+	unsigned int lock;
+	bool clock_error;
+};
 
 /*
  * Fill buffer with bytes from the STM32_RNG
@@ -17,20 +26,10 @@
  * @size: Byte size of the output buffer
  * Return a TEE_Result compliant sttus
  */
-TEE_Result stm32_rng_read(uint8_t *out, size_t size);
+#ifdef CFG_WITH_SOFTWARE_PRNG
+TEE_Result stm32_rng_read(void *buf, size_t blen);
+#endif
 
-/*
- * As stm32_rng_read() but excluding clocks/reset dependencies.
- *
- * @rng_base: Caller provides the RNG interface base address
- * @out: Output buffer
- * @size: Pointer to input/output byte size of the output buffer
- * Return a TEE_Result compliant sttus
- *
- * When successfully returning, @size stores the number of bytes
- * effectively generated in the output buffer @out. The input value
- * of @size gives the size available in buffer @out.
- */
-TEE_Result stm32_rng_read_raw(vaddr_t rng_base, uint8_t *out, size_t *size);
-
+int stm32_rng_get_platdata(struct stm32_rng_platdata *pdata __unused);
+int stm32_rng_probe(void);
 #endif /*__STM32_RNG_H__*/

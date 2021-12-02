@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * Copyright (c) 2018-2019, STMicroelectronics
+ * Copyright (c) 2018-2022, STMicroelectronics
  */
 
 #include <assert.h>
+#include <crypto/crypto.h>
 #include <drivers/clk.h>
 #include <drivers/clk_dt.h>
 #include <drivers/stm32_rng.h>
@@ -15,11 +16,12 @@
 #include <kernel/thread.h>
 #include <libfdt.h>
 #include <mm/core_memprot.h>
+#include <rng_support.h>
 #include <stdbool.h>
 #include <stm32_util.h>
 #include <string.h>
+#include <tee/tee_cryp_utl.h>
 
-#define DT_RNG_COMPAT		"st,stm32-rng"
 #define RNG_CR			0x00U
 #define RNG_SR			0x04U
 #define RNG_DR			0x08U
@@ -27,6 +29,7 @@
 #define RNG_CR_RNGEN		BIT(2)
 #define RNG_CR_IE		BIT(3)
 #define RNG_CR_CED		BIT(5)
+#define RNG_CR_CONDRST		BIT(30)
 
 #define RNG_SR_DRDY		BIT(0)
 #define RNG_SR_CECS		BIT(1)
@@ -34,218 +37,364 @@
 #define RNG_SR_CEIS		BIT(5)
 #define RNG_SR_SEIS		BIT(6)
 
-#define RNG_TIMEOUT_US		10000
+#define RNG_TIMEOUT_US_10MS	U(10000)
+#define RNG_TIMEOUT_US_1MS	U(1000)
+#define RNG_FIFO_BYTE_DEPTH	U(16)
 
-struct stm32_rng_instance {
-	struct io_pa_va base;
-	struct clk *clock;
-	unsigned int lock;
-	unsigned int refcount;
+struct stm32_rng_driver_data {
+	bool has_cond_reset;
 };
 
-static struct stm32_rng_instance *stm32_rng;
+struct stm32_rng_device {
+	struct stm32_rng_platdata pdata;
+	struct stm32_rng_driver_data *ddata;
+	unsigned int lock;
+};
 
-/*
- * Extracts from the STM32 RNG specification:
- *
- * When a noise source (or seed) error occurs, the RNG stops generating
- * random numbers and sets to “1” both SEIS and SECS bits to indicate
- * that a seed error occurred. (...)
+struct my_dt_device_match {
+	const char *compatible;
+	const void *data;
+};
 
- * The following sequence shall be used to fully recover from a seed
- * error after the RNG initialization:
- * 1. Clear the SEIS bit by writing it to “0”.
- * 2. Read out 12 words from the RNG_DR register, and discard each of
- * them in order to clean the pipeline.
- * 3. Confirm that SEIS is still cleared. Random number generation is
- * back to normal.
- */
-static void conceal_seed_error(vaddr_t rng_base)
+const struct stm32_rng_driver_data mp13_data[] = {
+	{ .has_cond_reset = true },
+};
+
+const struct stm32_rng_driver_data mp15_data[] = {
+	{ .has_cond_reset = false },
+};
+
+static const struct my_dt_device_match rng_match_table[] = {
+	{ .compatible = "st,stm32mp13-rng", .data = &mp13_data},
+	{ .compatible = "st,stm32-rng", .data = &mp15_data},
+	{ }
+};
+
+static struct stm32_rng_device stm32_rng = { };
+
+/* Seed error management */
+static void conceal_seed_error(struct stm32_rng_device *dev)
 {
-	if (io_read32(rng_base + RNG_SR) & (RNG_SR_SECS | RNG_SR_SEIS)) {
+	struct stm32_rng_platdata *pdata = &dev->pdata;
+	struct stm32_rng_driver_data *ddata = dev->ddata;
+	uintptr_t base = pdata->base;
+	uint32_t sr = 0;
+	uint64_t timeout_ref = 0;
+
+	if (ddata->has_cond_reset) {
+		sr = io_read32(base + RNG_SR);
+		if (sr & RNG_SR_SECS) {
+			io_setbits32(base + RNG_CR, RNG_CR_CONDRST);
+			io_clrbits32(base + RNG_CR, RNG_CR_CONDRST);
+
+			/* Wait for CR == 0 */
+			timeout_ref = timeout_init_us(RNG_TIMEOUT_US_10MS);
+			while (io_read32(base + RNG_CR) & RNG_CR_CONDRST)
+				if (timeout_elapsed(timeout_ref))
+					break;
+
+			/* Panic on timeout not due to thread scheduling */
+			if (io_read32(base + RNG_CR) & RNG_CR_CONDRST)
+				panic();
+		}
+
+		io_clrbits32(base + RNG_SR, RNG_SR_SEIS);
+	} else {
 		size_t i = 0;
 
-		io_mask32(rng_base + RNG_SR, 0, RNG_SR_SEIS);
+		io_mask32(base + RNG_SR, 0, RNG_SR_SEIS);
 
 		for (i = 12; i != 0; i--)
-			(void)io_read32(rng_base + RNG_DR);
-
-		if (io_read32(rng_base + RNG_SR) & RNG_SR_SEIS)
-			panic("RNG noise");
+			(void)io_read32(base + RNG_DR);
 	}
+
+	if (io_read32(base + RNG_SR) & RNG_SR_SEIS)
+		panic("RNG noise");
 }
 
-#define RNG_FIFO_BYTE_DEPTH		16u
-
-TEE_Result stm32_rng_read_raw(vaddr_t rng_base, uint8_t *out, size_t *size)
+static TEE_Result stm32_rng_init(struct stm32_rng_device *dev)
 {
-	bool enabled = false;
+	struct stm32_rng_platdata *pdata = &dev->pdata;
+	struct stm32_rng_driver_data *ddata = dev->ddata;
+	uintptr_t base = pdata->base;
+	uint64_t timeout_ref = 0;
+	uint32_t cr = 0;
+	uint32_t sr = 0;
+
+	cr = io_read32(base + RNG_CR);
+	if (!pdata->clock_error)
+		cr |= RNG_CR_CED;
+
+	/* Clean error indications */
+	io_write32(base + RNG_SR, 0);
+
+	if (ddata->has_cond_reset) {
+		io_setbits32(base + RNG_CR, RNG_CR_CONDRST | cr);
+		io_clrsetbits32(base + RNG_CR, RNG_CR_CONDRST,
+				RNG_CR_RNGEN | cr);
+	} else {
+		io_setbits32(base + RNG_CR, RNG_CR_RNGEN | cr);
+	}
+
+	timeout_ref = timeout_init_us(RNG_TIMEOUT_US_10MS);
+	while (!(io_read32(base + RNG_SR) & RNG_SR_DRDY))
+		if (timeout_elapsed(timeout_ref))
+			break;
+
+	if (!(io_read32(base + RNG_SR) & RNG_SR_DRDY))
+		return TEE_ERROR_GENERIC;
+
+	sr = io_read32(base + RNG_SR);
+	if (sr & (RNG_SR_CEIS | RNG_SR_CECS))
+		DMSG("Clock error detected");
+
+	if (sr & (RNG_SR_SECS | RNG_SR_SEIS))
+		conceal_seed_error(dev);
+
+	return TEE_SUCCESS;
+}
+
+#ifdef CFG_EMBED_DTB
+static int get_node_from_multiple_compatible(const void *fdt,
+					     struct stm32_rng_device *dev)
+{
+	const struct my_dt_device_match *cur = rng_match_table;
+
+	while (cur->compatible) {
+		int node = -1;
+
+		node = fdt_node_offset_by_compatible(fdt, node,
+						     cur->compatible);
+		if (node >= 0) {
+			dev->ddata = (struct stm32_rng_driver_data *)cur->data;
+			return node;
+		}
+
+		cur++;
+	}
+
+	/* Compatible string not found */
+	return -1;
+}
+
+static int stm32_rng_parse_fdt(struct stm32_rng_device *dev)
+{
+	int node = -1;
+	struct io_pa_va base = { };
+	struct dt_node_info dt_rng = { };
+	void *fdt = NULL;
+	struct stm32_rng_platdata *pdata = &dev->pdata;
+
+	fdt = get_embedded_dt();
+	if (!fdt)
+		return -1;
+
+	node = get_node_from_multiple_compatible(fdt, dev);
+	if (node < 0)
+		return -1;
+
+	_fdt_fill_device_info(fdt, &dt_rng, node);
+	if (dt_rng.status == DT_STATUS_DISABLED ||
+	    dt_rng.clock == DT_INFO_INVALID_CLOCK ||
+	    dt_rng.reg == DT_INFO_INVALID_REG ||
+	    dt_rng.reset == DT_INFO_INVALID_RESET) {
+		return -1;
+	}
+
+	/* ETZPC get state */
+	base.pa = dt_rng.reg;
+
+	/* Here depends on State io_pa_or_va_nsec */
+	pdata->base = io_pa_or_va_secure(&base, 1);
+	pdata->reset = dt_rng.reset;
+	pdata->clock_error = false;
+
+	pdata->clock = clk_dt_get_by_idx(fdt, node, 0);
+	if (!pdata->clock)
+		panic();
+
+	if (fdt_getprop(fdt, node, "clock-error-detect", NULL))
+		pdata->clock_error = true;
+
+	return 0;
+}
+
+__weak int stm32_rng_get_platdata(struct stm32_rng_platdata *pdata __unused)
+{
+	/* In DT config, the platform data are filled by DT file */
+	return 0;
+}
+#else /* CFG_EMBED_DTB */
+static int stm32_rng_parse_fdt(struct stm32_rng_device *dev)
+{
+	/* Do nothing, there is no fdt to parse in this case */
+	return 0;
+}
+
+/*
+ * This function can be overridden by platform to define pdata of stm32 driver
+ */
+__weak
+int stm32_rng_get_platdata(struct stm32_tamp_platdata *pdata __unused)
+{
+	return -1;
+}
+#endif /* CFG_EMBED_DTB */
+
+static TEE_Result stm32_rng_read_raw(struct stm32_rng_device *rng_dev,
+				     uint8_t *out, size_t *size)
+{
 	TEE_Result rc = TEE_ERROR_SECURITY;
 	uint32_t exceptions = thread_mask_exceptions(THREAD_EXCP_ALL);
-	uint64_t timeout_ref = timeout_init_us(RNG_TIMEOUT_US);
+	uintptr_t base = rng_dev->pdata.base;
+	uint32_t req_size = *size;
+	size_t tot_size = 0;
+	uint8_t *buf = out;
+	uint64_t timeout_ref = timeout_init_us(RNG_TIMEOUT_US_10MS);
 
-	if (!(io_read32(rng_base + RNG_CR) & RNG_CR_RNGEN)) {
-		/* Enable RNG if not, clock error is disabled */
-		io_write32(rng_base + RNG_CR, RNG_CR_RNGEN | RNG_CR_CED);
-		enabled = true;
-	}
+	clk_enable(rng_dev->pdata.clock);
 
-	/* Wait RNG has produced well seeded random samples */
-	while (!timeout_elapsed(timeout_ref)) {
-		conceal_seed_error(rng_base);
+	while (req_size && !timeout_elapsed(timeout_ref)) {
+		uint32_t len = 0;
+		uint32_t sr = io_read32(base + RNG_SR);
 
-		if (io_read32(rng_base + RNG_SR) & RNG_SR_DRDY)
-			break;
-	}
+		if (sr & RNG_SR_SEIS) {
+			conceal_seed_error(rng_dev);
+			sr = io_read32(base + RNG_SR);
+		}
 
-	if (io_read32(rng_base + RNG_SR) & RNG_SR_DRDY) {
-		uint8_t *buf = out;
-		size_t req_size = MIN(RNG_FIFO_BYTE_DEPTH, *size);
-		size_t len = req_size;
+		if (!(sr & RNG_SR_DRDY))
+			continue;
 
+		len = MIN(RNG_FIFO_BYTE_DEPTH, req_size);
 		/* RNG is ready: read up to 4 32bit words */
 		while (len) {
-			uint32_t data32 = io_read32(rng_base + RNG_DR);
+			uint32_t data32 = io_read32(base + RNG_DR);
 			size_t sz = MIN(len, sizeof(uint32_t));
 
 			memcpy(buf, &data32, sz);
 			buf += sz;
 			len -= sz;
+			req_size -= sz;
+			tot_size += sz;
 		}
-		rc = TEE_SUCCESS;
-		*size = req_size;
+
+		timeout_ref = timeout_init_us(RNG_TIMEOUT_US_10MS);
 	}
 
-	if (enabled)
-		io_write32(rng_base + RNG_CR, 0);
+	clk_disable(rng_dev->pdata.clock);
+
+	if (timeout_elapsed(timeout_ref))
+		return TEE_ERROR_GENERIC;
+
+	rc = TEE_SUCCESS;
+	*size = tot_size;
 
 	thread_unmask_exceptions(exceptions);
 
 	return rc;
 }
 
-static void gate_rng(bool enable, struct stm32_rng_instance *dev)
+int stm32_rng_probe(void)
 {
-	vaddr_t rng_cr = io_pa_or_va(&dev->base, 1) + RNG_CR;
-	uint32_t exceptions = may_spin_lock(&dev->lock);
+	int ret = 0;
+	paddr_t pbase __unused = 0;
 
-	if (enable) {
-		/* incr_refcnt return non zero if resource shall be enabled */
-		if (incr_refcnt(&dev->refcount)) {
-			clk_enable(dev->clock);
-			io_write32(rng_cr, 0);
-			io_write32(rng_cr, RNG_CR_RNGEN | RNG_CR_CED);
-		}
-	} else {
-		/* decr_refcnt return non zero if resource shall be disabled */
-		if (decr_refcnt(&dev->refcount)) {
-			io_write32(rng_cr, 0);
-			clk_disable(dev->clock);
-		}
-	}
+	ret = stm32_rng_get_platdata(&stm32_rng.pdata);
+	if (ret)
+		return ret;
 
-	may_spin_unlock(&dev->lock, exceptions);
+	ret = stm32_rng_parse_fdt(&stm32_rng);
+	if (ret)
+		return ret;
+
+	ret = clk_enable(stm32_rng.pdata.clock);
+	if (ret)
+		return ret;
+
+	ret = stm32_reset_assert(stm32_rng.pdata.reset, RNG_TIMEOUT_US_1MS);
+	if (ret)
+		return ret;
+
+	ret = stm32_reset_deassert(stm32_rng.pdata.reset, RNG_TIMEOUT_US_1MS);
+	if (ret)
+		return ret;
+
+	ret = stm32_rng_init(&stm32_rng);
+	if (ret)
+		return ret;
+
+	clk_disable(stm32_rng.pdata.clock);
+
+	pbase = virt_to_phys((void *)stm32_rng.pdata.base);
+
+#ifdef CFG_STM32MP15
+	stm32mp_register_secure_periph_iomem(pbase);
+#endif
+
+	return 0;
 }
 
-TEE_Result stm32_rng_read(uint8_t *out, size_t size)
+#ifdef CFG_WITH_SOFTWARE_PRNG
+TEE_Result stm32_rng_read(void *buf, size_t blen)
+#else
+TEE_Result crypto_rng_read(void *buf, size_t blen)
+#endif
 {
 	TEE_Result rc = 0;
 	uint32_t exceptions = 0;
-	vaddr_t rng_base = io_pa_or_va(&stm32_rng->base, 1);
-	uint8_t *out_ptr = out;
 	size_t out_size = 0;
+	uint8_t *b = buf;
 
-	if (!stm32_rng) {
-		DMSG("No RNG");
+	if (!b)
+		return TEE_ERROR_BAD_PARAMETERS;
+
+	if (!stm32_rng.pdata.base) {
+		EMSG("No RNG");
 		return TEE_ERROR_NOT_SUPPORTED;
 	}
 
-	gate_rng(true, stm32_rng);
-
-	while (out_size < size) {
+	while (out_size < blen) {
 		/* Read by chunks of the size the RNG FIFO depth */
-		size_t sz = size - out_size;
+		size_t sz = blen - out_size;
 
-		exceptions = may_spin_lock(&stm32_rng->lock);
+		exceptions = may_spin_lock(&stm32_rng.lock);
 
-		rc = stm32_rng_read_raw(rng_base, out_ptr, &sz);
+		rc = stm32_rng_read_raw(&stm32_rng, b, &sz);
 
-		may_spin_unlock(&stm32_rng->lock, exceptions);
+		may_spin_unlock(&stm32_rng.lock, exceptions);
 
 		if (rc)
 			goto bail;
 
 		out_size += sz;
-		out_ptr += sz;
+		b += sz;
 	}
 
 bail:
-	gate_rng(false, stm32_rng);
 	if (rc)
-		memset(out, 0, size);
+		memset(b, 0, blen);
 
 	return rc;
 }
 
-#ifdef CFG_EMBED_DTB
-static TEE_Result stm32_rng_init(void)
+uint8_t hw_get_random_byte(void)
 {
-	void *fdt = NULL;
-	int node = -1;
-	struct dt_node_info dt_info;
-	enum teecore_memtypes mtype = MEM_AREA_END;
-	TEE_Result res = TEE_ERROR_GENERIC;
+	uint8_t data = 0;
+	size_t len = 1;
 
-	memset(&dt_info, 0, sizeof(dt_info));
-
-	fdt = get_embedded_dt();
-	if (!fdt)
+	if (stm32_rng_read_raw(&stm32_rng, &data, &len) != TEE_SUCCESS)
 		panic();
 
-	while (true) {
-		node = fdt_node_offset_by_compatible(fdt, node, DT_RNG_COMPAT);
-		if (node < 0)
-			break;
-
-		_fdt_fill_device_info(fdt, &dt_info, node);
-
-		if (!(dt_info.status & DT_STATUS_OK_SEC))
-			continue;
-
-		if (stm32_rng)
-			panic();
-
-		stm32_rng = calloc(1, sizeof(*stm32_rng));
-		if (!stm32_rng)
-			panic();
-
-		assert(dt_info.clock != DT_INFO_INVALID_CLOCK &&
-		       dt_info.reg != DT_INFO_INVALID_REG &&
-		       dt_info.reg_size != DT_INFO_INVALID_REG_SIZE);
-
-		if (dt_info.status & DT_STATUS_OK_NSEC) {
-			stm32mp_register_non_secure_periph_iomem(dt_info.reg);
-			mtype = MEM_AREA_IO_NSEC;
-		} else {
-			stm32mp_register_secure_periph_iomem(dt_info.reg);
-			mtype = MEM_AREA_IO_SEC;
-		}
-
-		stm32_rng->base.pa = dt_info.reg;
-		stm32_rng->base.va = (vaddr_t)phys_to_virt(dt_info.reg, mtype,
-							   dt_info.reg_size);
-
-		res = clk_dt_get_by_index(fdt, node, 0, &stm32_rng->clock);
-		if (res)
-			return res;
-
-		assert(stm32_rng->clock);
-
-		DMSG("RNG init");
-	}
-
-	return TEE_SUCCESS;
+	return data;
 }
 
-driver_init(stm32_rng_init);
-#endif /*CFG_EMBED_DTB*/
+#ifndef CFG_WITH_SOFTWARE_PRNG
+/* Override weak plat_rng_init with platform handler */
+void plat_rng_init(void)
+{
+	if (stm32_rng_probe())
+		panic();
+}
+#endif
+
