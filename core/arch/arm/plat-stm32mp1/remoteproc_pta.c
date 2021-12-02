@@ -159,13 +159,17 @@ static TEE_Result rproc_pta_load_segment(uint32_t pt,
 						TEE_PARAM_TYPE_MEMREF_INPUT);
 	TEE_Result res = TEE_ERROR_GENERIC;
 	paddr_t pa = 0;
-	vaddr_t dst = 0;
+	uint8_t *dst = 0;
 	uint8_t *src = params[1].memref.buffer;
 	size_t size = params[1].memref.size;
+	uint8_t *hash = params[3].memref.buffer;
 	paddr_t da = (paddr_t)reg_pair_to_64(params[2].value.b,
 					     params[2].value.a);
 
 	if (pt != exp_pt)
+		return TEE_ERROR_BAD_PARAMETERS;
+
+	if (!hash || params[3].memref.size != TEE_SHA256_HASH_SIZE)
 		return TEE_ERROR_BAD_PARAMETERS;
 
 	/* Only STM32_M4_FW_ID supported */
@@ -183,17 +187,17 @@ static TEE_Result rproc_pta_load_segment(uint32_t pt,
 		return res;
 
 	/* Get the associated va */
-	dst = core_mmu_get_va(pa, MEM_AREA_IO_SEC, 1);
-
-	if (params[3].memref.buffer)
-		IMSG("Hash verification not yet supported");
+	dst = (void *)core_mmu_get_va(pa, MEM_AREA_IO_SEC, 1);
 
 	/* Copy the segment to the remote processor memory*/
-	memcpy((void *)dst, src, size);
+	memcpy(dst, src, size);
 
-	/* TODO: computed hash and compare it with the expected hash*/
+	/* Verify that loaded segment is valid */
+	res = hash_sha256_check(hash, dst, size);
+	if (res)
+		memset(dst, 0, size);
 
-	return TEE_SUCCESS;
+	return res;
 }
 
 static TEE_Result rproc_pta_set_memory(uint32_t pt,
