@@ -475,6 +475,15 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 
+			hash1: hash@54002000 {
+				compatible = "st,stm32f756-hash";
+				reg = <0x54002000 0x400>;
+				interrupts = <GIC_SPI 80 IRQ_TYPE_LEVEL_HIGH>;
+				clocks = <&rcc HASH1>;
+				resets = <&rcc HASH1_R>;
+				status = "disabled";
+			};
+
 			rng1: rng@54003000 {
 				compatible = "st,stm32-rng";
 				reg = <0x54003000 0x400>;

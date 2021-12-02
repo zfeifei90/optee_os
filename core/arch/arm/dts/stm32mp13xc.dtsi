@@ -15,4 +15,20 @@
 		resets = <&rcc CRYP1_R>;
 		status = "disabled";
 	};
+
+	saes: saes@54005000 {
+		compatible = "st,stm32mp13-saes";
+		reg = <0x54005000 0x400>;
+		clocks = <&rcc SAES_K>;
+		resets = <&rcc SAES_R>;
+		status = "disabled";
+	};
+
+	pka: pka@54006000 {
+		compatible = "st,stm32mp13-pka64";
+		reg = <0x54006000 0x2000>;
+		clocks = <&rcc PKA>;
+		resets = <&rcc PKA_R>;
+		status = "disabled";
+	};
 };
