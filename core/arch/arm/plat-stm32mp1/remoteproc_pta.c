@@ -5,7 +5,7 @@
 
 #include <crypto/crypto.h>
 #include <drivers/clk.h>
-#include <drivers/stm32_etzpc.h>
+#include <drivers/stm32_firewall.h>
 #include <drivers/stm32mp1_rcc.h>
 #include <drivers/stm32mp_dt_bindings.h>
 #include <initcall.h>
@@ -32,14 +32,13 @@ enum rproc_load_state {
  * struct rproc_ta_etzpc_rams - memory protection strategy table
  * @pa - Memory physical base address from current CPU space
  * @size - Memory region byte size
- * @etzpc_id - associated ETZPC identifier.
+ * @firewall_cfg - Firewall configuration.
  * @attr - memory access permission according to @etzpc_decprot_attributes
  */
 struct rproc_ta_etzpc_rams {
 	paddr_t pa;
 	size_t size;
-	uint32_t etzpc_id;
-	enum etzpc_decprot_attributes attr;
+	struct stm32_firewall_cfg cfg[2];
 };
 
 /*
@@ -59,15 +58,19 @@ static const struct rproc_ta_etzpc_rams rproc_ta_mp1_m4_rams[] = {
 	{
 		.pa = MCUSRAM_BASE,
 		.size = 0x20000,
-		.etzpc_id = STM32MP1_ETZPC_SRAM1_ID,
-		.attr = ETZPC_DECPROT_MCU_ISOLATION,
+		.cfg = {
+			{ FWLL_NSEC_RW | FWLL_MASTER(1) },
+			{ }, /* Null terminated */
+		},
 	},
 	/* MCU SRAM 2*/
 	{
 		.pa = MCUSRAM_BASE + 0x20000,
 		.size = 0x20000,
-		.etzpc_id = STM32MP1_ETZPC_SRAM2_ID,
-		.attr = ETZPC_DECPROT_MCU_ISOLATION,
+		.cfg = {
+			{ FWLL_NSEC_RW | FWLL_MASTER(1) },
+			{ }, /* Null terminated */
+		},
 	},
 
 	/* MCU SRAM 3*/
@@ -75,24 +78,30 @@ static const struct rproc_ta_etzpc_rams rproc_ta_mp1_m4_rams[] = {
 	/* Used as shared memory between the NS and the coprocessor */
 		.pa = MCUSRAM_BASE + 0x40000,
 		.size = 0x10000,
-		.etzpc_id = STM32MP1_ETZPC_SRAM3_ID,
-		.attr = ETZPC_DECPROT_NS_RW,
+		.cfg = {
+			{ FWLL_NSEC_RW | FWLL_MASTER(0) },
+			{ }, /* Null terminated */
+		},
 	},
 	/* MCU SRAM 4*/
 	/* Not used reserved by NS for MDMA */
 	{
 		.pa = MCUSRAM_BASE + 0x50000,
 		.size = 0x10000,
-		.etzpc_id = STM32MP1_ETZPC_SRAM4_ID,
-		.attr = ETZPC_DECPROT_NS_RW,
+		.cfg = {
+			{ FWLL_NSEC_RW | FWLL_MASTER(0) },
+			{ }, /* Null terminated */
+		},
 	},
 
 	/* MCU RETRAM */
 	{
 		.pa = RETRAM_BASE,
 		.size = RETRAM_SIZE,
-		.etzpc_id = STM32MP1_ETZPC_RETRAM_ID,
-		.attr = ETZPC_DECPROT_MCU_ISOLATION,
+		.cfg = {
+			{ FWLL_NSEC_RW | FWLL_MASTER(1) },
+			{ }, /* Null terminated */
+		},
 	},
 };
 
@@ -278,7 +287,12 @@ static TEE_Result rproc_pta_da_to_pa(uint32_t pt,
 static void rproc_pta_mem_protect(bool secure_access)
 {
 	unsigned int i = 0;
+	const struct stm32_firewall_cfg *sec = NULL;
 	const struct rproc_ta_etzpc_rams *ram = NULL;
+	const struct stm32_firewall_cfg sec_cfg[] = {
+		{ FWLL_SEC_RW | FWLL_MASTER(0) },
+		{ }, /* Null terminated */
+	};
 
 	/*
 	 * MCU RAM banks access permissions for MCU memories depending on
@@ -289,15 +303,15 @@ static void rproc_pta_mem_protect(bool secure_access)
 	 * else apply memory permission as defined in rproc_ta_mp1_m4_rams[].
 	 */
 	for (i = 0; i < ARRAY_SIZE(rproc_ta_mp1_m4_rams); i++) {
-		enum etzpc_decprot_attributes attr = ETZPC_DECPROT_MAX;
-
 		ram = &rproc_ta_mp1_m4_rams[i];
-		attr = ram->attr;
+		sec = ram->cfg;
 
-		if (secure_access && attr == ETZPC_DECPROT_MCU_ISOLATION)
-			attr = ETZPC_DECPROT_S_RW;
+		if (secure_access &&
+		    (stm32_firewall_check_access(ram->pa, ram->size, sec_cfg) !=
+		     TEE_SUCCESS))
+			sec = sec_cfg;
 
-		etzpc_configure_decprot(ram->etzpc_id, attr);
+		stm32_firewall_set_config(ram->pa, ram->size, sec);
 	}
 }
 
@@ -380,7 +394,8 @@ static TEE_Result rproc_pta_stop(uint32_t pt,
 	rproc_pta_mem_protect(true);
 	for (i = 0; i < ARRAY_SIZE(rproc_ta_mp1_m4_rams); i++) {
 		ram = &rproc_ta_mp1_m4_rams[i];
-		if (ram->attr == ETZPC_DECPROT_MCU_ISOLATION) {
+		if (stm32_firewall_check_access(ram->pa, ram->size, ram->cfg) ==
+		    TEE_SUCCESS) {
 			memset((void *)core_mmu_get_va(ram->pa,
 						       MEM_AREA_IO_SEC, 1),
 			       0, ram->size);
