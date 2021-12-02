@@ -5,11 +5,13 @@
 
 #include <crypto/crypto.h>
 #include <drivers/clk.h>
+#include <drivers/stm32_etzpc.h>
 #include <drivers/stm32mp1_rcc.h>
 #include <drivers/stm32mp_dt_bindings.h>
 #include <kernel/pseudo_ta.h>
 #include <kernel/user_ta.h>
 #include <mm/core_memprot.h>
+#include <mm/core_mmu.h>
 #include <remoteproc_pta.h>
 #include <stm32_util.h>
 #include <string.h>
@@ -25,6 +27,20 @@ enum rproc_load_state {
 };
 
 /*
+ * struct rproc_ta_etzpc_rams - memory protection strategy table
+ * @pa - Memory physical base address from current CPU space
+ * @size - Memory region byte size
+ * @etzpc_id - associated ETZPC identifier.
+ * @attr - memory access permission according to @etzpc_decprot_attributes
+ */
+struct rproc_ta_etzpc_rams {
+	paddr_t pa;
+	size_t size;
+	uint32_t etzpc_id;
+	enum etzpc_decprot_attributes attr;
+};
+
+/*
  * struct rproc_ta_memory_region - Represent a remote processor memory mapping
  * @pa - Memory physical base address from current CPU space
  * @da - Memory physical base address from remote processor space
@@ -34,6 +50,48 @@ struct rproc_ta_memory_region {
 	paddr_t pa;
 	paddr_t da;
 	size_t size;
+};
+
+static const struct rproc_ta_etzpc_rams rproc_ta_mp1_m4_rams[] = {
+	/* MCU SRAM 1*/
+	{
+		.pa = MCUSRAM_BASE,
+		.size = 0x20000,
+		.etzpc_id = STM32MP1_ETZPC_SRAM1_ID,
+		.attr = ETZPC_DECPROT_MCU_ISOLATION,
+	},
+	/* MCU SRAM 2*/
+	{
+		.pa = MCUSRAM_BASE + 0x20000,
+		.size = 0x20000,
+		.etzpc_id = STM32MP1_ETZPC_SRAM2_ID,
+		.attr = ETZPC_DECPROT_MCU_ISOLATION,
+	},
+
+	/* MCU SRAM 3*/
+	{
+	/* Used as shared memory between the NS and the coprocessor */
+		.pa = MCUSRAM_BASE + 0x40000,
+		.size = 0x10000,
+		.etzpc_id = STM32MP1_ETZPC_SRAM3_ID,
+		.attr = ETZPC_DECPROT_NS_RW,
+	},
+	/* MCU SRAM 4*/
+	/* Not used reserved by NS for MDMA */
+	{
+		.pa = MCUSRAM_BASE + 0x50000,
+		.size = 0x10000,
+		.etzpc_id = STM32MP1_ETZPC_SRAM4_ID,
+		.attr = ETZPC_DECPROT_NS_RW,
+	},
+
+	/* MCU RETRAM */
+	{
+		.pa = RETRAM_BASE,
+		.size = RETRAM_SIZE,
+		.etzpc_id = STM32MP1_ETZPC_RETRAM_ID,
+		.attr = ETZPC_DECPROT_MCU_ISOLATION,
+	},
 };
 
 static const struct rproc_ta_memory_region rproc_ta_mp1_m4_mems[] = {
@@ -211,6 +269,32 @@ static TEE_Result rproc_pta_da_to_pa(uint32_t pt,
 	return TEE_SUCCESS;
 }
 
+static void rproc_pta_mem_protect(bool secure_access)
+{
+	unsigned int i = 0;
+	const struct rproc_ta_etzpc_rams *ram = NULL;
+
+	/*
+	 * MCU RAM banks access permissions for MCU memories depending on
+	 * rproc_ta_mp1_m4_rams[].
+	 * If memory bank is declared as MCU isolated:
+	 *     if secure_access then set to secure world read/write permission
+	 *     else set to MCU isolated
+	 * else apply memory permission as defined in rproc_ta_mp1_m4_rams[].
+	 */
+	for (i = 0; i < ARRAY_SIZE(rproc_ta_mp1_m4_rams); i++) {
+		enum etzpc_decprot_attributes attr = ETZPC_DECPROT_MAX;
+
+		ram = &rproc_ta_mp1_m4_rams[i];
+		attr = ram->attr;
+
+		if (secure_access && attr == ETZPC_DECPROT_MCU_ISOLATION)
+			attr = ETZPC_DECPROT_S_RW;
+
+		etzpc_configure_decprot(ram->etzpc_id, attr);
+	}
+}
+
 static TEE_Result rproc_pta_start(uint32_t pt,
 				  TEE_Param params[TEE_NUM_PARAMS])
 {
@@ -235,6 +319,9 @@ static TEE_Result rproc_pta_start(uint32_t pt,
 
 	clk_enable(mcu_clk);
 
+	/* Configure the Cortex-M4 RAMs as expected to run the firmware */
+	rproc_pta_mem_protect(false);
+
 	/*
 	 * The firmware is started by deasserting the hold boot and
 	 * asserting back to avoid auto restart on a crash.
@@ -257,7 +344,9 @@ static TEE_Result rproc_pta_stop(uint32_t pt,
 						TEE_PARAM_TYPE_NONE,
 						TEE_PARAM_TYPE_NONE);
 	struct clk *mcu_clk = stm32mp_rcc_clock_id_to_clk(CK_MCU);
+	const struct rproc_ta_etzpc_rams *ram = NULL;
 	vaddr_t rcc_base = stm32_rcc_base();
+	unsigned int i = 0;
 
 	if (pt != exp_pt)
 		return TEE_ERROR_BAD_PARAMETERS;
@@ -278,6 +367,19 @@ static TEE_Result rproc_pta_stop(uint32_t pt,
 
 	clk_disable(mcu_clk);
 
+	/*
+	 * Cortex-M4 memories are cleaned and access rights restored for the
+	 * secure context.
+	 */
+	rproc_pta_mem_protect(true);
+	for (i = 0; i < ARRAY_SIZE(rproc_ta_mp1_m4_rams); i++) {
+		ram = &rproc_ta_mp1_m4_rams[i];
+		if (ram->attr == ETZPC_DECPROT_MCU_ISOLATION) {
+			memset((void *)core_mmu_get_va(ram->pa,
+						       MEM_AREA_IO_SEC, 1),
+			       0, ram->size);
+		}
+	}
 	rproc_ta_state = REMOTEPROC_OFF;
 
 	return TEE_SUCCESS;
@@ -321,6 +423,9 @@ static TEE_Result
 	/* TODO: check that we're called the remove proc TA (check UUID) */
 	if (!s || !is_user_ta_ctx(s->ctx))
 		return TEE_ERROR_ACCESS_DENIED;
+
+	/* Configure the Cortex-M4 rams access right for secure context only */
+	rproc_pta_mem_protect(true);
 
 	return TEE_SUCCESS;
 }
