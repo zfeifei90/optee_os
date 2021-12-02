@@ -81,6 +81,7 @@ $(call force,CFG_SECONDARY_INIT_CNTFRQ,n)
 $(call force,CFG_STM32_CRYP,n)
 $(call force,CFG_STM32_RNG,n)
 $(call force,CFG_STM32MP_CLK_CORE,y)
+$(call force,CFG_RPROC_PTA,n)
 $(call force,CFG_STM32MP1_SCMI_SIP,n)
 $(call force,CFG_STM32MP13_CLK,y)
 $(call force,CFG_STM32MP15,n)
@@ -164,6 +165,12 @@ endif
 CFG_BSEC_PTA ?= y
 ifeq ($(CFG_BSEC_PTA),y)
 $(call force,CFG_STM32_BSEC,y,Mandated by CFG_BSEC_PTA)
+endif
+
+# Remoteproc early TA for coprocessor firmware management
+CFG_RPROC_PTA ?= n
+ifeq ($(CFG_RPROC_PTA),y)
+CFG_IN_TREE_EARLY_TAS += remoteproc/80a4c275-0a47-4905-8285-1486a9771a08
 endif
 
 CFG_REGULATOR_FIXED ?= y
