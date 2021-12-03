@@ -14,6 +14,7 @@
 #include <kernel/boot.h>
 #include <kernel/panic.h>
 #include <kernel/thread.h>
+#include <kernel/pm.h>
 #include <libfdt.h>
 #include <rng_support.h>
 #include <stdbool.h>
@@ -61,6 +62,7 @@ struct stm32_rng_device {
 };
 
 static struct stm32_rng_device stm32_rng;
+static uint32_t cr_keep;
 
 static vaddr_t get_base(struct stm32_rng_device *dev)
 {
@@ -302,6 +304,43 @@ uint8_t hw_get_random_byte(void)
 	return data;
 }
 
+static TEE_Result stm32_rng_pm_resume(struct stm32_rng_device *dev)
+{
+	vaddr_t base = get_base(dev);
+
+	io_setbits32(base + RNG_CR, RNG_CR_RNGEN | cr_keep);
+
+	return TEE_SUCCESS;
+}
+
+static TEE_Result stm32_rng_pm_suspend(struct stm32_rng_device *dev)
+{
+	cr_keep = io_read32(get_base(dev) + RNG_CR);
+
+	return TEE_SUCCESS;
+}
+
+static TEE_Result
+stm32_rng_pm(enum pm_op op, unsigned int pm_hint __unused,
+	     const struct pm_callback_handle *pm_handle __unused)
+{
+	TEE_Result ret = 0;
+
+	ret = clk_enable(stm32_rng.pdata.clock);
+	if (ret)
+		return ret;
+
+	if (op == PM_OP_RESUME)
+		ret = stm32_rng_pm_resume(&stm32_rng);
+	else
+		ret = stm32_rng_pm_suspend(&stm32_rng);
+
+	clk_disable(stm32_rng.pdata.clock);
+
+	return ret;
+}
+DECLARE_KEEP_PAGER(stm32_rng_pm);
+
 #ifdef CFG_EMBED_DTB
 static TEE_Result stm32_rng_parse_fdt(const void *fdt, int node,
 				      struct stm32_rng_device *dev)
@@ -395,6 +434,8 @@ static TEE_Result stm32_rng_probe(const void *fdt, int offs,
 #ifdef CFG_STM32MP15
 	stm32mp_register_secure_periph_iomem(stm32_rng.pdata.base.pa);
 #endif
+
+	register_pm_core_service_cb(stm32_rng_pm, &stm32_rng, "rng-service");
 
 	return 0;
 }
