@@ -166,6 +166,12 @@
 	};
 };
 
+&iwdg2 {
+	timeout-sec = <32>;
+	secure-timeout-sec = <15>;
+	status = "okay";
+};
+
 &nvmem_layout {
 	nvmem-cells = <&cfg0_otp>,
 		      <&part_number_otp>,
