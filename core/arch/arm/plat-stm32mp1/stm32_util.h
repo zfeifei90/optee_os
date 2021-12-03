@@ -58,6 +58,21 @@ TEE_Result stm32mp_syscfg_erase_sram3(void);
 vaddr_t get_gicc_base(void);
 vaddr_t get_gicd_base(void);
 
+/*
+ * Platform util for the IWDG driver
+ */
+
+/* Get IWDG_* enable flags mask from watchdog configuration read from fuses */
+unsigned long stm32_get_iwdg_otp_config(vaddr_t pbase);
+
+#ifdef CFG_TEE_CORE_DEBUG
+void stm32mp_dump_core_registers(bool force_display);
+#else
+static inline void stm32mp_dump_core_registers(bool force_display __unused)
+{
+}
+#endif
+
 /* Platform util for PMIC support */
 bool stm32mp_with_pmic(void);
 

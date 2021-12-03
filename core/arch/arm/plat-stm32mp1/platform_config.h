@@ -265,6 +265,10 @@
 #define GPIO_BANK_K			10U
 #define GPIO_BANK_Z			25U
 
+/* IWDG resources */
+#define IWDG1_INST			U(0)
+#define IWDG2_INST			U(1)
+
 /* TAMP resources */
 #define TAMP_BKP_REGISTER_OFF		U(0x100)
 

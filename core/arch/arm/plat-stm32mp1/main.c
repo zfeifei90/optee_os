@@ -11,6 +11,7 @@
 #include <drivers/regulator.h>
 #include <drivers/stm32_etzpc.h>
 #include <drivers/stm32_firewall.h>
+#include <drivers/stm32_iwdg.h>
 #include <drivers/stm32_uart.h>
 #include <drivers/stm32mp_dt_bindings.h>
 #include <drivers/stm32mp1_pmic.h>
@@ -514,7 +515,96 @@ bool stm32mp_supports_second_core(void)
 	}
 }
 
+static unsigned int stm32mp_iwdg_iomem2instance(paddr_t pbase)
+{
+	DMSG("Base %lx", pbase);
+
+	switch (pbase) {
+	case IWDG1_BASE:
+		return IWDG1_INST;
+	case IWDG2_BASE:
+		return IWDG2_INST;
+	default:
+		panic();
+	}
+}
+
+unsigned long stm32_get_iwdg_otp_config(vaddr_t pbase)
+{
+	unsigned int idx = 0;
+	unsigned long iwdg_cfg = 0;
+	uint32_t otp_id = 0;
+	size_t bit_len = 0;
+	uint32_t otp_value = 0;
+
+	idx = stm32mp_iwdg_iomem2instance(pbase);
+
+	if (stm32_bsec_find_otp_in_nvmem_layout(HW2_OTP, &otp_id, &bit_len))
+		panic();
+
+	if (bit_len != 32)
+		panic();
+
+	if (stm32_bsec_read_otp(&otp_value, otp_id))
+		panic();
+
+	if (otp_value & BIT(idx + HW2_OTP_IWDG_HW_ENABLE_SHIFT))
+		iwdg_cfg |= IWDG_HW_ENABLED;
+
+	if (otp_value & BIT(idx + HW2_OTP_IWDG_FZ_STOP_SHIFT))
+		iwdg_cfg |= IWDG_DISABLE_ON_STOP;
+
+	if (otp_value & BIT(idx + HW2_OTP_IWDG_FZ_STANDBY_SHIFT))
+		iwdg_cfg |= IWDG_DISABLE_ON_STANDBY;
+
+	return iwdg_cfg;
+}
+
 #ifdef CFG_TEE_CORE_DEBUG
+static const char *const dump_table[] = {
+	"usr_sp",
+	"usr_lr",
+	"irq_spsr",
+	"irq_sp",
+	"irq_lr",
+	"fiq_spsr",
+	"fiq_sp",
+	"fiq_lr",
+	"svc_spsr",
+	"svc_sp",
+	"svc_lr",
+	"abt_spsr",
+	"abt_sp",
+	"abt_lr",
+	"und_spsr",
+	"und_sp",
+	"und_lr",
+#ifdef CFG_SM_NO_CYCLE_COUNTING
+	"pmcr"
+#endif
+};
+
+void stm32mp_dump_core_registers(bool force_display)
+{
+	static bool display;
+	size_t i = 0U;
+	uint32_t __maybe_unused *reg = NULL;
+	struct sm_nsec_ctx *sm_nsec_ctx = sm_get_nsec_ctx();
+
+	if (force_display)
+		display = true;
+
+	if (!display)
+		return;
+
+	MSG("CPU : %i\n", get_core_pos());
+
+	reg = (uint32_t *)&sm_nsec_ctx->ub_regs.usr_sp;
+	for (i = 0U; i < ARRAY_SIZE(dump_table); i++)
+		MSG("%10s : 0x%08x\n", dump_table[i], reg[i]);
+}
+DECLARE_KEEP_PAGER(stm32mp_dump_core_registers);
+
 static TEE_Result init_debug(void)
 {
 	TEE_Result res = TEE_SUCCESS;
