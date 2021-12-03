@@ -145,6 +145,7 @@ $(call force,CFG_REGULATOR_FIXED,n)
 $(call force,CFG_STM32_CRYP,n)
 $(call force,CFG_STM32_GPIO,n)
 $(call force,CFG_STM32_I2C,n)
+$(call force,CFG_STM32_IWDG,n)
 $(call force,CFG_STM32_REGULATOR_GPIO,n)
 $(call force,CFG_STM32_VREFBUF,y)
 $(call force,CFG_STPMIC1,n)
@@ -179,6 +180,7 @@ CFG_STM32_CRYP ?= y
 CFG_STM32_ETZPC ?= y
 CFG_STM32_GPIO ?= y
 CFG_STM32_I2C ?= y
+CFG_STM32_IWDG ?= y
 CFG_STM32_REGULATOR_GPIO ?= y
 CFG_STM32_RNG ?= y
 CFG_STM32_UART ?= y
