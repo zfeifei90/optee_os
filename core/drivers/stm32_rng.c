@@ -57,6 +57,8 @@ struct stm32_rng_device {
 	struct stm32_rng_platdata pdata;
 	struct stm32_rng_driver_data *ddata;
 	unsigned int lock;
+	bool error_conceal;
+	uint64_t error_to_ref;
 };
 
 struct my_dt_device_match {
@@ -87,23 +89,35 @@ static void conceal_seed_error(struct stm32_rng_device *dev)
 	struct stm32_rng_driver_data *ddata = dev->ddata;
 	uintptr_t base = pdata->base;
 	uint32_t sr = 0;
-	uint64_t timeout_ref = 0;
 
 	if (ddata->has_cond_reset) {
-		sr = io_read32(base + RNG_SR);
-		if (sr & RNG_SR_SECS) {
-			io_setbits32(base + RNG_CR, RNG_CR_CONDRST);
-			io_clrbits32(base + RNG_CR, RNG_CR_CONDRST);
+		if (!dev->error_conceal) {
+			/* Conceal by resetting the subsystem */
+			sr = io_read32(base + RNG_SR);
+			if (sr & RNG_SR_SECS) {
+				io_setbits32(base + RNG_CR, RNG_CR_CONDRST);
+				io_clrbits32(base + RNG_CR, RNG_CR_CONDRST);
 
-			/* Wait for CR == 0 */
-			timeout_ref = timeout_init_us(RNG_TIMEOUT_US_10MS);
-			while (io_read32(base + RNG_CR) & RNG_CR_CONDRST)
-				if (timeout_elapsed(timeout_ref))
-					break;
+				dev->error_to_ref =
+					timeout_init_us(RNG_TIMEOUT_US_10MS);
+				dev->error_conceal = true;
 
-			/* Panic on timeout not due to thread scheduling */
-			if (io_read32(base + RNG_CR) & RNG_CR_CONDRST)
-				panic();
+				/* Wait subsystem reset cycle completes */
+				return;
+			}
+		} else {
+			/* Measure time before possible reschedule */
+			bool timed_out = timeout_elapsed(dev->error_to_ref);
+
+			if ((io_read32(base + RNG_CR) & RNG_CR_CONDRST)) {
+				if (timed_out)
+					panic();
+
+				/* Wait subsystem reset cycle completes */
+				return;
+			}
+
+			dev->error_conceal = false;
 		}
 
 		io_clrbits32(base + RNG_SR, RNG_SR_SEIS);
@@ -118,6 +132,35 @@ static void conceal_seed_error(struct stm32_rng_device *dev)
 
 	if (io_read32(base + RNG_SR) & RNG_SR_SEIS)
 		panic("RNG noise");
+}
+
+static TEE_Result stm32_rng_read_available(struct stm32_rng_device *rng_dev,
+					   uint8_t *out, size_t size)
+{
+	uintptr_t base = rng_dev->pdata.base;
+	uint8_t *buf = out;
+
+	assert(size <= RNG_FIFO_BYTE_DEPTH);
+
+	if (rng_dev->error_conceal || io_read32(base + RNG_SR) & RNG_SR_SEIS) {
+		conceal_seed_error(rng_dev);
+		return TEE_ERROR_NO_DATA;
+	}
+
+	if (!(io_read32(base + RNG_SR) & RNG_SR_DRDY))
+		return TEE_ERROR_NO_DATA;
+
+	/* RNG is ready: read up to 4 32bit words */
+	while (size) {
+		uint32_t data32 = io_read32(rng_dev->pdata.base + RNG_DR);
+		size_t sz = MIN(size, sizeof(uint32_t));
+
+		memcpy(buf, &data32, sz);
+		buf += sz;
+		size -= sz;
+	}
+
+	return TEE_SUCCESS;
 }
 
 static uint32_t stm32_rng_clock_freq_restrain(struct stm32_rng_device *dev)
@@ -277,60 +320,6 @@ int stm32_rng_get_platdata(struct stm32_tamp_platdata *pdata __unused)
 }
 #endif /* CFG_EMBED_DTB */
 
-static TEE_Result stm32_rng_read_raw(struct stm32_rng_device *rng_dev,
-				     uint8_t *out, size_t *size)
-{
-	TEE_Result rc = TEE_ERROR_SECURITY;
-	uint32_t exceptions = thread_mask_exceptions(THREAD_EXCP_ALL);
-	uintptr_t base = rng_dev->pdata.base;
-	uint32_t req_size = *size;
-	size_t tot_size = 0;
-	uint8_t *buf = out;
-	uint64_t timeout_ref = timeout_init_us(RNG_TIMEOUT_US_10MS);
-
-	clk_enable(rng_dev->pdata.clock);
-
-	while (req_size && !timeout_elapsed(timeout_ref)) {
-		uint32_t len = 0;
-		uint32_t sr = io_read32(base + RNG_SR);
-
-		if (sr & RNG_SR_SEIS) {
-			conceal_seed_error(rng_dev);
-			sr = io_read32(base + RNG_SR);
-		}
-
-		if (!(sr & RNG_SR_DRDY))
-			continue;
-
-		len = MIN(RNG_FIFO_BYTE_DEPTH, req_size);
-		/* RNG is ready: read up to 4 32bit words */
-		while (len) {
-			uint32_t data32 = io_read32(base + RNG_DR);
-			size_t sz = MIN(len, sizeof(uint32_t));
-
-			memcpy(buf, &data32, sz);
-			buf += sz;
-			len -= sz;
-			req_size -= sz;
-			tot_size += sz;
-		}
-
-		timeout_ref = timeout_init_us(RNG_TIMEOUT_US_10MS);
-	}
-
-	clk_disable(rng_dev->pdata.clock);
-
-	if (timeout_elapsed(timeout_ref))
-		return TEE_ERROR_GENERIC;
-
-	rc = TEE_SUCCESS;
-	*size = tot_size;
-
-	thread_unmask_exceptions(exceptions);
-
-	return rc;
-}
-
 int stm32_rng_probe(void)
 {
 	int ret = 0;
@@ -371,15 +360,58 @@ int stm32_rng_probe(void)
 	return 0;
 }
 
+/* Masks interrupts while reading available data from RNG FIFO */
+static TEE_Result get_rng_bytes_relaxed(uint8_t *out, size_t len)
+{
+	uint64_t timeout_ref = timeout_init_us(RNG_TIMEOUT_US_10MS);
+	TEE_Result res = TEE_ERROR_GENERIC;
+	uint32_t exceptions = 0;
+	bool timed_out = false;
+	uint8_t *buf = out;
+
+	clk_enable(stm32_rng.pdata.clock);
+
+	while (len) {
+		size_t burst_len = MIN(len, RNG_FIFO_BYTE_DEPTH);
+
+		exceptions = may_spin_lock(&stm32_rng.lock);
+
+		res = stm32_rng_read_available(&stm32_rng, buf, burst_len);
+		if (res) {
+			assert(res == TEE_ERROR_NO_DATA);
+
+			/* Measure timeout before we're possibly rescheduled */
+			timed_out = timeout_elapsed(timeout_ref);
+		} else {
+			buf += burst_len;
+			len -= burst_len;
+			timeout_ref = timeout_init_us(RNG_TIMEOUT_US_10MS);
+		}
+
+		may_spin_unlock(&stm32_rng.lock, exceptions);
+
+		if (len && timed_out)
+			break;
+	}
+
+	clk_disable(stm32_rng.pdata.clock);
+
+	if (!len)
+		return TEE_SUCCESS;
+
+	if (timed_out)
+		return TEE_ERROR_NO_DATA;
+
+	return TEE_ERROR_GENERIC;
+}
+
 #ifdef CFG_WITH_SOFTWARE_PRNG
 TEE_Result stm32_rng_read(void *buf, size_t blen)
 #else
 TEE_Result crypto_rng_read(void *buf, size_t blen)
 #endif
 {
-	TEE_Result rc = 0;
-	uint32_t exceptions = 0;
-	size_t out_size = 0;
+	TEE_Result res = TEE_ERROR_GENERIC;
 	uint8_t *b = buf;
 
 	if (!b)
@@ -390,36 +422,18 @@ TEE_Result crypto_rng_read(void *buf, size_t blen)
 		return TEE_ERROR_NOT_SUPPORTED;
 	}
 
-	while (out_size < blen) {
-		/* Read by chunks of the size the RNG FIFO depth */
-		size_t sz = blen - out_size;
-
-		exceptions = may_spin_lock(&stm32_rng.lock);
-
-		rc = stm32_rng_read_raw(&stm32_rng, b, &sz);
-
-		may_spin_unlock(&stm32_rng.lock, exceptions);
-
-		if (rc)
-			goto bail;
-
-		out_size += sz;
-		b += sz;
-	}
-
-bail:
-	if (rc)
+	res = get_rng_bytes_relaxed(b, blen);
+	if (res)
 		memset(b, 0, blen);
 
-	return rc;
+	return res;
 }
 
 uint8_t hw_get_random_byte(void)
 {
 	uint8_t data = 0;
-	size_t len = 1;
 
-	if (stm32_rng_read_raw(&stm32_rng, &data, &len) != TEE_SUCCESS)
+	if (get_rng_bytes_relaxed(&data, 1))
 		panic();
 
 	return data;
