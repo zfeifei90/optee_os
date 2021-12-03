@@ -72,7 +72,6 @@ $(call force,CFG_PSCI_ARM32,y)
 $(call force,CFG_REGULATOR_DRIVERS,y)
 $(call force,CFG_SECURE_TIME_SOURCE_CNTPCT,y)
 $(call force,CFG_SM_PLATFORM_HANDLER,y)
-$(call force,CFG_WITH_SOFTWARE_PRNG,y)
 
 ifeq ($(CFG_STM32MP13),y)
 $(call force,CFG_BOOT_SECONDARY_REQUEST,n)
@@ -188,6 +187,11 @@ CFG_STM32_VREFBUF ?= y
 CFG_STPMIC1 ?= y
 CFG_TZC400 ?= y
 CFG_SYSCFG ?= y
+
+CFG_WITH_SOFTWARE_PRNG ?= n
+ifeq ($(CFG_WITH_SOFTWARE_PRNG),y)
+$(call force,CFG_STM32_RNG,y,Mandated by CFG_WITH_SOFTWARE_PRNG)
+endif
 
 ifeq ($(CFG_STM32_ETZPC),y)
 $(call force,CFG_STM32_FIREWALL,y)
