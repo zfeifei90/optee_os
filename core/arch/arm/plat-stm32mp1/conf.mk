@@ -226,6 +226,14 @@ $(call force,CFG_SCMI_MSG_SMT_THREAD_ENTRY,y,Mandated by CFG_SCMI_PTA)
 CFG_CORE_OCALL ?= y
 endif
 
+# Default enable HWRNG PTA support
+CFG_HWRNG_PTA ?= y
+ifeq ($(CFG_HWRNG_PTA),y)
+$(call force,CFG_STM32_RNG,y,Mandated by CFG_HWRNG_PTA)
+$(call force,CFG_WITH_SOFTWARE_PRNG,n,Mandated by CFG_HWRNG_PTA)
+CFG_HWRNG_QUALITY ?= 1024
+endif
+
 CFG_SCMI_MSG_DRIVERS ?= n
 ifeq ($(CFG_SCMI_MSG_DRIVERS),y)
 $(call force,CFG_SCMI_MSG_CLOCK,y)
