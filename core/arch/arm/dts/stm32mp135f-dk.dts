@@ -484,6 +484,11 @@
 	};
 };
 
+&rng {
+	status = "okay";
+	clock-error-detect;
+};
+
 &scmi_regu {
 	scmi_vddcpu: voltd-vddcpu {
 		voltd-name = "vddcpu";
