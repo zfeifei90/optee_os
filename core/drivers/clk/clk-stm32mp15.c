@@ -2841,10 +2841,12 @@ static void stm32_clock_resume(void)
 static TEE_Result stm32_clock_pm(enum pm_op op, unsigned int pm_hint __unused,
 				 const struct pm_callback_handle *hdl __unused)
 {
-	if (op == PM_OP_SUSPEND)
+	if (op == PM_OP_SUSPEND) {
 		stm32_clock_suspend();
-	else
+	} else {
+		pll1_config_from_opp_khz(current_opp_khz);
 		stm32_clock_resume();
+	}
 
 	return TEE_SUCCESS;
 }
