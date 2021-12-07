@@ -8,6 +8,7 @@
 
 #include <dt-bindings/clock/stm32mp13-clksrc.h>
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/rtc/rtc-stm32.h>
 #include <dt-bindings/soc/stm32mp13-etzpc.h>
 #include "stm32mp135.dtsi"
 #include "stm32mp13xf.dtsi"
@@ -487,6 +488,10 @@
 &rng {
 	status = "okay";
 	clock-error-detect;
+};
+
+&rtc {
+	status = "okay";
 };
 
 &scmi_regu {
