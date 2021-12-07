@@ -117,6 +117,10 @@ static inline bool stm32mp_nsec_can_access_pmic_regu(const char *name __unused)
 }
 #endif
 
+/* PM sequences specific to SoC STOP mode support */
+void stm32mp1_clk_save_context_for_stop(void);
+void stm32mp1_clk_restore_context_for_stop(void);
+
 /* Protect the MCU clock subsytem */
 void stm32mp1_clk_mcuss_protect(bool enable);
 
