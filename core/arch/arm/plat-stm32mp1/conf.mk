@@ -196,6 +196,7 @@ endif
 # Default enable some test facitilites
 CFG_ENABLE_EMBEDDED_TESTS ?= y
 CFG_WITH_STATS ?= y
+CFG_WERROR ?= y
 
 # Default disable some support for pager memory size constraint
 ifeq ($(CFG_WITH_PAGER),y)
