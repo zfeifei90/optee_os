@@ -128,6 +128,10 @@ CFG_MMAP_REGIONS ?= 23
 CFG_DTB_MAX_SIZE ?= (256 * 1024)
 CFG_CORE_HEAP_SIZE ?= 49152
 
+# Default disable RPC command shared memory allocation caching due to
+# side effect on TEE session release by the Linux tee & optee drivers.
+CFG_PREALLOC_RPC_CACHE ?= n
+
 ifeq ($(CFG_EMBED_DTB_SOURCE_FILE),)
 # Some drivers mandate DT support
 $(call force,CFG_DRIVERS_CLK_DT,n)
