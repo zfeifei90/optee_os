@@ -339,6 +339,12 @@
 			   "oem_enc_key";
 };
 
+&pwr_irq {
+	pinctrl-names = "default";
+	pinctrl-0 = <&wakeup_pins>;
+	status = "okay";
+};
+
 &pwr_regulators {
 	vdd-supply = <&vdd>;
 	vdd_3v3_usbfs-supply = <&vdd_usb>;
