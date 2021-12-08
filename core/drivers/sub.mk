@@ -26,6 +26,7 @@ srcs-$(CFG_ATMEL_SHDWC) += atmel_shdwc.c atmel_shdwc_a32.S
 srcs-$(CFG_AMLOGIC_UART) += amlogic_uart.c
 srcs-$(CFG_MVEBU_UART) += mvebu_uart.c
 srcs-$(CFG_STM32_BSEC) += stm32_bsec.c
+srcs-$(CFG_STM32_EXTI) += stm32_exti.c
 srcs-$(CFG_STM32_GPIO) += stm32_gpio.c
 srcs-$(CFG_STM32_IWDG) += stm32_iwdg.c
 srcs-$(CFG_STM32_I2C) += stm32_i2c.c
