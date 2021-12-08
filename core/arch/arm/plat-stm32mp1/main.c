@@ -372,6 +372,13 @@ vaddr_t stm32mp_bkpsram_base(void)
 	return io_pa_or_va(&base, BKPSRAM_SIZE);
 }
 
+vaddr_t stm32mp_stgen_base(void)
+{
+	struct io_pa_va base = { .pa = STGEN_BASE };
+
+	return io_pa_or_va(&base, 1);
+}
+
 static int get_chip_dev_id(uint32_t *dev_id)
 {
 #ifdef CFG_STM32MP13
