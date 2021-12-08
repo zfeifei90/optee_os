@@ -5,6 +5,7 @@
 
 #include <arm.h>
 #include <boot_api.h>
+#include <config.h>
 #include <console.h>
 #include <drivers/clk.h>
 #include <drivers/stm32mp_dt_bindings.h>
@@ -67,10 +68,9 @@ int psci_affinity_info(uint32_t affinity, uint32_t lowest_affinity_level)
 
 	DMSG("core %zu, state %u", pos, core_state[pos]);
 
-	if ((pos >= CFG_TEE_CORE_NB_CORE) ||
-	    (lowest_affinity_level > PSCI_AFFINITY_LEVEL_ON)) {
+	if (pos >= CFG_TEE_CORE_NB_CORE ||
+	    lowest_affinity_level > PSCI_AFFINITY_LEVEL_ON)
 		return PSCI_RET_INVALID_PARAMETERS;
-	}
 
 	switch (core_state[pos]) {
 	case CORE_OFF:
@@ -92,23 +92,10 @@ int psci_affinity_info(uint32_t affinity, uint32_t lowest_affinity_level)
  */
 void stm32mp_register_online_cpu(void)
 {
-	assert(core_state[0] == CORE_OFF);
+	assert(core_state[0] == CORE_OFF || core_state[0] == CORE_RET);
 	core_state[0] = CORE_ON;
 }
 #else
-static void __noreturn stm32_pm_cpu_power_down_wfi(void)
-{
-	dcache_op_level1(DCACHE_OP_CLEAN);
-
-	io_write32(stm32_rcc_base() + RCC_MP_GRSTCSETR,
-		   RCC_MP_GRSTCSETR_MPUP1RST);
-
-	dsb();
-	isb();
-	wfi();
-	panic();
-}
-
 void stm32mp_register_online_cpu(void)
 {
 	size_t pos = get_core_pos();
@@ -118,15 +105,26 @@ void stm32mp_register_online_cpu(void)
 	assert(clk_rtc);
 
 	if (pos == 0) {
-		assert(core_state[pos] == CORE_OFF);
+		assert((core_state[pos] == CORE_OFF) ||
+		       (core_state[pos] == CORE_RET));
 	} else {
+		/*  Check if second core available */
+		if (!stm32mp_supports_second_core())
+			return;
+
 		if (core_state[pos] != CORE_AWAKE) {
 			core_state[pos] = CORE_OFF;
 			unlock_state_access(exceptions);
-			stm32_pm_cpu_power_down_wfi();
+			if (IS_ENABLED(CFG_PM))
+				stm32_pm_cpu_power_down_wfi();
 			panic();
 		}
 
+		/* Clear hold in pen flag */
+		io_write32(stm32mp_bkpreg(BCKR_CORE1_MAGIC_NUMBER),
+			   BOOT_API_A7_RESET_MAGIC_NUMBER);
+
+		/* Balance BKPREG clock gating */
 		clk_disable(clk_rtc);
 	}
 
@@ -234,7 +232,9 @@ int psci_cpu_off(void)
 	clk_enable(clk_rtc);
 
 	thread_mask_exceptions(THREAD_EXCP_ALL);
-	stm32_pm_cpu_power_down_wfi();
+	if (IS_ENABLED(CFG_PM))
+		stm32_pm_cpu_power_down_wfi();
+
 	panic();
 }
 #endif
@@ -415,7 +415,9 @@ void __noreturn psci_system_off(void)
 void __noreturn psci_system_off(void)
 {
 	if (stm32mp_with_pmic()) {
-		stm32mp_get_pmic();
+		console_flush();
+		mdelay(10);
+		stm32mp_pm_get_pmic();
 		stpmic1_switch_off();
 		udelay(100);
 	}
@@ -427,8 +429,10 @@ void __noreturn psci_system_off(void)
 /* Override default psci_system_reset() with platform specific sequence */
 void __noreturn psci_system_reset(void)
 {
-	DMSG("core %u", get_core_pos());
+	IMSG("Forced system reset");
 
+	console_flush();
+	mdelay(10);
 	stm32_reset_system();
 	udelay(100);
 
@@ -446,13 +450,10 @@ int psci_features(uint32_t psci_fid)
 		return PSCI_RET_SUCCESS;
 	case PSCI_CPU_ON:
 	case PSCI_CPU_OFF:
-		if (CFG_TEE_CORE_NB_CORE > 1)
+		if (CFG_TEE_CORE_NB_CORE > 1 && stm32mp_supports_second_core())
 			return PSCI_RET_SUCCESS;
 		return PSCI_RET_NOT_SUPPORTED;
 	case PSCI_SYSTEM_OFF:
-		if (stm32mp_with_pmic())
-			return PSCI_RET_SUCCESS;
-		return PSCI_RET_NOT_SUPPORTED;
 	case PSCI_SYSTEM_SUSPEND:
 		return PSCI_RET_SUCCESS;
 	default:
