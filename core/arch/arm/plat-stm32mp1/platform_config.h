@@ -8,6 +8,9 @@
 
 #include <mm/generic_ram_layout.h>
 
+/* Enable/disable use of the core0 reset control from RCC */
+#undef STM32MP1_USE_MPU0_RESET
+
 /* Make stacks aligned to data cache line length */
 #define STACK_ALIGNMENT			32
 
@@ -240,6 +243,8 @@
 #define TARGET_CPU1_GIC_MASK		BIT(1)
 #define TARGET_CPUS_GIC_MASK		GENMASK_32(CFG_TEE_CORE_NB_CORE - 1, 0)
 
+#define STM32MP_GIC_PRIORITY_CSTOP	U(0xC0)
+
 /*
  * GPIO banks: 11 non secure banks (A to K) and 1 secure bank (Z)
  * Bank register's base address is computed from the bank ID listed here.
@@ -270,6 +275,15 @@
 /* IWDG resources */
 #define IWDG1_INST			U(0)
 #define IWDG2_INST			U(1)
+
+/* RCC platform resources */
+#ifdef CFG_STM32MP13
+#define RCC_WAKEUP_IT			U(154)
+#endif
+
+#ifdef CFG_STM32MP15
+#define RCC_WAKEUP_IT			U(177)
+#endif
 
 /* TAMP resources */
 #define TAMP_BKP_REGISTER_OFF		U(0x100)
@@ -326,6 +340,16 @@
 #else
 #define BKPSRAM_SIZE			U(0x1000)
 #endif
+
+#define BKPSRAM_PM_OFFSET		U(0x0000)
+#define BKPSRAM_PM_SIZE			(BKPSRAM_PM_MAILBOX_SIZE + \
+						BKPSRAM_PM_CONTEXT_SIZE)
+
+#define BKPSRAM_PM_MAILBOX_OFFSET	BKPSRAM_PM_OFFSET
+#define BKPSRAM_PM_MAILBOX_SIZE		U(0x100)
+#define BKPSRAM_PM_CONTEXT_OFFSET	(BKPSRAM_PM_MAILBOX_OFFSET + \
+						BKPSRAM_PM_MAILBOX_SIZE)
+#define BKPSRAM_PM_CONTEXT_SIZE		U(0xF00)
 
 /* SYSRAM layout */
 #define SYSRAM_SIZE			0x40000
