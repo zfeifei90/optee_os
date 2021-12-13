@@ -49,12 +49,6 @@
 		regulator-max-microvolt = <3300000>;
 		regulator-always-on;
 	};
-
-	stpmic1_irq: stpmic1-irq {
-		compatible = "st,stpmic1-irq";
-		st,wakeup-pin-number = <1>;
-		status = "okay";
-	};
 };
 
 &bsec {
@@ -150,6 +144,7 @@
 		compatible = "st,stpmic1";
 		reg = <0x33>;
 		status = "okay";
+		st,wakeup-pin-number = <1>;
 
 		regulators {
 			compatible = "st,stpmic1-regulators";
