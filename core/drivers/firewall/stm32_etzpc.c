@@ -76,11 +76,9 @@
 #define TZMA_PM_VALUE_MASK		GENMASK_32(9, 0)
 
 /*
- * @num_tzma - number of TZMA zone, read from the hardware
- * @num_ahb_sec - number of securable AHB master zone, read from the hardware
+ * @num_tzma - number of TZMA zones, read from the hardware
  * @num_per_sec - number of securable AHB & APB periphs, read from the hardware
- * @periph_cfg - Backup for restoring DECPROT when resuming (PERIH_PM_*)
- * @tzma_cfg - Backup for restoring TZMA when resuming (TZMA_PM_*)
+ * @num_ahb_sec - number of securable AHB master zones, read from the hardware
  */
 struct stm32_etzpc_driver_data {
 	unsigned int num_tzma;
@@ -147,7 +145,7 @@ static void etzpc_configure_decprot(struct etzpc_device *etzpc_dev,
 
 	assert(valid_decprot_id(etzpc_dev, decprot_id));
 
-	FMSG("ID : %i, CONF %i", decprot_id, decprot_attr);
+	FMSG("ID : %"PRIu32", CONF %d", decprot_id, decprot_attr);
 
 	exceptions = etzpc_lock(etzpc_dev);
 
@@ -191,8 +189,8 @@ static void etzpc_lock_decprot(struct etzpc_device *etzpc_dev,
 	etzpc_unlock(etzpc_dev, exceptions);
 }
 
-static bool etzpc_is_lock_decprot(struct etzpc_device *etzpc_dev,
-				  uint32_t decprot_id)
+static bool is_decprot_locked(struct etzpc_device *etzpc_dev,
+			      uint32_t decprot_id)
 {
 	size_t offset = 4U * (decprot_id / IDS_PER_DECPROT_LOCK_REGS);
 	uint32_t mask = BIT(decprot_id % IDS_PER_DECPROT_LOCK_REGS);
@@ -245,8 +243,7 @@ static void etzpc_lock_tzma(struct etzpc_device *etzpc_dev, uint32_t tzma_id)
 	etzpc_unlock(etzpc_dev, exceptions);
 }
 
-static bool etzpc_is_lock_tzma(struct etzpc_device *etzpc_dev,
-			       uint32_t tzma_id)
+static bool is_tzma_locked(struct etzpc_device *etzpc_dev, uint32_t tzma_id)
 {
 	size_t offset = sizeof(uint32_t) * tzma_id;
 	vaddr_t base = etzpc_dev->pdata.base;
@@ -271,14 +268,14 @@ static TEE_Result etzpc_pm(enum pm_op op, unsigned int pm_hint __unused,
 		for (n = 0; n < ddata->num_per_sec; n++) {
 			pdata->periph_cfg[n] =
 				(uint8_t)etzpc_get_decprot(etzpc_dev, n);
-			if (etzpc_is_lock_decprot(etzpc_dev, n))
+			if (is_decprot_locked(etzpc_dev, n))
 				pdata->periph_cfg[n] |= PERIPH_PM_LOCK_BIT;
 		}
 
 		for (n = 0; n < ddata->num_tzma; n++) {
 			pdata->tzma_cfg[n] =
 				(uint8_t)etzpc_get_tzma(etzpc_dev, n);
-			if (etzpc_is_lock_tzma(etzpc_dev, n))
+			if (is_tzma_locked(etzpc_dev, n))
 				pdata->tzma_cfg[n] |= TZMA_PM_LOCK_BIT;
 		}
 
@@ -369,7 +366,7 @@ static TEE_Result stm32_etzpc_has_access(struct stm32_firewall_device *fdev,
 					 const struct stm32_firewall_cfg *cfg)
 {
 	struct etzpc_device *etzpc_dev = stm32_firewall_priv(fdev);
-	enum etzpc_decprot_attributes attr_req;
+	enum etzpc_decprot_attributes attr_req = ETZPC_DECPROT_MAX;
 	enum etzpc_decprot_attributes attr = ETZPC_DECPROT_MAX;
 	uint16_t size = 0;
 	uint32_t tzma_id = 0;
@@ -383,8 +380,8 @@ static TEE_Result stm32_etzpc_has_access(struct stm32_firewall_device *fdev,
 
 	if (id < etzpc_dev->ddata->num_per_sec) {
 		attr = etzpc_get_decprot(etzpc_dev, id);
-		FMSG("Check Access %i - attr %i - requested %i", id,
-		     (uint32_t)attr, (uint32_t)attr_req);
+		FMSG("Check Access %u - attr %d - requested %d", id,
+		     attr, attr_req);
 		if (attr == attr_req)
 			return TEE_SUCCESS;
 		else
@@ -427,7 +424,7 @@ static TEE_Result stm32_etzpc_configure(struct stm32_firewall_device *fdev,
 		return TEE_ERROR_BAD_PARAMETERS;
 
 	if (id < etzpc_dev->ddata->num_per_sec) {
-		if (etzpc_is_lock_decprot(etzpc_dev, id))
+		if (is_decprot_locked(etzpc_dev, id))
 			return TEE_ERROR_ACCESS_DENIED;
 
 		etzpc_configure_decprot(etzpc_dev, id, attr);
@@ -438,8 +435,7 @@ static TEE_Result stm32_etzpc_configure(struct stm32_firewall_device *fdev,
 	}
 
 	/* TZMA */
-	if (base + sz > fdev->compat->reg[id].addr +
-	    fdev->compat->reg[id].size)
+	if (base + sz > fdev->compat->reg[id].addr + fdev->compat->reg[id].size)
 		return TEE_ERROR_BAD_PARAMETERS;
 
 	switch (attr) {
@@ -454,7 +450,7 @@ static TEE_Result stm32_etzpc_configure(struct stm32_firewall_device *fdev,
 	}
 
 	total_sz = ROUNDUP_DIV(total_sz, PAGE_SIZE);
-	tzma_id = (id - etzpc_dev->ddata->num_per_sec);
+	tzma_id = id - etzpc_dev->ddata->num_per_sec;
 	etzpc_configure_tzma(etzpc_dev, tzma_id, total_sz);
 	if (lock)
 		etzpc_lock_tzma(etzpc_dev, tzma_id);
@@ -600,16 +596,16 @@ static TEE_Result init_etzpc_from_dt(struct etzpc_device *etzpc_dev,
 	return TEE_SUCCESS;
 }
 
-__weak TEE_Result stm32_etzpc_get_platdata(struct stm32_etzpc_platdata *pdata __unused)
+__weak TEE_Result
+stm32_etzpc_get_platdata(struct stm32_etzpc_platdata *pdata __unused)
 {
-	pdata = NULL;
-
 	return TEE_SUCCESS;
 }
 #else
-static TEE_Result init_etzpc_from_dt(struct etzpc_device *etzpc_dev,
-				     const void *fdt, int node,
-				     const struct dt_device_match *dm)
+static TEE_Result init_etzpc_from_dt(struct etzpc_device *etzpc_dev __unsued,
+				     const void *fdt __unsued,
+				     int node __unsued,
+				     const struct dt_device_match *dm __unsued)
 {
 	return TEE_ERROR_NOT_SUPPORTED;
 }
@@ -629,7 +625,7 @@ __weak TEE_Result stm32_etzpc_get_platdata(struct stm32_etzpc_platdata *pdata)
 static TEE_Result stm32_etzpc_probe(const void *fdt, int node,
 				    const void *compat_data)
 {
-	TEE_Result res = 0;
+	TEE_Result res = TEE_ERROR_GENERIC;
 	struct etzpc_device *etzpc_dev = stm32_etzpc_alloc();
 
 	if (!etzpc_dev)
