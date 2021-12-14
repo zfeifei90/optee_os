@@ -35,7 +35,4 @@ void stm32_etzpc_init(paddr_t base);
 #else
 static inline void stm32_etzpc_init(paddr_t __unused base) {}
 #endif
-
-__weak TEE_Result stm32_etzpc_get_platdata(struct stm32_etzpc_platdata *pdata);
-
 #endif /*__STM32_ETZPC_H__*/

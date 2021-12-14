@@ -595,12 +595,6 @@ static TEE_Result init_etzpc_from_dt(struct etzpc_device *etzpc_dev,
 
 	return TEE_SUCCESS;
 }
-
-__weak TEE_Result
-stm32_etzpc_get_platdata(struct stm32_etzpc_platdata *pdata __unused)
-{
-	return TEE_SUCCESS;
-}
 #else
 static TEE_Result init_etzpc_from_dt(struct etzpc_device *etzpc_dev __unsued,
 				     const void *fdt __unsued,
@@ -608,17 +602,6 @@ static TEE_Result init_etzpc_from_dt(struct etzpc_device *etzpc_dev __unsued,
 				     const struct dt_device_match *dm __unsued)
 {
 	return TEE_ERROR_NOT_SUPPORTED;
-}
-
-/*
- * This function could be overridden by platform to define
- * pdata of etzpc driver
- */
-__weak TEE_Result stm32_etzpc_get_platdata(struct stm32_etzpc_platdata *pdata)
-{
-	pdata = NULL;
-
-	return TEE_ERROR_NOT_IMPLEMENTED;
 }
 #endif
 
@@ -631,12 +614,8 @@ static TEE_Result stm32_etzpc_probe(const void *fdt, int node,
 	if (!etzpc_dev)
 		return TEE_ERROR_OUT_OF_MEMORY;
 
-	res = stm32_etzpc_get_platdata(&etzpc_dev->pdata);
-	if (res)
-		goto out;
-
 	res = init_etzpc_from_dt(etzpc_dev, fdt, node);
-	if (res && res != TEE_ERROR_NOT_SUPPORTED)
+	if (res)
 		goto out;
 
 	etzpc_dev->fdev = stm32_firewall_dev_alloc();
