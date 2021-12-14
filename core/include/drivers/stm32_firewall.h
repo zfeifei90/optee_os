@@ -3,8 +3,8 @@
  * Copyright (c) 2021, STMicroelectronics - All Rights Reserved
  */
 
-#ifndef __STM32_FIREWALL_H
-#define __STM32_FIREWALL_H
+#ifndef __DRIVERS_STM32_FIREWALL_H
+#define __DRIVERS_STM32_FIREWALL_H
 
 #include <kernel/dt.h>
 #include <kernel/pm.h>
@@ -14,7 +14,14 @@
 #include <tee_api_types.h>
 #include <types_ext.h>
 
-/* Firewall configuration */
+/*
+ * Firewall configuration
+ *
+ * 32b configuration ID contains, from LSbits to MSbits:
+ * - 8 bit access permissions bit flags (rw, u/p, s/ns)
+ * - 8 bit attribute flags (locking)
+ * - 16 bit platform specific ID of the access master
+ */
 
 /* Master configuration bits */
 #define FWLL_MASTER_SHIFT	16
@@ -36,17 +43,17 @@
 #define FWLL_NSEC_PRIV		BIT(6)
 #define FWLL_NSEC_UNPRIV	BIT(7)
 
-#define FWLL_SEC_RW		(FWLL_SEC_READ  | \
+#define FWLL_SEC_RW		(FWLL_SEC_READ | \
 				 FWLL_SEC_WRITE | \
-				 FWLL_SEC_PRIV  | \
+				 FWLL_SEC_PRIV | \
 				 FWLL_SEC_UNPRIV)
 
-#define FWLL_NSEC_RW		(FWLL_NSEC_READ  | \
+#define FWLL_NSEC_RW		(FWLL_NSEC_READ | \
 				 FWLL_NSEC_WRITE | \
-				 FWLL_NSEC_PRIV  | \
+				 FWLL_NSEC_PRIV | \
 				 FWLL_NSEC_UNPRIV)
 
-#define FWLL_FULL_ACCESS	(FWLL_SEC_RW  | \
+#define FWLL_FULL_ACCESS	(FWLL_SEC_RW | \
 				 FWLL_NSEC_RW)
 
 struct stm32_firewall_device;
@@ -128,9 +135,17 @@ struct stm32_firewall_device {
 };
 
 /* API for provider */
+
+/**
+ * @brief stm32_firewall_priv - Retrieve firewall private data
+ *
+ * @fdev: stm32_firewall_device struct to be freed.
+ *
+ * Return firewall private data
+ */
 static inline void *stm32_firewall_priv(struct stm32_firewall_device *fdev)
 {
-	return (void *)fdev->priv;
+	return fdev->priv;
 }
 
 /**
@@ -194,4 +209,4 @@ TEE_Result stm32_firewall_dev_register(struct stm32_firewall_device *fdev);
  */
 TEE_Result stm32_firewall_bus_probe(struct stm32_firewall_device *fdev,
 				    const void *fdt, int node);
-#endif /* __STM32_FIREWALL_H */
+#endif /* __DRIVERS_STM32_FIREWALL_H */

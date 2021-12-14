@@ -25,13 +25,25 @@ static struct stm32_firewall_device *find_device(paddr_t base, size_t size,
 
 	LIST_FOREACH(fdev, &fw_dev_list, dev_list) {
 		for (i = 0; i < fdev->compat->compat_size; i++) {
-			if (!fdev->compat->reg[i].addr &&
-			    !fdev->compat->reg[i].size)
+			struct stm32_firewall_reg *reg = fdev->compat->reg + i;
+
+			if (!reg->addr && !reg->size)
 				continue;
 
-			if (base >= fdev->compat->reg[i].addr &&
-			    base + size <= fdev->compat->reg[i].addr +
-			      fdev->compat->reg[i].size) {
+			if (!reg->size) {
+				if (base != reg->addr)
+					continue;
+
+				if (size)
+					IMSG("IOMEM %#"PRIxPA": non-null size",
+					     base);
+
+				*idx = i;
+				return fdev;
+			}
+
+			if (reg->addr && reg->size && base >= reg->addr &&
+			    base + size - 1 <= reg->addr + reg->size - 1) {
 				*idx = i;
 				return fdev;
 			}
@@ -103,7 +115,6 @@ TEE_Result stm32_firewall_dev_register(struct stm32_firewall_device *fdev)
 
 	exceptions = cpu_spin_lock_xsave(&list_lock);
 	LIST_INSERT_HEAD(&fw_dev_list, fdev, dev_list);
-
 	cpu_spin_unlock_xrestore(&list_lock, exceptions);
 
 	return TEE_SUCCESS;
