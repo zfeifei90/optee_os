@@ -710,7 +710,7 @@ static const struct stm32_firewall_compat etzpc_compat[] = {
 static struct stm32_firewall_reg
 etzpc_compat_reg_mp15[STM32MP1_ETZPC_MAX_ID + 2] = {
 	[STM32MP1_ETZPC_STGENC_ID] =		{ 0x5C008000 },
-	[STM32MP1_ETZPC_BKPSRAM_ID] =		{ 0x54000000, 0x4000 },
+	[STM32MP1_ETZPC_BKPSRAM_ID] =		{ 0x54000000, 0x1000 },
 	[STM32MP1_ETZPC_IWDG1_ID] =		{ 0x5C003000 },
 	[STM32MP1_ETZPC_USART1_ID] =		{ 0x5C000000 },
 	[STM32MP1_ETZPC_SPI6_ID] =		{ 0x5C001000 },
