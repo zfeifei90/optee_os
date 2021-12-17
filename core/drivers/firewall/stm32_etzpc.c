@@ -466,7 +466,6 @@ static const struct stm32_firewall_ops stm32_etzpc_fw_ops = {
 	.has_access = stm32_etzpc_has_access,
 	.configure_access = stm32_etzpc_configure,
 };
-DECLARE_KEEP_PAGER(stm32_etzpc_fw_ops);
 
 static struct etzpc_device *stm32_etzpc_alloc(void)
 {
@@ -823,7 +822,6 @@ static const struct stm32_firewall_compat etzpc_compat[] = {
 		.compat_size = ARRAY_SIZE(etzpc_compat_reg_mp15)
 	},
 };
-DECLARE_KEEP_PAGER(etzpc_compat);
 #endif
 
 static const struct dt_device_match etzpc_match_table[] = {
