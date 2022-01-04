@@ -356,7 +356,6 @@ static TEE_Result stm32_rng_parse_fdt(const void *fdt, int node,
 		return TEE_ERROR_BAD_PARAMETERS;
 	}
 
-	/* ETZPC get state */
 	pdata->base.pa = dt_rng.reg;
 
 	/* Here depends on State io_pa_or_va_nsec */
@@ -376,58 +375,62 @@ static TEE_Result stm32_rng_parse_fdt(const void *fdt, int node,
 	return TEE_SUCCESS;
 }
 
-__weak int stm32_rng_get_platdata(struct stm32_rng_platdata *pdata __unused)
+TEE_Result __weak
+stm32_rng_get_platdata(struct stm32_rng_platdata *pdata __unused)
 {
 	/* In DT config, the platform data are filled by DT file */
-	return 0;
+	return TEE_SUCCESS;
 }
 #else /* CFG_EMBED_DTB */
-static int stm32_rng_parse_fdt(struct stm32_rng_device *dev __unused)
+static TEE_Result stm32_rng_parse_fdt(struct stm32_rng_device *dev __unused)
 {
 	/* Do nothing, there is no fdt to parse in this case */
-	return 0;
+	return TEE_SUCCESS;
 }
 
 /*
  * This function can be overridden by platform to define pdata of stm32 driver
  */
-__weak
-int stm32_rng_get_platdata(struct stm32_rng_platdata *pdata __unused)
+TEE_Result __weak
+stm32_rng_get_platdata(struct stm32_rng_platdata *pdata __unused)
 {
-	return -1;
+	return TEE_ERROR_NOT_IMPLEMENTED;
 }
 #endif /* CFG_EMBED_DTB */
 
 static TEE_Result stm32_rng_probe(const void *fdt, int offs,
 				  const void *compat_data)
 {
-	int ret = 0;
+	TEE_Result res = TEE_SUCCESS;
 
-	ret = stm32_rng_get_platdata(&stm32_rng.pdata);
-	if (ret)
-		return ret;
+	/* Expect a single RNG instance */
+	assert(!stm32_rng.pdata.base.pa);
 
-	ret = stm32_rng_parse_fdt(fdt, offs, &stm32_rng);
-	if (ret)
-		return ret;
+	res = stm32_rng_get_platdata(&stm32_rng.pdata);
+	if (res)
+		goto err;
+
+	res = stm32_rng_parse_fdt(fdt, offs, &stm32_rng);
+	if (res)
+		goto err;
 
 	stm32_rng.ddata = (struct stm32_rng_driver_data *)compat_data;
 
-	ret = clk_enable(stm32_rng.pdata.clock);
-	if (ret)
-		return ret;
+	res = clk_enable(stm32_rng.pdata.clock);
+	if (res)
+		goto err;
 
-	ret = stm32_reset_assert(stm32_rng.pdata.reset, RNG_TIMEOUT_US_1MS);
-	if (ret)
-		return ret;
+	res = stm32_reset_assert(stm32_rng.pdata.reset, RNG_TIMEOUT_US_1MS);
+	if (res)
+		goto err;
 
-	ret = stm32_reset_deassert(stm32_rng.pdata.reset, RNG_TIMEOUT_US_1MS);
-	if (ret)
-		return ret;
+	res = stm32_reset_deassert(stm32_rng.pdata.reset, RNG_TIMEOUT_US_1MS);
+	if (res)
+		goto err;
 
-	ret = stm32_rng_init(&stm32_rng);
-	if (ret)
-		return ret;
+	res = stm32_rng_init(&stm32_rng);
+	if (res)
+		goto err;
 
 	clk_disable(stm32_rng.pdata.clock);
 
@@ -437,7 +440,11 @@ static TEE_Result stm32_rng_probe(const void *fdt, int offs,
 
 	register_pm_core_service_cb(stm32_rng_pm, &stm32_rng, "rng-service");
 
-	return 0;
+	return TEE_SUCCESS;
+
+err:
+	memset(&stm32_rng, 0, sizeof(stm32_rng));
+	return res;
 }
 
 static const struct stm32_rng_driver_data mp13_data[] = {

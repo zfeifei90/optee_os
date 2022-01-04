@@ -31,5 +31,6 @@ struct stm32_rng_platdata {
 TEE_Result stm32_rng_read(void *buf, size_t blen);
 #endif
 
-int stm32_rng_get_platdata(struct stm32_rng_platdata *pdata __unused);
+/* Set RNG platform data the driver shall initialize with */
+TEE_Result stm32_rng_get_platdata(struct stm32_rng_platdata *pdata);
 #endif /*__STM32_RNG_H__*/
