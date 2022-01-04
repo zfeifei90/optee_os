@@ -187,6 +187,7 @@ static TEE_Result stm32mp1_pwr_irt_add(struct itr_handler *hdl)
 
 		i++;
 	}
+	assert(pinctrl);
 
 	STAILQ_INIT(&pinctrl_list);
 	STAILQ_INSERT_HEAD(&pinctrl_list, pinctrl, link);
