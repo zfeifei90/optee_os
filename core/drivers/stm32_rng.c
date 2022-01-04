@@ -59,10 +59,11 @@ struct stm32_rng_device {
 	unsigned int lock;
 	bool error_conceal;
 	uint64_t error_to_ref;
+	uint32_t pm_cr;
 };
 
+/* Expect a single RNG device */
 static struct stm32_rng_device stm32_rng;
-static uint32_t cr_keep;
 
 static vaddr_t get_base(struct stm32_rng_device *dev)
 {
@@ -306,16 +307,14 @@ uint8_t hw_get_random_byte(void)
 
 static TEE_Result stm32_rng_pm_resume(struct stm32_rng_device *dev)
 {
-	vaddr_t base = get_base(dev);
-
-	io_setbits32(base + RNG_CR, RNG_CR_RNGEN | cr_keep);
+	io_write32(get_base(dev) + RNG_CR, RNG_CR_RNGEN | dev->pm_cr);
 
 	return TEE_SUCCESS;
 }
 
 static TEE_Result stm32_rng_pm_suspend(struct stm32_rng_device *dev)
 {
-	cr_keep = io_read32(get_base(dev) + RNG_CR);
+	dev->pm_cr = io_read32(get_base(dev) + RNG_CR);
 
 	return TEE_SUCCESS;
 }
