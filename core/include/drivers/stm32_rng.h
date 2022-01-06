@@ -21,13 +21,13 @@ struct stm32_rng_platdata {
 	bool clock_error;
 };
 
+#ifdef CFG_WITH_SOFTWARE_PRNG
 /*
  * Fill buffer with bytes from the STM32_RNG
  * @out: Output buffer
  * @size: Byte size of the output buffer
  * Return a TEE_Result compliant sttus
  */
-#ifdef CFG_WITH_SOFTWARE_PRNG
 TEE_Result stm32_rng_read(void *buf, size_t blen);
 #endif
 

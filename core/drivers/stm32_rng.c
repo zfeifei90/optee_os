@@ -324,20 +324,20 @@ static TEE_Result
 stm32_rng_pm(enum pm_op op, unsigned int pm_hint __unused,
 	     const struct pm_callback_handle *pm_handle __unused)
 {
-	TEE_Result ret = 0;
+	TEE_Result res = TEE_ERROR_GENERIC;
 
-	ret = clk_enable(stm32_rng.pdata.clock);
-	if (ret)
-		return ret;
+	res = clk_enable(stm32_rng.pdata.clock);
+	if (res)
+		return res;
 
 	if (op == PM_OP_RESUME)
-		ret = stm32_rng_pm_resume(&stm32_rng);
+		res = stm32_rng_pm_resume(&stm32_rng);
 	else
-		ret = stm32_rng_pm_suspend(&stm32_rng);
+		res = stm32_rng_pm_suspend(&stm32_rng);
 
 	clk_disable(stm32_rng.pdata.clock);
 
-	return ret;
+	return res;
 }
 DECLARE_KEEP_PAGER(stm32_rng_pm);
 
@@ -358,7 +358,6 @@ static TEE_Result stm32_rng_parse_fdt(const void *fdt, int node,
 
 	pdata->base.pa = dt_rng.reg;
 
-	/* Here depends on State io_pa_or_va_nsec */
 	pdata->base.va = io_pa_or_va_secure(&pdata->base, dt_rng.reg_size);
 	assert(pdata->base.va);
 
