@@ -4,6 +4,7 @@
  */
 
 #include <config.h>
+#include <drivers/regulator.h>
 #include <drivers/stm32_exti.h>
 #include <drivers/stm32_gpio.h>
 #include <drivers/stm32mp1_pwr.h>
@@ -85,7 +86,7 @@ stm32_pwr_irq_set_pull_config(size_t it, enum wkup_pull_setting config)
 {
 	struct stm32_pwr_data *priv = pwr_data;
 
-	VERBOSE_PWR("irq:%u pull config:0x%" PRIx32, it, config);
+	VERBOSE_PWR("irq:%zu pull config:0%#"PRIx32, it, config);
 
 	if (config >= WKUP_PULL_RESERVED) {
 		EMSG("bad irq pull config");
@@ -106,7 +107,7 @@ stm32_pwr_irq_set_trig(size_t it, enum pwr_wkup_flags trig)
 	uint32_t wkupcr = 0;
 	int en = 0;
 
-	VERBOSE_PWR("irq:%u trig:0x%" PRIx32, it, trig);
+	VERBOSE_PWR("irq:%zu trig:%#"PRIx32, it, trig);
 
 	en = io_read32(priv->base + MPUWKUPENR) & BIT(it);
 	/*
@@ -164,7 +165,7 @@ static TEE_Result stm32mp1_pwr_irt_add(struct itr_handler *hdl)
 {
 	struct stm32_pwr_data *priv = pwr_data;
 	int it = hdl->it;
-	struct stm32_pinctrl_list pinctrl_list;
+	struct stm32_pinctrl_list pinctrl_list = { };
 	struct stm32_pinctrl *pinctrl = NULL;
 	unsigned int i = 0;
 
@@ -194,7 +195,7 @@ static TEE_Result stm32mp1_pwr_irt_add(struct itr_handler *hdl)
 
 	stm32_pinctrl_load_config(&pinctrl_list);
 
-	VERBOSE_PWR("Wake-up pin on bank=%u pin=%u",
+	VERBOSE_PWR("Wake-up pin on bank=%"PRIu8" pin=%"PRIu8,
 		    pinctrl->bank, pinctrl->pin);
 
 	/* use the same pull up configuration than for the gpio */
