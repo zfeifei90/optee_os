@@ -3,7 +3,6 @@
  * Copyright (c) 2020-2021, Linaro Limited
  */
 
-#include <assert.h>
 #include <drivers/stm32_rng.h>
 #include <kernel/panic.h>
 #include <tee/tee_cryp_utl.h>
@@ -14,13 +13,9 @@
 /* Override weak plat_rng_init with platform handler to seed PRNG */
 void plat_rng_init(void)
 {
-	uint8_t seed[PRNG_SEED_SIZE] = { };
-	size_t size = 0;
-	TEE_Result res;
+	uint8_t seed[PRNG_SEED_SIZE] = { 0 };
 
-	size = sizeof(seed);
-	res = stm32_rng_read(seed, size);
-	if (res)
+	if (stm32_rng_read(seed, sizeof(seed)))
 		panic();
 
 	if (crypto_rng_init(seed, sizeof(seed)))
