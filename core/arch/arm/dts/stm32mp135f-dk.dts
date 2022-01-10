@@ -167,13 +167,13 @@
 
 			vddcpu: buck1 {
 				regulator-name = "vddcpu";
-				regulator-min-microvolt = <1200000>;
+				regulator-min-microvolt = <1250000>;
 				regulator-max-microvolt = <1350000>;
 				regulator-always-on;
 				regulator-over-current-protection;
 
 				lp-stop {
-					regulator-suspend-microvolt = <1200000>;
+					regulator-suspend-microvolt = <1250000>;
 				};
 				lplv-stop {
 					regulator-suspend-microvolt = <900000>;
