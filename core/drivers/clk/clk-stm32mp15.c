@@ -8,6 +8,7 @@
 #include <drivers/stm32mp1_rcc.h>
 #include <drivers/clk.h>
 #include <drivers/clk_dt.h>
+#include <drivers/stm32_gpio.h>
 #include <dt-bindings/clock/stm32mp1-clks.h>
 #include <dt-bindings/clock/stm32mp1-clksrc.h>
 #include <initcall.h>
@@ -2878,3 +2879,23 @@ void stm32_clock_disable(unsigned long clock_id __unused)
 	/* No refcounting: do not disable the clock */
 }
 #endif /*!CFG_DRIVERS_CLK*/
+
+static TEE_Result stm32mp1_rcc_mco_probe(const void *fdt, int node,
+					 const void *compat_data __unused)
+{
+	static struct stm32_pinctrl_list *pinctrl_cfg = NULL;
+
+	/* Get pinctrl config loaded */
+	return stm32_pinctrl_dt_get_by_index(fdt, node, 0, &pinctrl_cfg);
+}
+
+static const struct dt_device_match stm32mp1_rcc_mco_match_table[] = {
+	{ .compatible = "st,stm32mp1-rcc-mco" },
+	{ }
+};
+
+DEFINE_DT_DRIVER(stm32mp1_rcc_mco_dt_driver) = {
+	.name = "stm32mp1_rcc_mco",
+	.match_table = stm32mp1_rcc_mco_match_table,
+	.probe = stm32mp1_rcc_mco_probe,
+};
