@@ -300,12 +300,14 @@ void stm32_enter_cstop(uint32_t mode)
 			;
 
 #ifndef CFG_STM32MP13
-		/* Keep retention in standby */
-		io_setbits32(pwr_base + PWR_CR2_OFF, PWR_CR2_RREN);
+		if (stm32mp1_is_retram_during_standby()) {
+			/* Keep retention in standby */
+			io_setbits32(pwr_base + PWR_CR2_OFF, PWR_CR2_RREN);
 
-		while ((io_read32(pwr_base + PWR_CR2_OFF) &
-			(PWR_CR2_RRRDY)) == 0U)
-			;
+			while ((io_read32(pwr_base + PWR_CR2_OFF) &
+				(PWR_CR2_RRRDY)) == 0U)
+				;
+		}
 #endif
 	}
 }
