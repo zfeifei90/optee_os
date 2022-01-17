@@ -70,6 +70,8 @@ STAILQ_HEAD(stm32_pinctrl_backup_head, stm32_pinctrl_backup);
  * @ngpios: number of GPIOs.
  * @bank_id: Id of the bank.
  * @lock: lock protecting the GPIO bank access.
+ * @sec_support: True if bank supports pin security protection, otherwise false
+ * @seccfgr: Secure configuration register value.
  * @link: Link in bank list
  * @backups: Backup copy of applied pinctrl
  */
@@ -79,6 +81,8 @@ struct stm32_gpio_bank {
 	unsigned int ngpios;
 	unsigned int bank_id;
 	unsigned int lock;
+	bool sec_support;
+	uint32_t seccfgr;
 	struct stm32_pinctrl_backup_head backups;
 
 	STAILQ_ENTRY(stm32_gpio_bank) link;
@@ -96,6 +100,24 @@ struct stm32_data_pinctrl {
 
 static STAILQ_HEAD(, stm32_gpio_bank) bank_list =
 		STAILQ_HEAD_INITIALIZER(bank_list);
+
+/**
+ * struct stm32_gpio_compat_data describes GPIO associated data
+ * for compatible list.
+ *
+ * @secure_control:	identify gpio security bank capability.
+ */
+struct stm32_gpio_compat_data {
+	bool secure_control;
+};
+
+static const struct stm32_gpio_compat_data stm32_gpio_non_sec = {
+	.secure_control = false,
+};
+
+static const struct stm32_gpio_compat_data stm32_gpio_secure_capable = {
+	.secure_control = true,
+};
 
 static struct stm32_gpio_bank *stm32_gpio_get_bank(unsigned int bank_id)
 {
@@ -591,6 +613,7 @@ TEE_Result stm32_pinctrl_dt_get_by_name(const void *fdt, int nodeoffset,
 
 static struct stm32_gpio_bank *_fdt_stm32_gpio_controller(const void *fdt,
 							  int node,
+							  const void *data,
 							  int range_offset,
 							  TEE_Result *res)
 {
@@ -602,6 +625,8 @@ static struct stm32_gpio_bank *_fdt_stm32_gpio_controller(const void *fdt,
 	struct clk *clk = NULL;
 	struct io_pa_va pa_va = { };
 	const int dt_name_len = strlen(DT_GPIO_BANK_NAME0);
+	const struct stm32_gpio_compat_data *comp_data =
+		(struct stm32_gpio_compat_data *)data;
 
 	*res = clk_dt_get_by_index(fdt, node, 0, &clk);
 	if (*res)
@@ -640,7 +665,19 @@ static struct stm32_gpio_bank *_fdt_stm32_gpio_controller(const void *fdt,
 
 	bank->bank_id = strcmp((const char *)cuint, DT_GPIO_BANK_NAME0);
 
-	bank->base = io_pa_or_va_secure(&pa_va, blen);
+	bank->sec_support = comp_data->secure_control;
+	if (bank->sec_support) {
+		/* Secure configuration */
+		bank->base = io_pa_or_va_secure(&pa_va, blen);
+		cuint = fdt_getprop(fdt, node, "st,protreg", NULL);
+		if (cuint)
+			bank->seccfgr = fdt32_to_cpu(*cuint);
+		else
+			DMSG("GPIO bank %c assigned to non-secure",
+			     bank->bank_id + 'A');
+	} else {
+		bank->base = io_pa_or_va_nsec(&pa_va, blen);
+	}
 
 	/* Parse gpio-ranges with its 4 parameters */
 	cuint = fdt_getprop(fdt, node, "gpio-ranges", &len);
@@ -658,7 +695,8 @@ static struct stm32_gpio_bank *_fdt_stm32_gpio_controller(const void *fdt,
 	return bank;
 }
 
-static TEE_Result stm32_gpio_parse_pinctrl_node(const void *fdt, int node)
+static TEE_Result stm32_gpio_parse_pinctrl_node(const void *fdt, int node,
+						const void *data)
 {
 	get_of_device_func get_func = (get_of_device_func)stm32_pinctrl_dt_get;
 	TEE_Result res = TEE_SUCCESS;
@@ -709,7 +747,7 @@ static TEE_Result stm32_gpio_parse_pinctrl_node(const void *fdt, int node)
 			if (_fdt_get_status(fdt, subnode) == DT_STATUS_DISABLED)
 				continue;
 
-			bank = _fdt_stm32_gpio_controller(fdt, subnode,
+			bank = _fdt_stm32_gpio_controller(fdt, subnode, data,
 							  range_offset, &res);
 			if (bank)
 				STAILQ_INSERT_TAIL(&bank_list, bank, link);
@@ -758,16 +796,24 @@ stm32_gpio_pm(enum pm_op op, unsigned int pm_hint __unused,
 	return ret;
 }
 DECLARE_KEEP_PAGER(stm32_gpio_pm);
+static void stm32_gpio_set_conf_sec(struct stm32_gpio_bank *bank)
+{
+	if (bank->sec_support) {
+		clk_enable(bank->clock);
+		io_write32(bank->base + GPIO_SECR_OFFSET, bank->seccfgr);
+		clk_disable(bank->clock);
+	}
+}
 
 static TEE_Result stm32_gpio_probe(const void *fdt, int offs,
-				   const __maybe_unused void *compat_data)
+				   const void *compat_data)
 {
 	static bool pm_register;
 	TEE_Result res = TEE_ERROR_GENERIC;
 	struct stm32_gpio_bank *bank = NULL;
 
 	/* Look for gpio banks inside that node */
-	res = stm32_gpio_parse_pinctrl_node(fdt, offs);
+	res = stm32_gpio_parse_pinctrl_node(fdt, offs, compat_data);
 	if (res)
 		return res;
 
@@ -776,6 +822,8 @@ static TEE_Result stm32_gpio_probe(const void *fdt, int offs,
 
 	STAILQ_FOREACH(bank, &bank_list, link) {
 		STAILQ_INIT(&bank->backups);
+		stm32_gpio_set_conf_sec(bank);
+
 		DMSG("Registered GPIO bank %c (%d pins) @%lx",
 		     bank->bank_id + 'A', bank->ngpios, bank->base);
 	}
@@ -792,8 +840,14 @@ static TEE_Result stm32_gpio_probe(const void *fdt, int offs,
 }
 
 static const struct dt_device_match stm32_gpio_match_table[] = {
-	{ .compatible = "st,stm32mp157-pinctrl" },
-	{ .compatible = "st,stm32mp157-z-pinctrl" },
+	{
+		.compatible = "st,stm32mp157-pinctrl",
+		.compat_data = (void *)&stm32_gpio_non_sec,
+	},
+	{
+		.compatible = "st,stm32mp157-z-pinctrl",
+		.compat_data = (void *)&stm32_gpio_secure_capable,
+	},
 	{ }
 };
 
