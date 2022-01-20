@@ -484,7 +484,8 @@ static struct etzpc_device *stm32_etzpc_alloc(void)
 	return NULL;
 }
 
-static void stm32_etzpc_free(struct etzpc_device *etzpc_dev)
+/* Informative unused function */
+static __unused void stm32_etzpc_free(struct etzpc_device *etzpc_dev)
 {
 	if (etzpc_dev->fdev)
 		stm32_firewall_dev_free(etzpc_dev->fdev);
@@ -611,17 +612,19 @@ static TEE_Result stm32_etzpc_probe(const void *fdt, int node,
 	TEE_Result res = TEE_ERROR_GENERIC;
 	struct etzpc_device *etzpc_dev = stm32_etzpc_alloc();
 
-	if (!etzpc_dev)
-		return TEE_ERROR_OUT_OF_MEMORY;
+	if (!etzpc_dev) {
+		res = TEE_ERROR_OUT_OF_MEMORY;
+		goto err;
+	}
 
 	res = init_etzpc_from_dt(etzpc_dev, fdt, node);
 	if (res)
-		goto out;
+		goto err;
 
 	etzpc_dev->fdev = stm32_firewall_dev_alloc();
 	if (!etzpc_dev->fdev) {
 		res = TEE_ERROR_OUT_OF_MEMORY;
-		goto out;
+		goto err;
 	}
 
 	etzpc_dev->fdev->name = etzpc_dev->pdata.name;
@@ -631,17 +634,17 @@ static TEE_Result stm32_etzpc_probe(const void *fdt, int node,
 
 	res = stm32_firewall_dev_register(etzpc_dev->fdev);
 	if (res)
-		goto out;
+		goto err;
 
 	stm32_firewall_bus_probe(etzpc_dev->fdev, fdt, node);
 
 	register_pm_core_service_cb(etzpc_pm, etzpc_dev->fdev, "stm32-etzpc");
 
-out:
-	if (res)
-		stm32_etzpc_free(etzpc_dev);
+	return TEE_SUCCESS;
 
-	return res;
+err:
+	EMSG("ETZPC probe failed: %#"PRIx32, res);
+	panic();
 }
 
 #ifdef CFG_EMBED_DTB
