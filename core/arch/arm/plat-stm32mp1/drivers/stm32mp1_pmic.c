@@ -7,6 +7,7 @@
 #include <drivers/clk.h>
 #include <drivers/clk_dt.h>
 #include <drivers/regulator.h>
+#include <drivers/stm32_firewall.h>
 #include <drivers/stm32_i2c.h>
 #include <drivers/stm32mp1_pmic.h>
 #include <drivers/stm32mp1_pwr.h>
@@ -196,7 +197,7 @@ static void parse_regulator_fdt_nodes(void)
  */
 
 /* Return true if PMIC is available, false if not found, panics on errors */
-static bool initialize_pmic_i2c(const void *fdt, int pmic_node)
+static void initialize_pmic_i2c(const void *fdt, int pmic_node)
 {
 
 	const fdt32_t *cuint = NULL;
@@ -223,8 +224,6 @@ static bool initialize_pmic_i2c(const void *fdt, int pmic_node)
 	stpmic1_bind_i2c(i2c_pmic_handle, pmic_i2c_addr);
 
 	stm32mp_put_pmic();
-
-	return true;
 }
 
 #ifdef CFG_REGULATOR_DRIVERS
@@ -530,15 +529,33 @@ static enum itr_return stpmic1_irq_handler(struct itr_handler *handler __unused)
 	return ITRR_HANDLED;
 }
 
-static TEE_Result initialize_pmic(const void *fdt, int pmic_node)
+static TEE_Result init_pmic_secure_state(void)
+{
+	TEE_Result res = TEE_SUCCESS;
+	const struct stm32_firewall_cfg sec_cfg[] = {
+		{ FWLL_SEC_RW | FWLL_MASTER(0) },
+		{ }, /* Null terminated */
+	};
+
+	res = stm32_firewall_check_access(i2c_pmic_handle->base.pa,
+					  0, sec_cfg);
+
+	if (!res)
+		pmic_status = DT_STATUS_OK_SEC;
+	else
+		pmic_status = DT_STATUS_OK_NSEC;
+
+	return res;
+}
+
+static void initialize_pmic(const void *fdt, int pmic_node)
 {
 	unsigned long pmic_version = 0;
 
-	if (!initialize_pmic_i2c(fdt, pmic_node)) {
-		DMSG("No PMIC");
+	if (init_pmic_secure_state())
 		register_non_secure_pmic();
-		return TEE_SUCCESS;
-	}
+
+	initialize_pmic_i2c(fdt, pmic_node);
 
 	stm32mp_get_pmic();
 
@@ -551,16 +568,11 @@ static TEE_Result initialize_pmic(const void *fdt, int pmic_node)
 	if (stpmic1_powerctrl_on())
 		panic("Failed to enable PMIC pwr control");
 
-	if (!pmic_is_secure())
-		register_non_secure_pmic();
-
 	register_pm_core_service_cb(pmic_pm, NULL, "stm32mp1-pmic");
 
 	parse_regulator_fdt_nodes();
 
 	stm32mp_put_pmic();
-
-	return TEE_SUCCESS;
 }
 
 static TEE_Result stm32_pmic_probe(const void *fdt, int node,
@@ -575,11 +587,7 @@ static TEE_Result stm32_pmic_probe(const void *fdt, int node,
 	if (res)
 		return res;
 
-	res = initialize_pmic(fdt, node);
-	if (res) {
-		EMSG("Error during PMIC init: %#"PRIx32, res);
-		panic();
-	}
+	initialize_pmic(fdt, node);
 
 	if (IS_ENABLED(CFG_STM32MP13)) {
 		cuint = fdt_getprop(fdt, node, "st,wakeup-pin-number", NULL);
