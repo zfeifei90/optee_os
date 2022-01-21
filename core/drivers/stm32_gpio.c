@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * Copyright (c) 2017-2021, STMicroelectronics
+ * Copyright (c) 2017-2022, STMicroelectronics
  *
  * STM32 GPIO driver is used as pin controller for stm32mp SoCs.
  * The driver API is defined in header file stm32_gpio.h.
@@ -50,6 +50,8 @@
 
 /* Banks are named "GPIOX" with X upper case letter starting from 'A' */
 #define DT_GPIO_BANK_NAME0	"GPIOA"
+
+#define PROP_NAME_MAX		U(20)
 
 /**
  * struct stm32_gpio_bank describes a GPIO bank instance
@@ -414,30 +416,16 @@ struct stm32_pinctrl_list *stm32_pinctrl_fdt_get_pinctrl(const void *fdt,
 	return list;
 }
 
-int stm32_get_gpio_count(void *fdt, int pinctrl_node, unsigned int bank)
+int stm32_gpio_get_count(unsigned int bank_id)
 {
-	int node = 0;
-	const fdt32_t *cuint = NULL;
+	struct stm32_gpio_bank *bank = stm32_gpio_get_bank(bank_id);
 
-	fdt_for_each_subnode(node, fdt, pinctrl_node) {
-		if (!fdt_getprop(fdt, node, "gpio-controller", NULL))
-			continue;
-
-		cuint = fdt_getprop(fdt, node, "reg", NULL);
-		if (!cuint)
-			continue;
-
-		if (fdt32_to_cpu(*cuint) != stm32_get_gpio_bank_offset(bank))
-			continue;
-
-		cuint = fdt_getprop(fdt, node, "ngpios", NULL);
-		if (!cuint)
-			panic();
-
-		return (int)fdt32_to_cpu(*cuint);
+	if (!bank) {
+		EMSG("Error: can not find GPIO bank %c", bank_id + 'A');
+		return -1;
 	}
 
-	return -1;
+	return bank->ngpios;
 }
 
 /*  Informative unused helper function */

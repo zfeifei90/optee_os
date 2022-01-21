@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * Copyright (c) 2017-2021, STMicroelectronics
+ * Copyright (c) 2017-2022, STMicroelectronics
  */
 
 #include <config.h>
@@ -182,9 +182,7 @@ static unsigned int get_gpioz_nbpin(void)
 
 static TEE_Result set_gpioz_nbpin_from_dt(void)
 {
-	void *fdt = get_embedded_dt();
-	int node = fdt_path_offset(fdt, "/soc/pin-controller-z");
-	int count = stm32_get_gpio_count(fdt, node, GPIO_BANK_Z);
+	int count = stm32_gpio_get_count(GPIO_BANK_Z);
 
 	if (count < 0 || count > STM32MP1_GPIOZ_PIN_MAX_COUNT)
 		panic();
