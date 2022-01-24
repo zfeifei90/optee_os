@@ -80,6 +80,7 @@ $(call force,CFG_SECONDARY_INIT_CNTFRQ,n)
 $(call force,CFG_STM32_CRYP,n)
 $(call force,CFG_STM32_EXTI,y)
 $(call force,CFG_STM32_GPIO,y)
+$(call force,CFG_STM32_HSE_MONITORING,y)
 $(call force,CFG_STM32MP_CLK_CORE,y)
 $(call force,CFG_RPROC_PTA,n)
 $(call force,CFG_STM32MP1_SCMI_SIP,n)
@@ -217,6 +218,10 @@ endif
 ifeq ($(CFG_STPMIC1),y)
 $(call force,CFG_STM32_I2C,y)
 $(call force,CFG_STM32_GPIO,y)
+endif
+
+ifeq ($(CFG_STM32_HSE_MONITORING),y)
+$(call force,CFG_STM32_LPTIMER,y)
 endif
 
 ifeq ($(call cfg-one-enabled, CFG_STM32_LPTIMER CFG_STM32_TIM),y)
