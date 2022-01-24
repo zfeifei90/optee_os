@@ -153,6 +153,8 @@ $(call force,CFG_STM32_PKA,n)
 $(call force,CFG_STM32_REGULATOR_GPIO,n)
 $(call force,CFG_STM32_RTC,n)
 $(call force,CFG_STM32_SAES,n)
+$(call force,CFG_STM32_LPTIMER,n)
+$(call force,CFG_STM32_TIM,n)
 $(call force,CFG_STM32_VREFBUF,y)
 $(call force,CFG_STM32_TAMP,n)
 $(call force,CFG_STPMIC1,n)
@@ -191,10 +193,12 @@ CFG_STM32_GPIO ?= y
 CFG_STM32_HASH ?= y
 CFG_STM32_I2C ?= y
 CFG_STM32_IWDG ?= y
+CFG_STM32_LPTIMER ?= y
 CFG_STM32_REGULATOR_GPIO ?= y
 CFG_STM32_RNG ?= y
 CFG_STM32_RTC ?= y
 CFG_STM32_TAMP ?= y
+CFG_STM32_TIM ?= y
 CFG_STM32_UART ?= y
 CFG_STM32_VREFBUF ?= y
 CFG_STPMIC1 ?= y
@@ -213,6 +217,10 @@ endif
 ifeq ($(CFG_STPMIC1),y)
 $(call force,CFG_STM32_I2C,y)
 $(call force,CFG_STM32_GPIO,y)
+endif
+
+ifeq ($(call cfg-one-enabled, CFG_STM32_LPTIMER CFG_STM32_TIM),y)
+$(call force,CFG_COUNTER_DRIVER,y)
 endif
 
 # if any crypto driver is enabled, enable the crypto-framework layer
