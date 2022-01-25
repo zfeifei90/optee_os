@@ -708,7 +708,7 @@ static int add_optee_dt_node(struct dt_descriptor *dt)
 
 	if (fdt_path_offset(dt->blob, "/firmware/optee") >= 0) {
 		DMSG("OP-TEE Device Tree node already exists!");
-		return 0;
+		return 1;
 	}
 
 	offs = fdt_path_offset(dt->blob, "/firmware");
@@ -1121,12 +1121,16 @@ static int mark_tzdram_as_reserved(struct dt_descriptor *dt)
 static void update_external_dt(void)
 {
 	struct dt_descriptor *dt = &external_dt;
+	int node_already_exists = 0;
 
 	if (!dt->blob)
 		return;
 
-	if (!IS_ENABLED(CFG_CORE_FFA) && add_optee_dt_node(dt))
+	node_already_exists = add_optee_dt_node(dt);
+	if (!IS_ENABLED(CFG_CORE_FFA) && node_already_exists < 0)
 		panic("Failed to add OP-TEE Device Tree node");
+	else if (node_already_exists == 1)
+		return;
 
 	if (config_psci(dt))
 		panic("Failed to config PSCI");
