@@ -2439,7 +2439,7 @@ static STM32_KCLK(ck_saes_k, 4,
 		  0, GATE_SAES, MUX_SAES);
 
 static STM32_KCLK(ck_rng1_k, 4,
-		  PARENT(&ck_csi, &ck_pll4r, &ck_lse,
+		  PARENT(&ck_csi, &ck_pll4r, &ck_off,
 		  &ck_lsi),
 		  0, GATE_RNG1, MUX_RNG1);
 
