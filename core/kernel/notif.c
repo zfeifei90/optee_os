@@ -97,7 +97,6 @@ void notif_send_async(uint32_t value)
 
 	COMPILE_TIME_ASSERT(NOTIF_VALUE_DO_BOTTOM_HALF ==
 			    OPTEE_SMC_ASYNC_NOTIF_VALUE_DO_BOTTOM_HALF);
-	COMPILE_TIME_ASSERT(CFG_CORE_ASYNC_NOTIF_GIC_INTID >= GIC_SPI_BASE);
 
 	assert(value <= NOTIF_ASYNC_VALUE_MAX);
 	old_itr_status = cpu_spin_lock_xsave(&notif_lock);
