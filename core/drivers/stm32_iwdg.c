@@ -5,6 +5,7 @@
 
 #include <assert.h>
 #include <drivers/clk_dt.h>
+#include <drivers/stm32_firewall.h>
 #include <drivers/stm32_iwdg.h>
 #include <keep.h>
 #include <kernel/boot.h>
@@ -16,6 +17,7 @@
 #include <kernel/pm.h>
 #include <kernel/spinlock.h>
 #include <libfdt.h>
+#include <mm/core_memprot.h>
 #include <sm/sm.h>
 #include <stm32_util.h>
 #include <stm32mp_pm.h>
@@ -172,6 +174,10 @@ static TEE_Result stm32_iwdg_parse_fdt(struct stm32_iwdg_device *iwdg_dev,
 	const fdt32_t *cuint = NULL;
 	struct clk *clk = NULL;
 	struct io_pa_va *base = &iwdg_dev->pdata.base;
+	const struct stm32_firewall_cfg sec_cfg[] = {
+		{ FWLL_SEC_RW | FWLL_MASTER(0) },
+		{ }, /* Null terminated */
+	};
 
 	_fdt_fill_device_info(fdt, &dt_info, node);
 	if (dt_info.reg == DT_INFO_INVALID_REG ||
@@ -181,7 +187,13 @@ static TEE_Result stm32_iwdg_parse_fdt(struct stm32_iwdg_device *iwdg_dev,
 		return TEE_ERROR_ITEM_NOT_FOUND;
 
 	base->pa = dt_info.reg;
-	io_pa_or_va(base, dt_info.reg_size);
+
+	res = stm32_firewall_check_access(base->pa, dt_info.reg_size, sec_cfg);
+	if (res == TEE_SUCCESS)
+		io_pa_or_va_secure(base, dt_info.reg_size);
+	else
+		io_pa_or_va_nsec(base, dt_info.reg_size);
+
 	assert(base->va);
 
 	iwdg_dev->pdata.irq = dt_info.interrupt;
