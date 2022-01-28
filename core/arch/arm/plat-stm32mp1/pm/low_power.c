@@ -405,94 +405,13 @@ void stm32mp_gic_set_end_of_interrupt(uint32_t it)
 
 static void __noreturn wait_cpu_reset(void)
 {
-#ifdef STM32MP1_USE_MPU0_RESET
-	dcache_op_all(DCACHE_OP_CLEAN_INV);
-	write_sctlr(read_sctlr() & ~SCTLR_C);
-	dcache_op_all(DCACHE_OP_CLEAN_INV);
-	__asm__("clrex");
-
-	dsb();
-	isb();
-#else
 	psci_armv7_cpu_off();
-#endif
 
 	for ( ; ; ) {
 		clear_pending_interrupts();
 		wfi();
 	}
 }
-
-#ifdef STM32MP1_USE_MPU0_RESET
-/*
- * tzc_source_ip contains the TZC transaction source IPs that need to be reset
- * before a C-A7 subsystem is reset (i.e. independent reset):
- * - C-A7 subsystem is reset separately later in the sequence,
- * - C-M4 subsystem is not concerned here,
- * - DAP is excluded for debug purpose,
- * - IPs are stored with their ETZPC IDs (STM32MP1_ETZPC_MAX_ID if not
- *   applicable) because some of them need to be reset only if they are not
- *   configured in MCU isolation mode inside ETZPC device tree.
- */
-struct tzc_source_ip {
-	uint16_t reset_id;
-	uint16_t clock_id;
-	uint32_t decprot_id;
-};
-
-#define _TZC_FIXED(res, clk)				\
-	{						\
-		.reset_id = (res),			\
-		.clock_id = (clk),			\
-		.decprot_id = STM32MP1_ETZPC_MAX_ID,	\
-	}
-
-#define _TZC_COND(res, clk, decprot)			\
-	{						\
-		.reset_id = (res),			\
-		.clock_id = (clk),			\
-		.decprot_id = (decprot),		\
-	}
-
-static const struct tzc_source_ip __maybe_unused tzc_source_ip[] = {
-	_TZC_FIXED(LTDC_R, LTDC_PX),
-	_TZC_FIXED(GPU_R, GPU),
-	_TZC_FIXED(USBH_R, USBH),
-	_TZC_FIXED(SDMMC1_R, SDMMC1_K),
-	_TZC_FIXED(SDMMC2_R, SDMMC2_K),
-	_TZC_FIXED(MDMA_R, MDMA),
-	_TZC_COND(USBO_R, USBO_K, STM32MP1_ETZPC_OTG_ID),
-	_TZC_COND(SDMMC3_R, SDMMC3_K, STM32MP1_ETZPC_SDMMC3_ID),
-	_TZC_COND(ETHMAC_R, ETHMAC, STM32MP1_ETZPC_ETH_ID),
-	_TZC_COND(DMA1_R, DMA1, STM32MP1_ETZPC_DMA1_ID),
-	_TZC_COND(DMA2_R, DMA2, STM32MP1_ETZPC_DMA2_ID),
-};
-
-static void reset_peripherals(void)
-{
-	vaddr_t rcc_base = stm32_rcc_base();
-	size_t __maybe_unused id = 0;
-
-	for (id = 0U; id < ARRAY_SIZE(tzc_source_ip); id++) {
-		const struct tzc_source_ip *tzc = &tzc_source_ip[id];
-
-		if (!stm32_clock_is_enabled(tzc->clock_id) ||
-		    ((tzc->decprot_id != STM32MP1_ETZPC_MAX_ID) &&
-		     (etzpc_get_decprot(tzc->decprot_id) ==
-		      ETZPC_DECPROT_MCU_ISOLATION)))
-			continue;
-
-		if (tzc->reset_id != GPU_R) {
-			stm32_reset_assert(tzc->reset_id, TIMEOUT_US_1MS);
-			stm32_reset_deassert(tzc->reset_id, TIMEOUT_US_1MS);
-		} else {
-			/* GPU reset automatically cleared by hardware */
-			io_setbits32(rcc_base + RCC_AHB6RSTSETR,
-				     RCC_AHB6RSTSETR_GPURST);
-		}
-	}
-}
-#endif /* STM32MP1_USE_MPU0_RESET */
 
 static void __noreturn reset_cores(void)
 {
@@ -507,10 +426,6 @@ static void __noreturn reset_cores(void)
 
 	/* Mask timer interrupts */
 	stm32mp_mask_timer();
-
-#ifdef STM32MP1_USE_MPU0_RESET
-	reset_peripherals();
-#endif
 
 	if (get_core_pos() == 0)
 		target_mask = TARGET_CPU1_GIC_MASK;
@@ -556,9 +471,6 @@ static __maybe_unused void reset_other_core(void)
 
 	itr_raise_sgi(GIC_SEC_SGI_1, target_mask);
 
-#ifdef STM32MP1_USE_MPU0_RESET
-	io_write32(rcc_base + RCC_MP_GRSTCSETR, reset_mask);
-#endif
 }
 
 /*
@@ -592,9 +504,6 @@ void __noreturn stm32_enter_cstop_shutdown(uint32_t mode)
 		break;
 	case STM32_PM_CSTOP_ALLOW_STANDBY_DDR_OFF:
 		stm32mp_pm_shutdown_context();
-#ifdef STM32MP1_USE_MPU0_RESET
-		reset_other_core();
-#endif
 		stm32_enter_cstop(mode);
 		dsb();
 		isb();

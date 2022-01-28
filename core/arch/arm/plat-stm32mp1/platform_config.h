@@ -8,9 +8,6 @@
 
 #include <mm/generic_ram_layout.h>
 
-/* Enable/disable use of the core0 reset control from RCC */
-#undef STM32MP1_USE_MPU0_RESET
-
 /* Make stacks aligned to data cache line length */
 #define STACK_ALIGNMENT			32
 
