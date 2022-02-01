@@ -787,12 +787,16 @@ static TEE_Result stm32_gpio_pm_resume(void)
 				     &backup->pinctrl.config);
 	}
 
+	stm32mp_syscfg_enable_io_comp();
+
 	return TEE_SUCCESS;
 }
 
 static TEE_Result stm32_gpio_pm_suspend(void)
 {
 	struct stm32_gpio_bank *bank = NULL;
+
+	stm32mp_syscfg_disable_io_comp();
 
 	STAILQ_FOREACH(bank, &bank_list, link)
 		stm32_gpio_get_conf_sec(bank);
@@ -841,6 +845,9 @@ static TEE_Result stm32_gpio_probe(const void *fdt, int offs,
 	}
 
 	if (!pm_register) {
+		/* Enable IO Compensation Cells */
+		stm32mp_syscfg_enable_io_comp();
+
 		/* Register to PM once for all probed banks */
 		register_pm_core_service_cb(stm32_gpio_pm, NULL,
 					    "stm32-gpio-service");
