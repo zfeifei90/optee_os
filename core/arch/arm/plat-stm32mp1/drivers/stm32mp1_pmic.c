@@ -73,7 +73,8 @@ static bool pmic_is_secure(void)
 
 bool stm32mp_with_pmic(void)
 {
-	assert(pmic_status != -1);
+	if (pmic_status == -1)
+		return false;
 
 	return pmic_status & (DT_STATUS_OK_SEC | DT_STATUS_OK_NSEC);
 }
