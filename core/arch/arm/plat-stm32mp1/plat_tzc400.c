@@ -49,6 +49,8 @@ struct tzc_device {
 	bool *reg_locked;
 };
 
+#define filter_mask(_width) GENMASK_32(((_width) - 1U), 0U)
+
 static enum itr_return tzc_it_handler(struct itr_handler *handler __unused)
 {
 	EMSG("TZC permission failure");
@@ -62,67 +64,60 @@ static enum itr_return tzc_it_handler(struct itr_handler *handler __unused)
 	return ITRR_HANDLED;
 }
 
-static bool tzc_region_is_non_secure(unsigned int i, vaddr_t base, size_t size)
+static int tzc_find_region(vaddr_t base, size_t size,
+			   struct tzc_region_config *region_cfg)
 {
-	struct tzc_region_config region_cfg = { };
+	uint8_t i = 1;
+
+	while (true) {
+		if (tzc_get_region_config(i, region_cfg) != TEE_SUCCESS)
+			return 0;
+
+		if (region_cfg->base <= base &&
+		    region_cfg->top >= (base + size - 1))
+			return i;
+
+		i++;
+		region_cfg++;
+	}
+}
+
+static bool tzc_region_is_non_secure(struct tzc_device *tzc_dev,
+				     struct tzc_region_config *region_cfg)
+{
 	uint32_t ns_cpu_mask = TZC_REGION_ACCESS_RDWR(STM32MP1_TZC_A7_ID);
-	uint32_t filters_mask = STM32MP_TZC_FILTERS;
+	uint32_t filters_mask = filter_mask(tzc_dev->ddata->nb_filters);
 
-	if (tzc_get_region_config(i, &region_cfg))
-		panic();
-
-	return region_cfg.base == base && region_cfg.top == (base + size - 1) &&
-	       region_cfg.sec_attr == TZC_REGION_S_NONE &&
-	       (region_cfg.ns_device_access & ns_cpu_mask) == ns_cpu_mask &&
-	       region_cfg.filters == filters_mask;
+	return region_cfg->sec_attr == TZC_REGION_S_NONE &&
+		(region_cfg->ns_device_access & ns_cpu_mask) == ns_cpu_mask &&
+		region_cfg->filters == filters_mask;
 }
 
-static bool tzc_region_is_secure(unsigned int i, vaddr_t base, size_t size)
+static bool tzc_region_is_secure(struct tzc_device *tzc_dev,
+				 struct tzc_region_config *region_cfg)
 {
-	struct tzc_region_config region_cfg = { };
-	uint32_t filters_mask = STM32MP_TZC_FILTERS;
+	uint32_t filters_mask = filter_mask(tzc_dev->ddata->nb_filters);
 
-	if (tzc_get_region_config(i, &region_cfg))
-		panic();
-
-	return region_cfg.base == base && region_cfg.top == (base + size - 1) &&
-	       region_cfg.sec_attr == TZC_REGION_S_RDWR &&
-	       region_cfg.ns_device_access == 0 &&
-	       region_cfg.filters == filters_mask;
+	return region_cfg->sec_attr == TZC_REGION_S_RDWR &&
+		region_cfg->ns_device_access == 0 &&
+		region_cfg->filters == filters_mask;
 }
 
-static void stm32mp_tzc_check_boot_region(void)
+static void stm32mp_tzc_check_boot_region(struct tzc_device *tzc_dev)
 {
-	unsigned int region_index = 1;
-	const uint64_t dram_start = DDR_BASE;
-	const uint64_t dram_end = dram_start + CFG_DRAM_SIZE;
-	const uint64_t tzdram_start = CFG_TZDRAM_START;
-	const uint64_t tzdram_size = CFG_TZDRAM_SIZE;
-	const uint64_t tzdram_end = tzdram_start + tzdram_size;
+	int idx = 0;
 
-	/*
-	 * Early boot stage is in charge of configuring memory regions
-	 * OP-TEE hence here only check this complies with static Core
-	 * expectations.
-	 */
-	if (dram_start < tzdram_start) {
-		if (!tzc_region_is_non_secure(region_index, dram_start,
-					      tzdram_start - dram_start))
-			panic("Unexpected TZC area on non-secure region");
+	idx = tzc_find_region(CFG_TZDRAM_START, CFG_TZDRAM_SIZE,
+			      &tzc_dev->reg[1]);
+	if (!idx || !tzc_region_is_secure(tzc_dev, &tzc_dev->reg[idx]))
+		panic("TZC: bad permissions on TEE RAM");
 
-		region_index++;
-	}
-
-	if (!tzc_region_is_secure(region_index, tzdram_start, tzdram_size))
-		panic("Unexpected TZC configuration on secure region");
-
-	if (tzdram_end < dram_end) {
-		region_index++;
-
-		if (!tzc_region_is_non_secure(region_index, tzdram_end,
-					      dram_end - tzdram_end))
-			panic("Unexpected TZC area on non-secure region");
-	}
+#if CFG_CORE_RESERVED_SHM
+	idx = tzc_find_region(CFG_SHMEM_START, CFG_SHMEM_SIZE,
+			      &tzc_dev->reg[1]);
+	if (!idx || !tzc_region_is_non_secure(tzc_dev, &tzc_dev->reg[idx]))
+		panic("TZC: bad permissions on TEE reserved SHMEM");
+#endif
 }
 
 static void tzc_set_driverdata(struct tzc_device *tzc_dev)
@@ -249,7 +244,7 @@ static TEE_Result stm32mp1_tzc_probe(const void *fdt, int node,
 	tzc_init((vaddr_t)tzc_dev->pdata.base);
 	tzc_dump_state();
 
-	stm32mp_tzc_check_boot_region();
+	stm32mp_tzc_check_boot_region(tzc_dev);
 
 	tzc_dev->itr = itr_alloc_add(tzc_dev->pdata.irq, tzc_it_handler,
 				     ITRF_TRIGGER_LEVEL, tzc_dev);
