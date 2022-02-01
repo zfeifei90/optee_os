@@ -759,15 +759,36 @@ static TEE_Result stm32_gpio_parse_pinctrl_node(const void *fdt, int node,
 	return res;
 }
 
+static void stm32_gpio_get_conf_sec(struct stm32_gpio_bank *bank)
+{
+	if (bank->sec_support) {
+		clk_enable(bank->clock);
+		bank->seccfgr = io_read32(bank->base + GPIO_SECR_OFFSET);
+		clk_disable(bank->clock);
+	}
+}
+
+static void stm32_gpio_set_conf_sec(struct stm32_gpio_bank *bank)
+{
+	if (bank->sec_support) {
+		clk_enable(bank->clock);
+		io_write32(bank->base + GPIO_SECR_OFFSET, bank->seccfgr);
+		clk_disable(bank->clock);
+	}
+}
+
 static TEE_Result stm32_gpio_pm_resume(void)
 {
 	struct stm32_gpio_bank *bank = NULL;
 	struct stm32_pinctrl_backup *backup = NULL;
 
-	STAILQ_FOREACH(bank, &bank_list, link)
+	STAILQ_FOREACH(bank, &bank_list, link) {
+		stm32_gpio_set_conf_sec(bank);
+
 		STAILQ_FOREACH(backup, &bank->backups, link)
 			set_gpio_cfg(backup->pinctrl.bank, backup->pinctrl.pin,
 				     &backup->pinctrl.active_cfg);
+	}
 
 	return TEE_SUCCESS;
 }
@@ -777,7 +798,7 @@ static TEE_Result stm32_gpio_pm_suspend(void)
 	struct stm32_gpio_bank *bank = NULL;
 
 	STAILQ_FOREACH(bank, &bank_list, link)
-		clk_disable(bank->clock);
+		stm32_gpio_get_conf_sec(bank);
 
 	return TEE_SUCCESS;
 }
@@ -796,14 +817,6 @@ stm32_gpio_pm(enum pm_op op, unsigned int pm_hint __unused,
 	return ret;
 }
 DECLARE_KEEP_PAGER(stm32_gpio_pm);
-static void stm32_gpio_set_conf_sec(struct stm32_gpio_bank *bank)
-{
-	if (bank->sec_support) {
-		clk_enable(bank->clock);
-		io_write32(bank->base + GPIO_SECR_OFFSET, bank->seccfgr);
-		clk_disable(bank->clock);
-	}
-}
 
 static TEE_Result stm32_gpio_probe(const void *fdt, int offs,
 				   const void *compat_data)
