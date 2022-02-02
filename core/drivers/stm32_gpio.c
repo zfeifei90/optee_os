@@ -637,8 +637,11 @@ static struct stm32_gpio_bank *_fdt_stm32_gpio_controller(const void *fdt,
 	if ((len % 4) != 0)
 		panic("wrong gpio-ranges syntax");
 
+	/* Get the last defined gpio line (offset + nb of pins) */
 	for (i = 0; i < len / 4; i++) {
-		bank->ngpios += fdt32_to_cpu(*(cuint + 3));
+		bank->ngpios = MAX(bank->ngpios,
+				   (unsigned int)(fdt32_to_cpu(*(cuint + 1)) +
+						  fdt32_to_cpu(*(cuint + 3))));
 		cuint += 4;
 	}
 
