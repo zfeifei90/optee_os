@@ -74,7 +74,7 @@ bool stm32mp_with_pmic(void)
 {
 	assert(pmic_status != -1);
 
-	return pmic_status & DT_STATUS_OK_SEC;
+	return pmic_status & (DT_STATUS_OK_SEC | DT_STATUS_OK_NSEC);
 }
 
 /* Return a libfdt compliant status value */
