@@ -22,6 +22,7 @@
 #define SYSCFG_CMPENSETR			U(0x24)
 #define SYSCFG_CMPENCLRR			U(0x28)
 #define SYSCFG_IDC				U(0x380)
+#define SYSCFG_IOSIZE				U(0x400)
 
 /*
  * SYSCFG_CMPCR Register
@@ -51,7 +52,7 @@ static vaddr_t get_syscfg_base(void)
 {
 	static struct io_pa_va base = { .pa = SYSCFG_BASE };
 
-	return io_pa_or_va(&base, SYSCFG_IDC);
+	return io_pa_or_va(&base, SYSCFG_IOSIZE);
 }
 
 uint32_t stm32mp_syscfg_get_chip_dev_id(void)
