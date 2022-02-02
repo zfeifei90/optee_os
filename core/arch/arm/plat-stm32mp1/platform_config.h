@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: BSD-2-Clause */
 /*
- * Copyright (c) 2017-2021, STMicroelectronics
+ * Copyright (c) 2017-2022, STMicroelectronics
  */
 
 #ifndef PLATFORM_CONFIG_H
@@ -210,6 +210,7 @@
 #define HW2_OTP_IWDG_HW_ENABLE_SHIFT		U(3)
 #define HW2_OTP_IWDG_FZ_STOP_SHIFT		U(5)
 #define HW2_OTP_IWDG_FZ_STANDBY_SHIFT		U(7)
+#define HW2_OTP_PRODUCT_BELOW_2V5		BIT(13)
 
 #define PART_NUMBER_OTP				"part_number_otp"
 #define PART_NUMBER_OTP_PART_SHIFT		U(0)
