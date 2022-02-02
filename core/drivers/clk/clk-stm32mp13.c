@@ -6,6 +6,7 @@
 #include <assert.h>
 #include <drivers/clk.h>
 #include <drivers/clk_dt.h>
+#include <drivers/stm32_gpio.h>
 #include <drivers/stm32mp_dt_bindings.h>
 #include <drivers/stm32mp13_rcc.h>
 #include <io.h>
@@ -98,6 +99,7 @@ struct stm32_clk_platdata {
 	uint32_t *clksrc;
 	uint32_t nclkdiv;
 	uint32_t *clkdiv;
+	struct stm32_pinctrl_list *pinctrl_cfg;
 };
 
 /*
@@ -1348,6 +1350,13 @@ static int stm32_clk_pll_configure(struct clk_stm32_priv *priv)
 	return 0;
 }
 
+static void stm32_clk_load_mco_pins(struct clk_stm32_priv *priv)
+{
+	struct stm32_clk_platdata *pdata = priv->pdata;
+
+	stm32_pinctrl_load_config(pdata->pinctrl_cfg);
+}
+
 static int stm32mp1_init_clock_tree(struct clk_stm32_priv *priv,
 				    struct stm32_clk_platdata *pdata)
 {
@@ -1536,6 +1545,12 @@ static void clk_stm32_debug_display_pdata(void)
 	clk_stm32_debug_display_div_dt_cfg(priv);
 }
 #endif
+
+static TEE_Result stm32_clk_parse_fdt_mco_pins(const void *fdt, int node,
+					       struct stm32_clk_platdata *pdata)
+{
+	return stm32_pinctrl_dt_get_by_index(fdt, node, 0, &pdata->pinctrl_cfg);
+}
 
 static int clk_stm32_parse_oscillator_fdt(const void *fdt, int node,
 					  const char *name,
@@ -3404,3 +3419,29 @@ static TEE_Result stm32mp13_clk_probe(const void *fdt, int node,
 }
 
 CLK_DT_DECLARE(stm32mp13_clk, "st,stm32mp13-rcc", stm32mp13_clk_probe);
+
+static TEE_Result stm32mp13_rcc_mco_probe(const void *fdt, int node,
+					  const void *compat_data __unused)
+{
+	TEE_Result res = TEE_ERROR_GENERIC;
+	struct stm32_clk_platdata *pdata = &stm32mp13_clock_pdata;
+
+	res = stm32_clk_parse_fdt_mco_pins(fdt, node, pdata);
+	if (res)
+		return res;
+
+	stm32_clk_load_mco_pins(clk_stm32_get_priv());
+
+	return TEE_SUCCESS;
+}
+
+static const struct dt_device_match stm32mp13_rcc_mco_match_table[] = {
+	{ .compatible = "st,stm32mp13-rcc-mco" },
+	{ }
+};
+
+DEFINE_DT_DRIVER(stm32mp13_rcc_mco_dt_driver) = {
+	.name = "stm32mp13_rcc_mco",
+	.match_table = stm32mp13_rcc_mco_match_table,
+	.probe = stm32mp13_rcc_mco_probe,
+};
