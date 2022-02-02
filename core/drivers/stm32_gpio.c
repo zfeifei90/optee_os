@@ -303,10 +303,12 @@ void stm32_pinctrl_set_secure_cfg(struct stm32_pinctrl_list *list, bool secure)
 
 	STAILQ_FOREACH(p, list, link) {
 		stm32_gpio_set_secure_cfg(p->bank, p->pin, secure);
+#ifdef CFG_STM32MP15
 		if (secure)
 			stm32mp_register_secure_gpio(p->bank, p->pin);
 		else
 			stm32mp_register_non_secure_gpio(p->bank, p->pin);
+#endif
 	}
 }
 
