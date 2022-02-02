@@ -3,6 +3,7 @@
  * Copyright (c) 2019-2021, STMicroelectronics
  */
 
+#include <config.h>
 #include <drivers/clk.h>
 #include <dt-bindings/clock/stm32mp1-clks.h>
 #include <config.h>
@@ -18,9 +19,18 @@
 /*
  * SYSCFG register offsets (base relative)
  */
+#define SYSCFG_SRAM3ERASER			U(0x10)
+#define SYSCFG_SRAM3KR				U(0x14)
+#define SYSCFG_IOCTRLSETR			U(0x18)
 #define SYSCFG_CMPCR				U(0x20)
 #define SYSCFG_CMPENSETR			U(0x24)
 #define SYSCFG_CMPENCLRR			U(0x28)
+#define SYSCFG_CMPSD1CR				U(0x30)
+#define SYSCFG_CMPSD1ENSETR			U(0x34)
+#define SYSCFG_CMPSD1ENCLRR			U(0x38)
+#define SYSCFG_CMPSD2CR				U(0x40)
+#define SYSCFG_CMPSD2ENSETR			U(0x44)
+#define SYSCFG_CMPSD2ENCLRR			U(0x48)
 #define SYSCFG_IDC				U(0x380)
 #define SYSCFG_IOSIZE				U(0x400)
 
@@ -35,6 +45,9 @@
 #define SYSCFG_CMPCR_ANSRC_SHIFT		U(24)
 
 #define SYSCFG_CMPCR_READY_TIMEOUT_US		U(1000)
+
+#define CMPENSETR_OFFSET			U(0x4)
+#define CMPENCLRR_OFFSET			U(0x8)
 
 /*
  * SYSCFG_CMPENSETR Register
@@ -64,9 +77,9 @@ uint32_t stm32mp_syscfg_get_chip_dev_id(void)
 	return 0;
 }
 
-void stm32mp_syscfg_enable_io_compensation(void)
+static void enable_io_compensation(int cmpcr_offset)
 {
-	vaddr_t syscfg_base = get_syscfg_base();
+	vaddr_t cmpcr_base = get_syscfg_base() + cmpcr_offset;
 	struct clk *csi_clk = stm32mp_rcc_clock_id_to_clk(CK_CSI);
 	struct clk *syscfg_clk = stm32mp_rcc_clock_id_to_clk(SYSCFG);
 	uint64_t timeout_ref = 0;
@@ -74,28 +87,28 @@ void stm32mp_syscfg_enable_io_compensation(void)
 	clk_enable(csi_clk);
 	clk_enable(syscfg_clk);
 
-	if (io_read32(syscfg_base + SYSCFG_CMPCR) & SYSCFG_CMPCR_READY)
+	if (io_read32(cmpcr_base) & SYSCFG_CMPCR_READY)
 		return;
 
-	io_setbits32(syscfg_base + SYSCFG_CMPENSETR, SYSCFG_CMPENSETR_MPU_EN);
+	io_setbits32(cmpcr_base + CMPENSETR_OFFSET, SYSCFG_CMPENSETR_MPU_EN);
 
 	timeout_ref = timeout_init_us(SYSCFG_CMPCR_READY_TIMEOUT_US);
 
-	while (!(io_read32(syscfg_base + SYSCFG_CMPCR) & SYSCFG_CMPCR_READY))
+	while (!(io_read32(cmpcr_base) & SYSCFG_CMPCR_READY))
 		if (timeout_elapsed(timeout_ref)) {
 			EMSG("IO compensation cell not ready");
 			/* Allow an almost silent failure here */
 			break;
 		}
 
-	io_clrbits32(syscfg_base + SYSCFG_CMPCR, SYSCFG_CMPCR_SW_CTRL);
+	io_clrbits32(cmpcr_base, SYSCFG_CMPCR_SW_CTRL);
 
-	DMSG("SYSCFG.cmpcr = %#"PRIx32, io_read32(syscfg_base + SYSCFG_CMPCR));
+	DMSG("SYSCFG.cmpcr = %#"PRIx32, io_read32(cmpcr_base));
 }
 
-void stm32mp_syscfg_disable_io_compensation(void)
+static void disable_io_compensation(int cmpcr_offset)
 {
-	vaddr_t syscfg_base = get_syscfg_base();
+	vaddr_t cmpcr_base = get_syscfg_base() + cmpcr_offset;
 	struct clk *csi_clk = stm32mp_rcc_clock_id_to_clk(CK_CSI);
 	struct clk *syscfg_clk = stm32mp_rcc_clock_id_to_clk(SYSCFG);
 	uint32_t value_cmpcr = 0;
@@ -106,34 +119,52 @@ void stm32mp_syscfg_disable_io_compensation(void)
 	/* No refcount balance needed on non-secure SYSCFG clock */
 	clk_enable(syscfg_clk);
 
-	value_cmpcr = io_read32(syscfg_base + SYSCFG_CMPCR);
-	value_cmpcr2 = io_read32(syscfg_base + SYSCFG_CMPENSETR);
+	value_cmpcr = io_read32(cmpcr_base);
+	value_cmpcr2 = io_read32(cmpcr_base + CMPENSETR_OFFSET);
 	if (!(value_cmpcr & SYSCFG_CMPCR_READY &&
 	      value_cmpcr2 & SYSCFG_CMPENSETR_MPU_EN))
 		return;
 
-	value_cmpcr = io_read32(syscfg_base + SYSCFG_CMPCR) >>
-		SYSCFG_CMPCR_ANSRC_SHIFT;
+	value_cmpcr = io_read32(cmpcr_base) >> SYSCFG_CMPCR_ANSRC_SHIFT;
 
-	io_clrbits32(syscfg_base + SYSCFG_CMPCR,
-		     SYSCFG_CMPCR_RANSRC | SYSCFG_CMPCR_RAPSRC);
+	io_clrbits32(cmpcr_base, SYSCFG_CMPCR_RANSRC | SYSCFG_CMPCR_RAPSRC);
 
 	value_cmpcr <<= SYSCFG_CMPCR_RANSRC_SHIFT;
-	value_cmpcr |= io_read32(syscfg_base + SYSCFG_CMPCR);
+	value_cmpcr |= io_read32(cmpcr_base);
 
-	io_write32(syscfg_base + SYSCFG_CMPCR, value_cmpcr | SYSCFG_CMPCR_SW_CTRL);
+	io_write32(cmpcr_base, value_cmpcr | SYSCFG_CMPCR_SW_CTRL);
 
-	DMSG("SYSCFG.cmpcr = %#"PRIx32, io_read32(syscfg_base + SYSCFG_CMPCR));
+	DMSG("SYSCFG.cmpcr = %#"PRIx32, io_read32(cmpcr_base));
 
-	io_setbits32(syscfg_base + SYSCFG_CMPENCLRR, SYSCFG_CMPENSETR_MPU_EN);
+	io_setbits32(cmpcr_base + CMPENCLRR_OFFSET, SYSCFG_CMPENSETR_MPU_EN);
 
 	clk_disable(syscfg_clk);
 	clk_disable(csi_clk);
 }
 
+void stm32mp_syscfg_enable_io_compensation(void)
+{
+	enable_io_compensation(SYSCFG_CMPCR);
+
+	if (IS_ENABLED(CFG_STM32MP13)) {
+		enable_io_compensation(SYSCFG_CMPSD1CR);
+		enable_io_compensation(SYSCFG_CMPSD2CR);
+	}
+}
+
+void stm32mp_syscfg_disable_io_compensation(void)
+{
+	disable_io_compensation(SYSCFG_CMPCR);
+
+	if (IS_ENABLED(CFG_STM32MP13)) {
+		disable_io_compensation(SYSCFG_CMPSD1CR);
+		disable_io_compensation(SYSCFG_CMPSD2CR);
+	}
+}
+
 static TEE_Result stm32mp1_iocomp(void)
 {
-	stm32mp_syscfg_enable_io_compensation();
+	stm32mp_syscfg_enable_io_comp();
 
 	return TEE_SUCCESS;
 }
