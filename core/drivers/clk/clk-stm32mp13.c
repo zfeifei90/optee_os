@@ -3323,7 +3323,8 @@ static void clk_stm32_init_oscillators(const void *fdt, int node)
 				   &ck_lsi, &ck_csi, &ck_i2sckin };
 
 	for (i = 0; i < ARRAY_SIZE(clks); i++) {
-		struct clk *clk = clk_dt_get_by_name(fdt, node, name[i], &res);
+		struct clk *clk = NULL;
+		res = clk_dt_get_by_name(fdt, node, name[i], &clk);
 
 		DMSG("%s: %s : clk = 0x%p, res = %d, rate = %ld\n", __func__,
 		     name[i], clk, res, clk_get_rate(clk));
