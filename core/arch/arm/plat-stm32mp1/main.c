@@ -63,11 +63,6 @@ static TEE_Result platform_banner(void)
 }
 service_init(platform_banner);
 
-#ifdef CFG_STM32MP13
-void console_init(void)
-{
-}
-#else
 /*
  * Console
  *
@@ -153,8 +148,6 @@ static TEE_Result init_console_from_dt(void)
 /* Probe console from DT once clock inits (service init level) are completed */
 service_init_late(init_console_from_dt);
 #endif
-
-#endif /* CFG_STM32MP13 */
 
 static uintptr_t stm32_dbgmcu_base(void)
 {
