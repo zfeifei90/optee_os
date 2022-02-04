@@ -65,20 +65,20 @@ endif
 include core/arch/arm/cpu/cortex-a7.mk
 
 $(call force,CFG_ARM_GIC_PM,y)
-$(call force,CFG_BOOT_SECONDARY_REQUEST,y)
 $(call force,CFG_DRIVERS_CLK,y)
-$(call force,CFG_DRIVERS_CLK_FIXED,y)
 $(call force,CFG_ARM_GIC_PM,y)
 $(call force,CFG_GIC,y)
 $(call force,CFG_INIT_CNTVOFF,y)
 $(call force,CFG_PSCI_ARM32,y)
-$(call force,CFG_SECONDARY_INIT_CNTFRQ,y)
 $(call force,CFG_SECURE_TIME_SOURCE_CNTPCT,y)
 $(call force,CFG_SM_PLATFORM_HANDLER,y)
 $(call force,CFG_WITH_SOFTWARE_PRNG,y)
 
 ifeq ($(CFG_STM32MP13),y)
+$(call force,CFG_BOOT_SECONDARY_REQUEST,n)
+$(call force,CFG_DRIVERS_CLK_FIXED,y)
 $(call force,CFG_SCMI_PTA,n)
+$(call force,CFG_SECONDARY_INIT_CNTFRQ,n)
 $(call force,CFG_STM32_BSEC_SIP,n)
 $(call force,CFG_STM32_CRYP,n)
 $(call force,CFG_STM32_I2C,n)
@@ -96,14 +96,16 @@ $(call force,CFG_WITH_NSEC_GPIOS,n)
 
 CFG_NUM_THREADS ?= 5
 CFG_WITH_PAGER ?= n
-else
+else # Assume CFG_STM32MP15
 $(call force,CFG_BOOT_SECONDARY_REQUEST,y)
+$(call force,CFG_DRIVERS_CLK_FIXED,n)
 $(call force,CFG_SECONDARY_INIT_CNTFRQ,y)
 $(call force,CFG_STM32MP13,n)
 $(call force,CFG_STM32MP15,y)
 $(call force,CFG_STM32MP13_CLK,n)
 $(call force,CFG_STM32MP15_CLK,y)
 $(call force,CFG_WITH_NSEC_GPIOS,y)
+CFG_MMAP_REGIONS ?= 23
 CFG_NUM_THREADS ?= 3
 CFG_TEE_CORE_NB_CORE ?= 2
 CFG_WITH_PAGER ?= y
@@ -125,7 +127,7 @@ CFG_TZDRAM_START ?= ($(CFG_DRAM_BASE) + $(CFG_DRAM_SIZE) - $(CFG_TZDRAM_SIZE))
 CFG_SHMEM_START  ?= ($(CFG_TZDRAM_START) - $(CFG_SHMEM_SIZE))
 
 CFG_WITH_LPAE ?= y
-CFG_MMAP_REGIONS ?= 23
+CFG_MMAP_REGIONS ?= 30
 CFG_DTB_MAX_SIZE ?= (256 * 1024)
 CFG_CORE_HEAP_SIZE ?= 49152
 
