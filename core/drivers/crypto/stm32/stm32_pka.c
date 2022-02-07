@@ -1533,8 +1533,8 @@ static TEE_Result stm32_pka_parse_fdt(struct stm32_pka_platdata *pdata,
 
 	pdata->reset_id = (unsigned int)info.reset;
 
-	pdata->clk = clk_dt_get_by_idx(fdt, node, 0, &res);
-	if (!pdata->clk)
+	res = clk_dt_get_by_index(fdt, node, 0, &pdata->clk);
+	if (res)
 		return res;
 
 	return TEE_SUCCESS;
@@ -1619,7 +1619,7 @@ static const struct dt_device_match pka_match_table[] = {
 	{ }
 };
 
-const struct dt_driver stm32_pka_dt_driver __dt_driver = {
+DEFINE_DT_DRIVER(stm32_pka_dt_driver) = {
 	.name = "stm32-pka64",
 	.match_table = pka_match_table,
 	.probe = &stm32_pka_probe,

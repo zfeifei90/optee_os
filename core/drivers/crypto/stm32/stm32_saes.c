@@ -1142,8 +1142,8 @@ static TEE_Result stm32_saes_parse_fdt(struct stm32_saes_platdata *pdata,
 
 	pdata->reset_id = (unsigned int)dt_saes.reset;
 
-	pdata->clk = clk_dt_get_by_idx(fdt, node, 0, &res);
-	if (!pdata->clk)
+	res = clk_dt_get_by_index(fdt, node, 0, &pdata->clk);
+	if (res)
 		return res;
 
 	return 0;
@@ -1217,7 +1217,7 @@ static const struct dt_device_match saes_match_table[] = {
 	{ }
 };
 
-const struct dt_driver stm32_saes_dt_driver __dt_driver = {
+DEFINE_DT_DRIVER(stm32_saes_dt_driver) = {
 	.name = "stm32-saes",
 	.match_table = saes_match_table,
 	.probe = &stm32_saes_probe,

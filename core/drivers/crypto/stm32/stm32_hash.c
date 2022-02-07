@@ -796,8 +796,8 @@ static TEE_Result stm32_hash_parse_fdt(struct stm32_hash_platdata *pdata,
 
 	pdata->reset = (unsigned int)dt_info.reset;
 
-	pdata->clock = clk_dt_get_by_idx(fdt, node, 0, &res);
-	if (!pdata->clock)
+	res = clk_dt_get_by_index(fdt, node, 0, &pdata->clock);
+	if (res)
 		return res;
 
 	pdata->compat = (struct stm32_hash_compat *)compat_data;
@@ -910,7 +910,7 @@ static const struct dt_device_match hash_match_table[] = {
 	{ }
 };
 
-const struct dt_driver stm32_hash_dt_driver __dt_driver = {
+DEFINE_DT_DRIVER(stm32_hash_dt_driver) = {
 	.name = "stm32-hash",
 	.match_table = hash_match_table,
 	.probe = &stm32_hash_probe,
