@@ -175,13 +175,13 @@ static TEE_Result stm32_iwdg_parse_fdt(struct stm32_iwdg_device *iwdg_dev,
 
 	iwdg_dev->pdata.irq = dt_info.interrupt;
 
-	clk = clk_dt_get_by_idx(fdt, node, 0, &res);
-	if (!clk)
+	res = clk_dt_get_by_index(fdt, node, 0, &clk);
+	if (res)
 		return res;
 
 	iwdg_dev->pdata.clock = clk;
 
-	clk = clk_dt_get_by_idx(fdt, node, 1, &res);
+	res = clk_dt_get_by_index(fdt, node, 1, &clk);
 	if (!clk)
 		return res;
 
@@ -271,7 +271,7 @@ static const struct dt_device_match stm32_iwdg_match_table[] = {
 	{ }
 };
 
-const struct dt_driver stm32_iwdg_dt_driver __dt_driver = {
+DEFINE_DT_DRIVER(stm32_iwdg_dt_driver) = {
 	.name = "stm32-iwdg",
 	.match_table = stm32_iwdg_match_table,
 	.probe = stm32_iwdg_probe,
