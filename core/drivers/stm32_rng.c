@@ -363,8 +363,8 @@ static TEE_Result stm32_rng_parse_fdt(const void *fdt, int node,
 	pdata->reset = dt_rng.reset;
 	pdata->clock_error = false;
 
-	pdata->clock = clk_dt_get_by_idx(fdt, node, 0, &res);
-	if (!pdata->clock)
+	res = clk_dt_get_by_index(fdt, node, 0, &pdata->clock);
+	if (res)
 		return res;
 
 	if (fdt_getprop(fdt, node, "clock-error-detect", NULL))
@@ -459,7 +459,7 @@ static const struct dt_device_match rng_match_table[] = {
 	{ }
 };
 
-const struct dt_driver stm32_rng_dt_driver __dt_driver = {
+DEFINE_DT_DRIVER(stm32_rng_dt_driver) = {
 	.name = "stm32_rng",
 	.match_table = rng_match_table,
 	.probe = stm32_rng_probe,
