@@ -3,7 +3,11 @@
  * Copyright (c) 2018-2019, STMicroelectronics
  */
 
+#ifdef CFG_STM32MP13
+#include <drivers/stm32mp13_rcc.h>
+#else /* assume CFG_STM32MP15 */
 #include <drivers/stm32mp1_rcc.h>
+#endif
 #include <io.h>
 #include <kernel/delay.h>
 #include <kernel/panic.h>
@@ -57,7 +61,12 @@ TEE_Result stm32_reset_assert(unsigned int id, unsigned int to_us)
 
 TEE_Result stm32_reset_deassert(unsigned int id, unsigned int to_us)
 {
+#ifdef CFG_STM32MP13
+	size_t offset = reset_id2reg_offset(id) + RCC_RSTCLRR_OFFSET;
+#endif
+#ifdef CFG_STM32MP15
 	size_t offset = reset_id2reg_offset(id) + RCC_MP_RSTCLRR_OFFSET;
+#endif
 	uint32_t bitmsk = BIT(reset_id2reg_bit_pos(id));
 	vaddr_t rcc_base = stm32_rcc_base();
 
@@ -77,6 +86,7 @@ TEE_Result stm32_reset_deassert(unsigned int id, unsigned int to_us)
 	return TEE_SUCCESS;
 }
 
+#ifdef CFG_STM32MP15
 void stm32_reset_assert_deassert_mcu(bool assert_not_deassert)
 {
 	vaddr_t rcc_base = stm32_rcc_base();
@@ -91,6 +101,7 @@ void stm32_reset_assert_deassert_mcu(bool assert_not_deassert)
 	else
 		io_setbits32(rcc_base + RCC_MP_GCR, RCC_MP_GCR_BOOT_MCU);
 }
+#endif
 
 void stm32_reset_system(void)
 {
