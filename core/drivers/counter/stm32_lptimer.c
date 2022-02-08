@@ -453,8 +453,8 @@ static TEE_Result stm32_lptimer_parse_fdt(struct lptimer_device *lpt_dev)
 	pdata->base = io_pa_or_va_secure(&base, 1);
 	pdata->irq = dt_info.interrupt;
 
-	pdata->clock = clk_dt_get_by_idx(fdt, node, 0, &res);
-	if (!pdata->clock)
+	res = clk_dt_get_by_index(fdt, node, 0, &pdata->clock);
+	if (res)
 		return res;
 
 	stm32_lptimer_set_driverdata(lpt_dev);
@@ -584,7 +584,7 @@ static const struct dt_device_match stm32_lptimer_match_table[] = {
 	{ }
 };
 
-const struct dt_driver stm32_lptimer_dt_driver __dt_driver = {
+DEFINE_DT_DRIVER(stm32_lptimer_dt_driver) = {
 	.name = "stm32-lptimer",
 	.match_table = stm32_lptimer_match_table,
 	.probe = stm32_lptimer_probe,

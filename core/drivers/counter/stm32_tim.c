@@ -304,8 +304,8 @@ static TEE_Result stm32_timer_parse_fdt(struct timer_device *tim_dev)
 	pdata->phandle = fdt_get_phandle(fdt, node);
 	base.pa = dt_info.reg;
 	pdata->base = io_pa_or_va(&base, dt_info.reg_size);
-	pdata->clock = clk_dt_get_by_idx(fdt, node, 0, &res);
-	if (!pdata->clock)
+	res = clk_dt_get_by_index(fdt, node, 0, &pdata->clock);
+	if (res)
 		return res;
 
 	node = fdt_subnode_offset(fdt, node, "counter");
@@ -418,7 +418,7 @@ static const struct dt_device_match stm32_timer_match_table[] = {
 	{ }
 };
 
-const struct dt_driver timer_dt_driver __dt_driver = {
+DEFINE_DT_DRIVER(timer_dt_driver) = {
 	.name = "stm32-timer",
 	.match_table = stm32_timer_match_table,
 	.probe = &stm32_timer_fdt_probe,
