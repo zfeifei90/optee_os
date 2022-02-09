@@ -64,7 +64,6 @@ endif
 
 include core/arch/arm/cpu/cortex-a7.mk
 
-$(call force,CFG_DRIVERS_CLK,y)
 $(call force,CFG_ARM_GIC_PM,y)
 $(call force,CFG_GIC,y)
 $(call force,CFG_INIT_CNTVOFF,y)
@@ -72,35 +71,36 @@ $(call force,CFG_PM,y)
 $(call force,CFG_PM_ARM32,y)
 $(call force,CFG_PM_STUBS,y)
 $(call force,CFG_PSCI_ARM32,y)
-$(call force,CFG_REGULATOR_DRIVERS,y)
 $(call force,CFG_SECURE_TIME_SOURCE_CNTPCT,y)
 $(call force,CFG_SM_PLATFORM_HANDLER,y)
 
 ifeq ($(CFG_STM32MP13),y)
 $(call force,CFG_BOOT_SECONDARY_REQUEST,n)
+$(call force,CFG_DRIVERS_CLK,y)
 $(call force,CFG_DRIVERS_CLK_FIXED,y)
+$(call force,CFG_RPROC_PTA,n)
+$(call force,CFG_REGULATOR_DRIVERS,y)
 $(call force,CFG_SECONDARY_INIT_CNTFRQ,n)
 $(call force,CFG_STM32_CRYP,n)
 $(call force,CFG_STM32_EXTI,y)
 $(call force,CFG_STM32_GPIO,y)
 $(call force,CFG_STM32_HSE_MONITORING,y)
 $(call force,CFG_STM32MP_CLK_CORE,y)
-$(call force,CFG_RPROC_PTA,n)
 $(call force,CFG_STM32MP1_SCMI_SIP,n)
 $(call force,CFG_STM32MP13_CLK,y)
 $(call force,CFG_STM32MP15,n)
-$(call force,CFG_STM32MP15_CLK,n)
 $(call force,CFG_TEE_CORE_NB_CORE,1)
 $(call force,CFG_TZSRAM_START,0x2ffe0000)
 $(call force,CFG_TZSRAM_SIZE,0x0001f000)
 $(call force,CFG_WITH_NSEC_GPIOS,n)
-
 CFG_NUM_THREADS ?= 5
 CFG_WITH_PAGER ?= n
 else # Assume CFG_STM32MP15
 $(call force,CFG_BOOT_SECONDARY_REQUEST,y)
 $(call force,CFG_DDR_LOWPOWER,y)
+$(call force,CFG_DRIVERS_CLK,y)
 $(call force,CFG_DRIVERS_CLK_FIXED,n)
+$(call force,CFG_REGULATOR_DRIVERS,y)
 $(call force,CFG_SCMI_MSG_PERF_DOMAIN,n)
 $(call force,CFG_SECONDARY_INIT_CNTFRQ,y)
 $(call force,CFG_STM32_PKA,n)
@@ -141,6 +141,7 @@ CFG_CORE_HEAP_SIZE ?= 49152
 # Default disable RPC command shared memory allocation caching due to
 # side effect on TEE session release by the Linux tee & optee drivers.
 CFG_PREALLOC_RPC_CACHE ?= n
+
 # Disable early TA compression to limit HEAP size
 CFG_EARLY_TA_COMPRESS ?= n
 
@@ -156,21 +157,19 @@ $(call force,CFG_STM32_GPIO,n)
 $(call force,CFG_STM32_HASH,n)
 $(call force,CFG_STM32_I2C,n)
 $(call force,CFG_STM32_IWDG,n)
+$(call force,CFG_STM32_LPTIMER,n)
 $(call force,CFG_STM32_PKA,n)
 $(call force,CFG_STM32_REGULATOR_GPIO,n)
 $(call force,CFG_STM32_RTC,n)
 $(call force,CFG_STM32_SAES,n)
-$(call force,CFG_STM32_LPTIMER,n)
+$(call force,CFG_STM32_TAMP,n)
 $(call force,CFG_STM32_TIM,n)
 $(call force,CFG_STM32_VREFBUF,y)
-$(call force,CFG_STM32_TAMP,n)
 $(call force,CFG_STPMIC1,n)
 $(call force,CFG_STM32MP1_SCMI_SIP,n)
 $(call force,CFG_SCMI_PTA,n)
 else
 $(call force,CFG_DRIVERS_CLK_DT,y)
-CFG_STM32_PKA ?= y
-CFG_STM32_SAES ?= y
 endif
 
 # Enable Early TA NVMEM for provisioning management
@@ -201,17 +200,19 @@ CFG_STM32_HASH ?= y
 CFG_STM32_I2C ?= y
 CFG_STM32_IWDG ?= y
 CFG_STM32_LPTIMER ?= y
+CFG_STM32_PKA ?= y
 CFG_STM32_REGULATOR_GPIO ?= y
 CFG_STM32_RNG ?= y
 CFG_STM32_RTC ?= y
+CFG_STM32_SAES ?= y
 CFG_STM32_TAMP ?= y
 CFG_STM32_TIM ?= y
 CFG_STM32_UART ?= y
 CFG_STM32_VREFBUF ?= y
 CFG_STM32MP1_CPU_OPP ?= y
 CFG_STPMIC1 ?= y
-CFG_TZC400 ?= y
 CFG_SYSCFG ?= y
+CFG_TZC400 ?= y
 
 CFG_WITH_SOFTWARE_PRNG ?= n
 ifeq ($(CFG_WITH_SOFTWARE_PRNG),y)
@@ -249,7 +250,7 @@ CFG_STM32MP_PANIC_ON_TZC_PERM_VIOLATION ?= y
 # SiP/OEM service for non-secure world
 CFG_STM32_LOWPOWER_SIP ?= $(CFG_PM)
 CFG_STM32_PWR_SIP ?= y
-CFG_STM32MP1_SCMI_SIP ?= y
+CFG_STM32MP1_SCMI_SIP ?= n
 ifeq ($(CFG_STM32MP1_SCMI_SIP),y)
 $(call force,CFG_SCMI_MSG_DRIVERS,y,Mandated by CFG_STM32MP1_SCMI_SIP)
 $(call force,CFG_SCMI_MSG_SMT_FASTCALL_ENTRY,y,Mandated by CFG_STM32MP1_SCMI_SIP)
