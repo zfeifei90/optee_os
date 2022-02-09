@@ -303,7 +303,6 @@
 
 &rtc {
 	status = "okay";
-	secure-status = "okay";
 };
 
 &uart4 {
