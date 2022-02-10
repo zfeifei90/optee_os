@@ -51,7 +51,7 @@ static struct rdev *regulator_get_by_phandle(int32_t phandle)
 		if (rdev->phandle == phandle)
 			return rdev;
 
-	EMSG("phandle %"PRId32" not found", phandle);
+	DMSG("phandle %"PRId32" not found", phandle);
 	return NULL;
 }
 
