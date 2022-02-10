@@ -463,18 +463,6 @@ static __unused struct stm32_pinctrl_list
 	return list;
 }
 
-int stm32_gpio_get_count(unsigned int bank_id)
-{
-	struct stm32_gpio_bank *bank = stm32_gpio_get_bank(bank_id);
-
-	if (!bank) {
-		EMSG("Error: can not find GPIO bank %c", bank_id + 'A');
-		return -1;
-	}
-
-	return bank->ngpios;
-}
-
 /*  Informative unused helper function */
 static __unused void free_banks(void)
 {

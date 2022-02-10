@@ -156,12 +156,4 @@ static inline void stm32_gpio_set_secure_cfg(unsigned int bank __unused,
 	assert(0);
 }
 #endif
-
-/*
- * Get the number of GPIO pins supported by a target GPIO bank
- *
- * @bank:	GPIO bank identifier
- */
-int stm32_gpio_get_count(unsigned int bank);
-
 #endif /*__STM32_GPIO_H*/
