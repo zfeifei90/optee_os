@@ -706,6 +706,10 @@ TEE_Result stm32_i2c_get_setup_from_fdt(const void *fdt, int node,
 	if (res)
 		return res;
 
+	res = stm32_pinctrl_dt_get_by_index(fdt, node, 0, pinctrl);
+	if (res)
+		return res;
+
 	cuint = fdt_getprop(fdt, node, "i2c-scl-rising-time-ns", NULL);
 	if (cuint)
 		init->rise_time = fdt32_to_cpu(*cuint);
@@ -731,9 +735,6 @@ TEE_Result stm32_i2c_get_setup_from_fdt(const void *fdt, int node,
 		init->bus_rate = I2C_STANDARD_RATE;
 	}
 
-	*pinctrl = stm32_pinctrl_fdt_get_pinctrl(fdt, node);
-	if (!*pinctrl)
-		panic();
 
 	return TEE_SUCCESS;
 }
@@ -1561,8 +1562,6 @@ static TEE_Result stm32_i2c_probe(const void *fdt, int node,
 	i2c_handle_p = calloc(1, sizeof(struct i2c_handle_s));
 	if (!i2c_handle_p)
 		return TEE_ERROR_OUT_OF_MEMORY;
-
-	stm32_pinctrl_load_config(pinctrl_l);
 
 	i2c_handle_p->dt_status = i2c_pdata.dt_status;
 	i2c_handle_p->reg_size = i2c_pdata.reg_size;

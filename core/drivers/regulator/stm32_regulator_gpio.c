@@ -131,8 +131,6 @@ static TEE_Result gpio_regulator_probe(const void *fdt, int node,
 	if (len > 1)
 		panic("Too many PINCTRLs found");
 
-	stm32_pinctrl_load_config(gr->pinctrl);
-
 	cuint = fdt_getprop(fdt, node, "low-level-microvolt", NULL);
 	if (cuint)
 		gr->gpio_low_mv = (uint16_t)(fdt32_to_cpu(*cuint) / 1000U);
