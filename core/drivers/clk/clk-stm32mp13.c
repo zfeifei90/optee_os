@@ -855,6 +855,7 @@ enum stm32_pll_id {
 enum stm32mp1_plltype {
 	PLL_800,
 	PLL_1600,
+	PLL_2000,
 	PLL_TYPE_NB
 };
 
@@ -886,6 +887,10 @@ static const struct stm32mp1_pll stm32mp1_pll[PLL_TYPE_NB] = {
 		.refclk_min = 8,
 		.refclk_max = 16,
 	},
+	[PLL_2000] = {
+		.refclk_min = 8,
+		.refclk_max = 16,
+	},
 };
 
 #define CLK_PLL_CFG(_idx, _type, _gate_id, _mux_id, _reg)\
@@ -897,7 +902,7 @@ static const struct stm32mp1_pll stm32mp1_pll[PLL_TYPE_NB] = {
 	}
 
 static const struct stm32_clk_pll stm32_mp13_clk_pll[PLL_NB] = {
-	CLK_PLL_CFG(PLL1_ID, PLL_1600, GATE_PLL1, MUX_PLL12, RCC_PLL1CR),
+	CLK_PLL_CFG(PLL1_ID, PLL_2000, GATE_PLL1, MUX_PLL12, RCC_PLL1CR),
 	CLK_PLL_CFG(PLL2_ID, PLL_1600, GATE_PLL2, MUX_PLL12, RCC_PLL2CR),
 	CLK_PLL_CFG(PLL3_ID, PLL_800, GATE_PLL3, MUX_PLL3, RCC_PLL3CR),
 	CLK_PLL_CFG(PLL4_ID, PLL_800, GATE_PLL4, MUX_PLL4, RCC_PLL4CR),
