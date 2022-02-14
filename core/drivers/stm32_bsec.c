@@ -447,6 +447,10 @@ TEE_Result stm32_bsec_permanent_lock_otp(uint32_t otp_id)
 	else
 		result = check_no_error(otp_id, false /* not-disturbed */);
 
+#ifdef CFG_STM32MP13
+	io_write32(base + BSEC_OTP_CTRL_OFF, addr | BSEC_READ | BSEC_LOCK);
+#endif
+
 	power_down_safmem();
 
 out:
