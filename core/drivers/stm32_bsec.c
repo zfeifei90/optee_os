@@ -22,6 +22,13 @@
 #include <types_ext.h>
 #include <util.h>
 
+#ifdef CFG_STM32MP13
+#define DT_BSEC_COMPAT "st,stm32mp13-bsec"
+#endif
+#ifdef CFG_STM32MP15
+#define DT_BSEC_COMPAT "st,stm32mp15-bsec"
+#endif
+
 #define BSEC_OTP_MASK			GENMASK_32(4, 0)
 #define BSEC_OTP_BANK_SHIFT		U(5)
 
@@ -876,7 +883,7 @@ static void initialize_bsec_from_dt(void)
 	struct dt_node_info bsec_info = { };
 
 	fdt = get_embedded_dt();
-	node = fdt_node_offset_by_compatible(fdt, 0, "st,stm32mp15-bsec");
+	node = fdt_node_offset_by_compatible(fdt, 0, DT_BSEC_COMPAT);
 	if (node < 0)
 		panic();
 
