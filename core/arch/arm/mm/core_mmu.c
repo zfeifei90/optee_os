@@ -8,6 +8,7 @@
 #include <assert.h>
 #include <bitstring.h>
 #include <config.h>
+#include <display.h>
 #include <kernel/boot.h>
 #include <kernel/cache_helpers.h>
 #include <kernel/linker.h>
@@ -352,6 +353,20 @@ static void check_phys_mem_is_outside(struct core_mmu_phys_mem *start,
 	}
 }
 
+#ifdef CFG_WITH_TUI
+static void carve_out_tui_framebuffer(struct core_mmu_phys_mem **mem,
+				      size_t *nelems)
+{
+	paddr_t fb_pa = 0;
+	size_t fb_sz = 0;
+
+	if (display_get_fb_addr_from_dtb(&fb_pa, &fb_sz) != TEE_SUCCESS)
+		panic();
+
+	carve_out_phys_mem(mem, nelems, fb_pa, fb_sz);
+}
+#endif
+
 static const struct core_mmu_phys_mem *discovered_nsec_ddr_start __nex_bss;
 static size_t discovered_nsec_ddr_nelems __nex_bss;
 
@@ -395,7 +410,9 @@ void core_mmu_set_discovered_nsec_ddr(struct core_mmu_phys_mem *start,
 
 	carve_out_phys_mem(&m, &num_elems, TEE_RAM_START, TEE_RAM_PH_SIZE);
 	carve_out_phys_mem(&m, &num_elems, TA_RAM_START, TA_RAM_SIZE);
-
+#ifdef CFG_WITH_TUI
+	carve_out_tui_framebuffer(&m, &num_elems);
+#endif
 	for (map = static_memory_map; !core_mmap_is_end_of_table(map); map++) {
 		switch (map->type) {
 		case MEM_AREA_NSEC_SHM:
