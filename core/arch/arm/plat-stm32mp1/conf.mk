@@ -97,6 +97,7 @@ $(call force,CFG_TZSRAM_SIZE,0x0001f000)
 $(call force,CFG_WITH_NSEC_GPIOS,n)
 CFG_NUM_THREADS ?= 5
 CFG_WITH_PAGER ?= n
+CFG_WITH_TUI ?= y
 else # Assume CFG_STM32MP15
 $(call force,CFG_BOOT_SECONDARY_REQUEST,y)
 $(call force,CFG_DDR_LOWPOWER,y)
@@ -119,6 +120,16 @@ CFG_STM32MP1_CPU_OPP ?= n
 CFG_TEE_CORE_NB_CORE ?= 2
 CFG_WITH_PAGER ?= y
 endif # CFG_STM32MPx
+
+# Trusted User Interface
+ifeq ($(CFG_WITH_TUI),y)
+$(call force,CFG_DISPLAY,y,Mandated by CFG_WITH_TUI)
+$(call force,CFG_FRAME_BUFFER,y,Mandated by CFG_WITH_TUI)
+$(call force,CFG_STM32_LTDC,y,Mandated by CFG_WITH_TUI)
+# Provision virtual space to fit 10MByte plus the TUI frame buffer
+CFG_TUI_FRAME_BUFFER_SIZE_MAX ?= 0x01000000
+CFG_RESERVED_VASPACE_SIZE ?= (10 * 1024 * 1024 + $(CFG_TUI_FRAME_BUFFER_SIZE_MAX))
+endif
 
 ifneq ($(filter $(CFG_EMBED_DTB_SOURCE_FILE),$(flavorlist-512M)),)
 CFG_DRAM_SIZE    ?= 0x20000000
