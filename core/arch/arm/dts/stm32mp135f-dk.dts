@@ -325,6 +325,12 @@
 	};
 };
 
+&ltdc {
+	pinctrl-names = "default";
+	pinctrl-0 = <&ltdc_pins_a>;
+	status = "okay";
+};
+
 &nvmem_layout {
 	nvmem-cells = <&cfg0_otp>,
 		      <&part_number_otp>,
