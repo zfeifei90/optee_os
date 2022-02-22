@@ -8,8 +8,8 @@
 
 /* SCMI voltage domain identifiers */
 
-#define VOLTD_SCMI0_REG11		0
-#define VOLTD_SCMI0_REG18		1
-#define VOLTD_SCMI0_USB33		2
+#define VOLTD_SCMI_REG11		0
+#define VOLTD_SCMI_REG18		1
+#define VOLTD_SCMI_USB33		2
 
 #endif /*__DT_BINDINGS_REGULATOR_ST_STM32MP15_REGULATOR_H */

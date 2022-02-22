@@ -94,7 +94,7 @@
 #define ETH2MAC_R	14238
 
 /* SCMI reset domain identifiers */
-#define RST_SCMI0_LTDC		0
-#define RST_SCMI0_MDMA		1
+#define RST_SCMI_LTDC		0
+#define RST_SCMI_MDMA		1
 
 #endif /* _DT_BINDINGS_STM32MP13_RESET_H_ */
