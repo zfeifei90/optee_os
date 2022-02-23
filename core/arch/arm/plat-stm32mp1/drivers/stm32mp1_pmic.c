@@ -13,9 +13,9 @@
 #include <drivers/stpmic1.h>
 #include <io.h>
 #include <keep.h>
+#include <kernel/boot.h>
 #include <kernel/delay.h>
 #include <kernel/dt.h>
-#include <kernel/boot.h>
 #include <kernel/panic.h>
 #include <kernel/pm.h>
 #include <kernel/thread.h>
@@ -37,7 +37,7 @@
 #define PMIC_REGU_COUNT			14
 
 /* Expect a single PMIC instance */
-static struct i2c_handle_s i2c_handle;
+static struct i2c_handle_s *i2c_pmic_handle;
 static uint32_t pmic_i2c_addr;
 
 /* CPU voltage supplier if found */
@@ -48,7 +48,7 @@ static struct mutex pmic_mu = MUTEX_INITIALIZER;
 
 static TEE_Result register_pmic_regulator(const char *regu_name, int node);
 
-static int dt_get_pmic_node(void *fdt)
+static int dt_get_pmic_node(const void *fdt)
 {
 	static int node = -FDT_ERR_BADOFFSET;
 
@@ -59,25 +59,6 @@ static int dt_get_pmic_node(void *fdt)
 }
 
 static int pmic_status = -1;
-
-static unsigned int pmic_dt_status(void)
-{
-	unsigned int __maybe_unused mask = DT_STATUS_OK_NSEC | DT_STATUS_OK_SEC;
-
-	if (pmic_status < 0) {
-		int status = DT_STATUS_DISABLED;
-		void *fdt = get_embedded_dt();
-		int node = dt_get_pmic_node(fdt);
-
-		if (node >= 0)
-			status = _fdt_get_status(fdt, node);
-
-		assert(status >= 0 && !((unsigned int)status & !mask));
-		pmic_status = status;
-	}
-
-	return (unsigned int)pmic_status;
-}
 
 static bool pmic_is_secure(void)
 {
@@ -211,103 +192,35 @@ static void parse_regulator_fdt_nodes(void)
 }
 
 /*
- * Get PMIC and its I2C bus configuration from the device tree.
- * Return 0 on success, 1 if no PMIC node found and a negative value otherwise
- */
-static int dt_pmic_i2c_config(struct dt_node_info *i2c_info,
-			      struct stm32_pinctrl_list **pinctrl,
-			      struct stm32_i2c_init_s *init)
-{
-	int pmic_node = 0;
-	int i2c_node = 0;
-	void *fdt = NULL;
-	const fdt32_t *cuint = NULL;
-
-	fdt = get_embedded_dt();
-	if (!fdt)
-		return -FDT_ERR_NOTFOUND;
-
-	pmic_node = dt_get_pmic_node(fdt);
-	if (pmic_node < 0)
-		return 1;
-
-	cuint = fdt_getprop(fdt, pmic_node, "reg", NULL);
-	if (!cuint)
-		return -FDT_ERR_NOTFOUND;
-
-	pmic_i2c_addr = fdt32_to_cpu(*cuint) << 1;
-	if (pmic_i2c_addr > UINT16_MAX)
-		return -FDT_ERR_BADVALUE;
-
-	i2c_node = fdt_parent_offset(fdt, pmic_node);
-	if (i2c_node < 0)
-		return -FDT_ERR_NOTFOUND;
-
-	_fdt_fill_device_info(fdt, i2c_info, i2c_node);
-	if (!i2c_info->reg)
-		return -FDT_ERR_NOTFOUND;
-
-	if (stm32_i2c_get_setup_from_fdt(fdt, i2c_node, init, pinctrl))
-		panic();
-
-	return 0;
-}
-
-/*
  * PMIC and resource initialization
  */
 
 /* Return true if PMIC is available, false if not found, panics on errors */
-static bool initialize_pmic_i2c(void)
+static bool initialize_pmic_i2c(const void *fdt, int pmic_node)
 {
-	int ret = 0;
-	struct dt_node_info i2c_info = { };
-	struct i2c_handle_s *i2c = &i2c_handle;
-	struct stm32_pinctrl_list *pinctrl = NULL;
-	struct stm32_i2c_init_s i2c_init = { };
 
-	ret = dt_pmic_i2c_config(&i2c_info, &pinctrl, &i2c_init);
-	if (ret < 0) {
-		EMSG("I2C configuration failed %d", ret);
-		panic();
-	}
-	if (ret)
-		return false;
+	const fdt32_t *cuint = NULL;
 
-	/* Initialize PMIC I2C */
-	i2c->base.pa = i2c_info.reg;
-	i2c->base.va = (vaddr_t)phys_to_virt(i2c->base.pa, MEM_AREA_IO_SEC, 1);
-	assert(i2c->base.va);
-	i2c->dt_status = i2c_info.status;
-	i2c->clock = i2c_init.clock;
-	i2c->i2c_state = I2C_STATE_RESET;
-	i2c_init.own_address1 = pmic_i2c_addr;
-	i2c_init.analog_filter = true;
-	i2c_init.digital_filter_coef = 0;
-
-	i2c->pinctrl = pinctrl;
-
-	if (i2c_handle.dt_status != pmic_dt_status())
-		panic("PMIC and its I2C bus must have the same enable state");
-
-	if (!i2c->clock)
-		panic();
-
-	/* 1st access to PMIC */
-	stm32mp_pm_get_pmic();
-
-	ret = stm32_i2c_init(i2c, &i2c_init);
-	if (ret) {
-		EMSG("I2C init 0x%" PRIxPA ": %d", i2c_info.reg, ret);
+	cuint = fdt_getprop(fdt, pmic_node, "reg", NULL);
+	if (!cuint) {
+		EMSG("PMIC configuration failed on reg property");
 		panic();
 	}
 
-	if (!stm32_i2c_is_device_ready(i2c, pmic_i2c_addr,
+	pmic_i2c_addr = fdt32_to_cpu(*cuint) << 1;
+	if (pmic_i2c_addr > UINT16_MAX) {
+		EMSG("PMIC configuration failed on i2c address translation");
+		panic();
+	}
+
+	stm32mp_get_pmic();
+
+	if (!stm32_i2c_is_device_ready(i2c_pmic_handle, pmic_i2c_addr,
 				       PMIC_I2C_TRIALS,
 				       PMIC_I2C_TIMEOUT_BUSY_MS))
 		panic();
 
-	stpmic1_bind_i2c(i2c, pmic_i2c_addr);
+	stpmic1_bind_i2c(i2c_pmic_handle, pmic_i2c_addr);
 
 	stm32mp_put_pmic();
 
@@ -530,9 +443,9 @@ static TEE_Result pmic_pm(enum pm_op op, uint32_t pm_hint __unused,
 			  const struct pm_callback_handle *pm_handle __unused)
 {
 	if (op == PM_OP_SUSPEND)
-		stm32_i2c_suspend(&i2c_handle);
+		stm32_i2c_suspend(i2c_pmic_handle);
 	else
-		stm32_i2c_resume(&i2c_handle);
+		stm32_i2c_resume(i2c_pmic_handle);
 
 	return TEE_SUCCESS;
 }
@@ -542,55 +455,59 @@ DECLARE_KEEP_PAGER(pmic_pm);
 void stm32mp_get_pmic(void)
 {
 	if (!pmic_is_secure()) {
-		stm32_i2c_resume(&i2c_handle);
-		stm32_pinctrl_load_config(i2c_handle.pinctrl);
+		stm32_i2c_resume(i2c_pmic_handle);
+		stm32_pinctrl_load_config(i2c_pmic_handle->pinctrl_list);
 	}
 }
 
 void stm32mp_put_pmic(void)
 {
 	if (!pmic_is_secure())
-		stm32_i2c_suspend(&i2c_handle);
+		stm32_i2c_suspend(i2c_pmic_handle);
 }
 
 /* stm32mp_pm_get/put_pmic enforces get/put PMIC accesses */
 void stm32mp_pm_get_pmic(void)
 {
-	stm32_i2c_resume(&i2c_handle);
+	stm32_i2c_resume(i2c_pmic_handle);
 }
 
 void stm32mp_pm_put_pmic(void)
 {
-	stm32_i2c_suspend(&i2c_handle);
+	stm32_i2c_suspend(i2c_pmic_handle);
 }
 
 static void register_non_secure_pmic(void)
 {
 	unsigned int __maybe_unused clock_id = 0;
+	struct stm32_pinctrl *pinctrl = NULL;
 
 	/* Allow this function to be called when STPMIC1 not used */
-	if (!i2c_handle.base.pa)
+	if (!i2c_pmic_handle->base.pa)
 		return;
 
-#ifdef CFG_STM32MP15
-	stm32mp_register_non_secure_pinctrl(i2c_handle.pinctrl);
-	stm32mp_register_non_secure_periph_iomem(i2c_handle.base.pa);
-	/*
-	 * Non secure PMIC can be used by secure world during power state
-	 * transition when non-secure world is suspended. Therefore secure
-	 * the I2C clock parents, if not specifically the I2C clock itself.
-	 */
-	clock_id = stm32mp_rcc_clk_to_clock_id(i2c_handle.clock);
-	stm32mp_register_clock_parents_secure(clock_id);
-#endif
+	STAILQ_FOREACH(pinctrl, i2c_pmic_handle->pinctrl_list, link)
+		stm32_gpio_set_secure_cfg(pinctrl->bank,
+					  pinctrl->pin,
+					  false);
+
+	if (IS_ENABLED(CFG_STM32MP15)) {
+		stm32mp_register_non_secure_periph_iomem(i2c_pmic_handle->base.pa);
+		/*
+		* Non secure PMIC can be used by secure world during power state
+		* transition when non-secure world is suspended. Therefore secure
+		* the I2C clock parents, if not specifically the I2C clock itself.
+		*/
+		clock_id = stm32mp_rcc_clk_to_clock_id(i2c_pmic_handle->clock);
+		stm32mp_register_clock_parents_secure(clock_id);
+	}
 }
 
-static TEE_Result initialize_pmic(void)
+static TEE_Result initialize_pmic(const void *fdt, int pmic_node)
 {
 	unsigned long pmic_version = 0;
 
-	if (pmic_dt_status() == DT_STATUS_DISABLED ||
-	    !initialize_pmic_i2c()) {
+	if (!initialize_pmic_i2c(fdt, pmic_node)) {
 		DMSG("No PMIC");
 		register_non_secure_pmic();
 		return TEE_SUCCESS;
@@ -605,7 +522,7 @@ static TEE_Result initialize_pmic(void)
 	stpmic1_dump_regulators();
 
 	if (stpmic1_powerctrl_on())
-		panic("Failed to enable pmic pwr control");
+		panic("Failed to enable PMIC pwr control");
 
 	if (!pmic_is_secure())
 		register_non_secure_pmic();
@@ -618,8 +535,37 @@ static TEE_Result initialize_pmic(void)
 
 	return TEE_SUCCESS;
 }
-service_init(initialize_pmic);
 
+static TEE_Result stm32_pmic_probe(const void *fdt, int node,
+				   const void *compat_data __unused)
+{
+	TEE_Result res = TEE_SUCCESS;
+
+	res = i2c_dt_get_by_subnode(fdt, node, &i2c_pmic_handle);
+	if (res)
+		return res;
+
+	res = initialize_pmic(fdt, node);
+	if (res) {
+		EMSG("Error during PMIC init: %#"PRIx32, res);
+		panic();
+	}
+
+	return res;
+}
+
+static const struct dt_device_match stm32_pmic_match_table[] = {
+	{ .compatible = "st,stpmic1" },
+	{ }
+};
+
+DEFINE_DT_DRIVER(stm32_pmic_dt_driver) = {
+	.name = "st,stpmic1",
+	.match_table = stm32_pmic_match_table,
+	.probe = stm32_pmic_probe,
+};
+
+/* Stpmic1 IRQ handler */
 static enum itr_return stpmic1_irq_handler(struct itr_handler *handler __unused)
 {
 	uint8_t read_val = 0U;
@@ -657,7 +603,7 @@ static TEE_Result stpmic1_irq_probe(const void *fdt, int node,
 
 	FMSG("Init stpmic1 irq");
 
-	if (!pmic_i2c_addr)
+	if (!i2c_pmic_handle)
 		return TEE_ERROR_DEFER_DRIVER_INIT;
 
 	cuint = fdt_getprop(fdt, node, "st,wakeup-pin-number", NULL);
