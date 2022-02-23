@@ -706,13 +706,8 @@ static TEE_Result stm32_configure_tamp(void)
 {
 	TEE_Result res __maybe_unused = TEE_SUCCESS;
 	struct stm32_bkpregs_conf bkpregs_conf = {
-#ifdef CFG_STM32MP15
 		.nb_zone1_regs = 10, /* 10 registers in zone 1 */
-#endif
-#ifdef CFG_STM32MP13
-		.nb_zone1_regs = 0,  /* No register in zone 1 */
-#endif
-		.nb_zone2_regs = 0   /* No register in zone 2 */
+		.nb_zone2_regs = 5   /* 5 registers in zone 2 */
 				     /* Zone3 all remaining */
 	};
 
