@@ -316,9 +316,11 @@ ifeq ($(CFG_WITH_PAGER),y)
 CFG_TEE_CORE_DEBUG ?= n
 CFG_UNWIND ?= n
 CFG_LOCKDEP ?= n
-CFG_CORE_ASLR ?= n
 CFG_TA_BGET_TEST ?= n
 endif
+
+# Default disable ASLR
+CFG_CORE_ASLR ?= n
 
 # Non-secure UART for the output console
 CFG_WITH_NSEC_UARTS ?= y
