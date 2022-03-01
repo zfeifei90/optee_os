@@ -654,8 +654,13 @@ TEE_Result stm32_bsec_find_otp_in_nvmem_layout(const char *name,
 		if (otp_bit_len)
 			*otp_bit_len = nvmem_layout[i].bit_len;
 
+		DMSG("nvmem %s = %zu: %"PRId32" %zu", name, i,
+		     nvmem_layout[i].otp_id, nvmem_layout[i].bit_len);
+
 		return TEE_SUCCESS;
 	}
+
+	DMSG("nvmem %s failed", name);
 
 	return TEE_ERROR_ITEM_NOT_FOUND;
 }
