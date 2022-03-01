@@ -805,75 +805,66 @@ static void bsec_dt_otp_nsec_access(void *fdt, int bsec_node)
 	}
 }
 
-static void save_dt_nvmem_layout(void *fdt)
+static void save_dt_nvmem_layout(void *fdt, int bsec_node)
 {
-	const fdt32_t *cells = NULL;
-	int i = 0;
-	int cell_nb = 0;
-	int nvmem_node = 0;
+	int cell_max = 0;
+	int cell_cnt = 0;
+	int node = 0;
 
-	nvmem_node = fdt_node_offset_by_compatible(fdt, -1,
-						   "st,stm32-nvmem-layout");
-	if (nvmem_node < 0)
+	fdt_for_each_subnode(node, fdt, bsec_node)
+		cell_max++;
+	if (!cell_max)
 		return;
 
-	cells = fdt_getprop(fdt, nvmem_node, "nvmem-cells", &cell_nb);
-	if (!cells)
-		cell_nb = 0;
-
-	cell_nb /= sizeof(uint32_t);
-
-	i = fdt_stringlist_count(fdt, nvmem_node, "nvmem-cell-names");
-	if (i < 0)
-		i = 0;
-
-	if (cell_nb != i)
-		panic("Inconsistent NVMEM layout");
-
-	nvmem_layout = calloc(cell_nb, sizeof(*nvmem_layout));
+	nvmem_layout = calloc(cell_max, sizeof(*nvmem_layout));
 	if (!nvmem_layout)
 		panic();
 
-	nvmem_layout_count = (size_t)cell_nb;
-
-	for (i = 0; i < cell_nb; i++) {
+	fdt_for_each_subnode(node, fdt, bsec_node) {
 		const fdt32_t *cuint = NULL;
 		const char *string = NULL;
+		const char *s = NULL;
 		int len = 0;
-		int node = 0;
-		struct nvmem_layout *layout_cell = &nvmem_layout[i];
+		struct nvmem_layout *layout_cell = &nvmem_layout[cell_cnt];
 
-		node = fdt_node_offset_by_phandle(fdt,
-						  fdt32_to_cpu(*(cells + i)));
-		if (node < 0) {
-			IMSG("Malformed nvmem_layout node: ignored");
+		string = fdt_get_name(fdt, node, &len);
+		if (!string || !len)
 			continue;
-		}
 
 		cuint = fdt_getprop(fdt, node, "reg", &len);
 		if (!cuint || (len != (2 * (int)sizeof(uint32_t))))  {
-			IMSG("Malformed nvmem_layout node: ignored");
+			IMSG("Malformed nvmem %s: ignored", string);
 			continue;
 		}
 
 		if (fdt32_to_cpu(*cuint) % sizeof(uint32_t)) {
-			IMSG("Misaligned nvmem_layout element: ignored");
+			DMSG("Misaligned nvmem %s: ignored", string);
 			continue;
 		}
 		layout_cell->otp_id = fdt32_to_cpu(*cuint) / sizeof(uint32_t);
 		layout_cell->bit_len = fdt32_to_cpu(*(cuint + 1)) * CHAR_BIT;
 
-		string = fdt_stringlist_get(fdt, nvmem_node, "nvmem-cell-names",
-					    i, &len);
-		if (!string || !len)
-			continue;
+		s = strchr(string, '@');
+		if (s)
+			len = s - string;
 
 		layout_cell->name = calloc(1, len + 1);
 		if (!layout_cell->name)
 			panic();
 
 		memcpy(layout_cell->name, string, len);
+		cell_cnt++;
+		DMSG("nvmem[%d] = %s %"PRId32" %zu", cell_cnt,
+		     layout_cell->name, layout_cell->otp_id, layout_cell->bit_len);
 	}
+
+	if (cell_cnt != cell_max) {
+		nvmem_layout = realloc(nvmem_layout, cell_cnt * sizeof(*nvmem_layout));
+		if (!nvmem_layout)
+			panic();
+	}
+
+	nvmem_layout_count = cell_cnt;
 }
 
 static void initialize_bsec_from_dt(void)
@@ -895,7 +886,7 @@ static void initialize_bsec_from_dt(void)
 
 	bsec_dt_otp_nsec_access(fdt, node);
 
-	save_dt_nvmem_layout(fdt);
+	save_dt_nvmem_layout(fdt, node);
 }
 #else
 static void initialize_bsec_from_dt(void)
