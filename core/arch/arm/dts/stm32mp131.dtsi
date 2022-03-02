@@ -32,28 +32,6 @@
 		compatible = "operating-points-v2";
 	};
 
-	nvmem_layout: nvmem_layout@0 {
-		compatible = "st,stm32-nvmem-layout";
-
-		nvmem-cells = <&cfg0_otp>,
-			      <&part_number_otp>,
-			      <&monotonic_otp>,
-			      <&nand_otp>,
-			      <&uid_otp>,
-			      <&hw2_otp>,
-			      <&pkh_otp>,
-			      <&oem_enc_key>;
-
-		nvmem-cell-names = "cfg0_otp",
-				   "part_number_otp",
-				   "monotonic_otp",
-				   "nand_otp",
-				   "uid_otp",
-				   "hw2_otp",
-				   "pkh_otp",
-				   "oem_enc_key";
-	};
-
 	intc: interrupt-controller@a0021000 {
 		compatible = "arm,cortex-a7-gic";
 		#interrupt-cells = <3>;

@@ -345,28 +345,6 @@
 	status = "okay";
 };
 
-&nvmem_layout {
-	nvmem-cells = <&cfg0_otp>,
-		      <&part_number_otp>,
-		      <&monotonic_otp>,
-		      <&nand_otp>,
-		      <&uid_otp>,
-		      <&hw2_otp>,
-		      <&pkh_otp>,
-		      <&board_id>,
-		      <&oem_enc_key>;
-
-	nvmem-cell-names = "cfg0_otp",
-			   "part_number_otp",
-			   "monotonic_otp",
-			   "nand_otp",
-			   "uid_otp",
-			   "hw2_otp",
-			   "pkh_otp",
-			   "board_id",
-			   "oem_enc_key";
-};
-
 &oem_enc_key {
 	st,non-secure-otp-provisioning;
 };
