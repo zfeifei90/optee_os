@@ -43,6 +43,9 @@ struct gic_data {
 #endif
 };
 
+/* Disable interrupts and make them non-pending */
+void gic_setup_clear_it(struct gic_data *gd);
+
 /*
  * The two gic_init_* functions initializes the struct gic_data which is
  * then used by the other functions.
