@@ -1355,13 +1355,6 @@ static int stm32_clk_pll_configure(struct clk_stm32_priv *priv)
 	return 0;
 }
 
-static void stm32_clk_load_mco_pins(struct clk_stm32_priv *priv)
-{
-	struct stm32_clk_platdata *pdata = priv->pdata;
-
-	stm32_pinctrl_load_config(pdata->pinctrl_cfg);
-}
-
 static int stm32mp1_init_clock_tree(struct clk_stm32_priv *priv,
 				    struct stm32_clk_platdata *pdata)
 {
@@ -3428,16 +3421,9 @@ CLK_DT_DECLARE(stm32mp13_clk, "st,stm32mp13-rcc", stm32mp13_clk_probe);
 static TEE_Result stm32mp13_rcc_mco_probe(const void *fdt, int node,
 					  const void *compat_data __unused)
 {
-	TEE_Result res = TEE_ERROR_GENERIC;
 	struct stm32_clk_platdata *pdata = &stm32mp13_clock_pdata;
 
-	res = stm32_clk_parse_fdt_mco_pins(fdt, node, pdata);
-	if (res)
-		return res;
-
-	stm32_clk_load_mco_pins(clk_stm32_get_priv());
-
-	return TEE_SUCCESS;
+	return stm32_clk_parse_fdt_mco_pins(fdt, node, pdata);
 }
 
 static const struct dt_device_match stm32mp13_rcc_mco_match_table[] = {

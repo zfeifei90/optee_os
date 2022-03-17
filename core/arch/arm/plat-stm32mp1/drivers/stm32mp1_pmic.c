@@ -469,10 +469,8 @@ DECLARE_KEEP_PAGER(pmic_pm);
 /* stm32mp_get/put_pmic allows secure atomic sequences to use non secure PMIC */
 void stm32mp_get_pmic(void)
 {
-	if (!pmic_is_secure()) {
+	if (!pmic_is_secure())
 		stm32_i2c_resume(i2c_pmic_handle);
-		stm32_pinctrl_load_config(i2c_pmic_handle->pinctrl_list);
-	}
 }
 
 void stm32mp_put_pmic(void)

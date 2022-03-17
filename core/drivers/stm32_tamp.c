@@ -1056,9 +1056,6 @@ TEE_Result stm32_tamp_configure_pin_from_dt(const void *fdt, int node,
 
 	stm32_tamp_configure_pin(id, pinctrl[0], false, pdata);
 
-	/* Configure pinctrl (without effect, but keep coherency) */
-	stm32_pinctrl_load_config(pinctrl_list);
-
 	return TEE_SUCCESS;
 }
 
