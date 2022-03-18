@@ -630,6 +630,7 @@ void stm32mp_dump_core_registers(bool force_display)
 		MSG("%10s : 0x%08x\n", dump_table[i], reg[i]);
 }
 DECLARE_KEEP_PAGER(stm32mp_dump_core_registers);
+#endif
 
 static TEE_Result init_debug(void)
 {
@@ -643,10 +644,14 @@ static TEE_Result init_debug(void)
 		return res;
 
 	if (state != BSEC_STATE_SEC_CLOSED && conf) {
+#ifdef CFG_TEE_CORE_DEBUG
 		if (IS_ENABLED(CFG_WARN_INSECURE))
 			IMSG("WARNING: All debug access are allowed");
 
 		res = stm32_bsec_write_debug_conf(conf | BSEC_DEBUG_ALL);
+#else
+		res = stm32_bsec_write_debug_conf(conf | BSEC_DBGSWGEN);
+#endif
 
 		/* Enable DBG as used to access coprocessor debug registers */
 		clk_enable(dbg_clk);
@@ -655,7 +660,6 @@ static TEE_Result init_debug(void)
 	return res;
 }
 early_init_late(init_debug);
-#endif
 
 #ifdef CFG_STM32_TAMP
 
