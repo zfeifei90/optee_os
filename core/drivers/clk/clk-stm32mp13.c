@@ -3381,7 +3381,6 @@ static struct clk_stm32_priv stm32mp13_clock_data = {
 static TEE_Result stm32mp13_clk_probe(const void *fdt, int node,
 				      const void *compat_data __unused)
 {
-	TEE_Result res = TEE_ERROR_GENERIC;
 	int fdt_rc = 0;
 	int rc = 0;
 	struct clk_stm32_priv *priv = &stm32mp13_clock_data;
@@ -3389,7 +3388,7 @@ static TEE_Result stm32mp13_clk_probe(const void *fdt, int node,
 
 	fdt_rc = stm32_clk_parse_fdt(fdt, node, pdata);
 	if (fdt_rc) {
-		EMSG("Failed to parse clock node: %#"PRIx32, res);
+		EMSG("Failed to parse clock FDT node: %d", fdt_rc);
 		return TEE_ERROR_GENERIC;
 	}
 
