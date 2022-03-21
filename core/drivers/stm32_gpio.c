@@ -223,7 +223,8 @@ static void set_gpio_cfg(uint32_t bank_id, uint32_t pin, struct gpio_cfg *cfg)
 			cfg->ospeed << (pin << 1));
 
 	/* Load GPIO pull configuration, 2bit value */
-	io_clrsetbits32(bank->base + GPIO_PUPDR_OFFSET, BIT(pin),
+	io_clrsetbits32(bank->base + GPIO_PUPDR_OFFSET,
+			GPIO_PUPD_PULL_MASK << (pin << 1),
 			cfg->pupd << (pin << 1));
 
 	/* Load pin mux Alternate Function configuration, 4bit value */
