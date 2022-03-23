@@ -137,23 +137,35 @@ const struct gpio_ops *stm32_gpio_get_ops(void);
  * @bank: GPIO bank identifier as assigned by the platform
  * @pin: Pin number in the GPIO bank
  * @secure: True if pin is secure, false otherwise
+ *
+ * Return a TEE_Resutl compliant code
  */
-void stm32_gpio_set_secure_cfg(unsigned int bank, unsigned int pin,
-			       bool secure);
+TEE_Result stm32_gpio_set_secure_cfg(unsigned int bank, unsigned int pin,
+				     bool secure);
 
 /*
  * Configure pin muxing access permission: can be secure or not
  *
  * @list: Pinctrl list reference
  * @secure: True if referenced pins are secure, false otherwise
+ *
+ * Return a TEE_Resutl compliant code
  */
-void stm32_pinctrl_set_secure_cfg(struct stm32_pinctrl_list *list, bool secure);
+TEE_Result stm32_pinctrl_set_secure_cfg(struct stm32_pinctrl_list *list,
+					bool secure);
 #else
-static inline void stm32_gpio_set_secure_cfg(unsigned int bank __unused,
-					     unsigned int pin __unused,
-					     bool secure __unused)
+static inline TEE_Result stm32_gpio_set_secure_cfg(unsigned int bank __unused,
+						   unsigned int pin __unused,
+						   bool secure __unused)
 {
-	assert(0);
+	return TEE_ERROR_NOT_SUPPORTED;
+}
+
+static inline
+TEE_Result stm32_pinctrl_set_secure_cfg(struct stm32_pinctrl_list *l __unused,
+					bool secure __unused)
+{
+	return TEE_ERROR_NOT_SUPPORTED;
 }
 #endif
 #endif /*__STM32_GPIO_H*/

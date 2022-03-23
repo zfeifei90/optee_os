@@ -246,21 +246,21 @@ static void set_gpio_cfg(uint32_t bank_id, uint32_t pin, struct gpio_cfg *cfg)
 	cpu_spin_unlock_xrestore(&bank->lock, exceptions);
 }
 
-static int stm32_pinctrl_backup(struct stm32_pinctrl *pinctrl)
+static TEE_Result stm32_pinctrl_backup(struct stm32_pinctrl *pinctrl)
 {
 	struct stm32_pinctrl_backup *backup = NULL;
 	struct stm32_gpio_bank *bank = stm32_gpio_get_bank(pinctrl->bank);
 
 	if (!bank) {
 		EMSG("Error: can not find GPIO bank %c", pinctrl->bank + 'A');
-		return -1;
+		return TEE_ERROR_GENERIC;
 	}
 
 	backup = calloc(1, sizeof(*backup));
 	if (!backup) {
 		EMSG("Error: can't backup pinctrl of %c%d", pinctrl->bank + 'A',
 		     pinctrl->pin);
-		return -1;
+		return TEE_ERROR_OUT_OF_MEMORY;
 	}
 
 	backup->pinctrl.bank = pinctrl->bank;
@@ -268,7 +268,8 @@ static int stm32_pinctrl_backup(struct stm32_pinctrl *pinctrl)
 	backup->pinctrl.config = pinctrl->config;
 
 	STAILQ_INSERT_TAIL(&bank->backups, backup, link);
-	return 0;
+
+	return TEE_SUCCESS;
 }
 
 void stm32_pinctrl_load_config(struct stm32_pinctrl_list *list)
@@ -279,8 +280,8 @@ void stm32_pinctrl_load_config(struct stm32_pinctrl_list *list)
 		set_gpio_cfg(p->bank, p->pin, &p->config);
 }
 
-void stm32_gpio_set_secure_cfg(unsigned int bank_id, unsigned int pin,
-			       bool secure)
+TEE_Result stm32_gpio_set_secure_cfg(unsigned int bank_id, unsigned int pin,
+				     bool secure)
 {
 	struct stm32_gpio_bank *bank = NULL;
 	uint32_t exceptions = 0;
@@ -296,14 +297,23 @@ void stm32_gpio_set_secure_cfg(unsigned int bank_id, unsigned int pin,
 		io_clrbits32(bank->base + GPIO_SECR_OFFSET, BIT(pin));
 
 	cpu_spin_unlock_xrestore(&bank->lock, exceptions);
+
+	return TEE_SUCCESS;
 }
 
-void stm32_pinctrl_set_secure_cfg(struct stm32_pinctrl_list *list, bool secure)
+TEE_Result stm32_pinctrl_set_secure_cfg(struct stm32_pinctrl_list *list,
+					bool secure)
 {
+	TEE_Result res = TEE_ERROR_GENERIC;
 	struct stm32_pinctrl *p = NULL;
 
-	STAILQ_FOREACH(p, list, link)
-		stm32_gpio_set_secure_cfg(p->bank, p->pin, secure);
+	STAILQ_FOREACH(p, list, link) {
+		res = stm32_gpio_set_secure_cfg(p->bank, p->pin, secure);
+		if (res)
+			return res;
+	}
+
+	return TEE_SUCCESS;
 }
 
 /* Count pins described in the DT node and get related data if possible */

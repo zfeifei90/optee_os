@@ -495,16 +495,13 @@ void stm32mp_pm_put_pmic(void)
 static void register_non_secure_pmic(void)
 {
 	unsigned int __maybe_unused clock_id = 0;
-	struct stm32_pinctrl *pinctrl = NULL;
 
 	/* Allow this function to be called when STPMIC1 not used */
 	if (!i2c_pmic_handle->base.pa)
 		return;
 
-	STAILQ_FOREACH(pinctrl, i2c_pmic_handle->pinctrl_list, link)
-		stm32_gpio_set_secure_cfg(pinctrl->bank,
-					  pinctrl->pin,
-					  false);
+	if (stm32_pinctrl_set_secure_cfg(i2c_pmic_handle->pinctrl_list, false))
+		panic();
 
 	if (IS_ENABLED(CFG_STM32MP15)) {
 		stm32mp_register_non_secure_periph_iomem(i2c_pmic_handle->base.pa);
