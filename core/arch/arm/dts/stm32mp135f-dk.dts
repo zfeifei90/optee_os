@@ -320,6 +320,8 @@
 			v3v3_sw: pwr_sw2 {
 				regulator-name = "v3v3_sw";
 				regulator-active-discharge = <1>;
+				regulator-min-microvolt = <3300000>;
+				regulator-max-microvolt = <3300000>;
 			};
 		};
 	};
