@@ -89,6 +89,9 @@ static TEE_Result set_clock_then_voltage(unsigned int opp)
 	if (res) {
 		unsigned int current_opp = cpu_opp.current_opp;
 
+		if (current_opp == cpu_opp.opp_count)
+			panic();
+
 		if (clk_set_rate(cpu_opp.clock,
 				 cpu_opp.dvfs[current_opp].freq_khz * 1000UL))
 			EMSG("Failed to restore clock");
@@ -113,9 +116,14 @@ static TEE_Result set_voltage_then_clock(unsigned int opp)
 
 	if (clk_set_rate(cpu_opp.clock, cpu_opp.dvfs[opp].freq_khz * 1000UL)) {
 		unsigned int current_opp = cpu_opp.current_opp;
-		unsigned int previous_volt = cpu_opp.dvfs[current_opp].volt_mv;
+		unsigned int previous_volt = 0U;
 
 		EMSG("Failed to set clock");
+
+		if (current_opp == cpu_opp.opp_count)
+			panic();
+
+		previous_volt = cpu_opp.dvfs[current_opp].volt_mv;
 
 		opp_set_voltage(cpu_opp.rdev, previous_volt);
 
