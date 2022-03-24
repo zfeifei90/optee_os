@@ -60,7 +60,7 @@ TEE_Result regulator_set_voltage(struct rdev *rdev, uint16_t level_mv);
 TEE_Result regulator_set_min_voltage(struct rdev *rdev);
 TEE_Result regulator_get_voltage(const struct rdev *rdev, uint16_t *level_mv);
 
-TEE_Result regulator_list_voltages(const struct rdev *rdev, uint16_t **levels,
+TEE_Result regulator_list_voltages(struct rdev *rdev, uint16_t **levels,
 				   size_t *count);
 void regulator_get_range(const struct rdev *rdev, uint16_t *min_mv,
 			 uint16_t *max_mv);

@@ -377,7 +377,7 @@ TEE_Result regulator_get_voltage(const struct rdev *rdev, uint16_t *level_mv)
  * @levels - optional output ref to supported millitvolt levels from min to max
  * @count - output number of supported millivolt levels
  */
-TEE_Result regulator_list_voltages(const struct rdev *rdev, uint16_t **levels,
+TEE_Result regulator_list_voltages(struct rdev *rdev, uint16_t **levels,
 				   size_t *count)
 {
 	TEE_Result res = TEE_SUCCESS;
@@ -389,8 +389,8 @@ TEE_Result regulator_list_voltages(const struct rdev *rdev, uint16_t **levels,
 
 	if (!rdev->desc->ops->list_voltages) {
 		if (levels)
-			*levels = NULL;
-		*count = 0;
+			*levels = &rdev->min_mv;
+		*count = 1;
 		return TEE_SUCCESS;
 	}
 
