@@ -776,6 +776,9 @@ static void stm32_enable_oscillator_lse(struct clk_stm32_priv *priv,
 	if (osci->freq == 0U)
 		return;
 
+	if (clk_stm32_is_enabled_gate(osc_data->gate_id))
+		return;
+
 	clk_oscillator_set_bypass(priv, osc_data, osci->digbyp, osci->bypass);
 
 	clk_oscillator_set_drive(priv, osc_data,  osci->drive);
