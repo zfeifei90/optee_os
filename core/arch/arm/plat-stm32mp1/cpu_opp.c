@@ -35,6 +35,8 @@ struct cpu_opp cpu_opp;
 /* Mutex for protecting CPU OPP changes */
 static struct mutex cpu_opp_mu = MUTEX_INITIALIZER;
 
+#define MPU_RAM_LOW_SPEED_THRESHOLD 1250
+
 size_t stm32mp1_cpu_opp_count(void)
 {
 	return cpu_opp.opp_count;
@@ -82,7 +84,8 @@ static TEE_Result set_clock_then_voltage(unsigned int opp)
 	}
 
 #ifdef CFG_STM32MP13
-	io_setbits32(stm32_pwr_base(), PWR_CR1_MPU_RAM_LOW_SPEED);
+	if (cpu_opp.dvfs[opp].volt_mv <= MPU_RAM_LOW_SPEED_THRESHOLD)
+		io_setbits32(stm32_pwr_base(), PWR_CR1_MPU_RAM_LOW_SPEED);
 #endif
 
 	res = opp_set_voltage(cpu_opp.rdev, cpu_opp.dvfs[opp].volt_mv);
@@ -111,7 +114,8 @@ static TEE_Result set_voltage_then_clock(unsigned int opp)
 		return res;
 
 #ifdef CFG_STM32MP13
-	io_clrbits32(stm32_pwr_base(), PWR_CR1_MPU_RAM_LOW_SPEED);
+	if (cpu_opp.dvfs[opp].volt_mv > MPU_RAM_LOW_SPEED_THRESHOLD)
+		io_clrbits32(stm32_pwr_base(), PWR_CR1_MPU_RAM_LOW_SPEED);
 #endif
 
 	if (clk_set_rate(cpu_opp.clock, cpu_opp.dvfs[opp].freq_khz * 1000UL)) {
