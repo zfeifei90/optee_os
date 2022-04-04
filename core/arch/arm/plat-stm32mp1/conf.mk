@@ -149,7 +149,6 @@ CFG_SHMEM_START  ?= ($(CFG_TZDRAM_START) - $(CFG_SHMEM_SIZE))
 CFG_WITH_LPAE ?= y
 CFG_MMAP_REGIONS ?= 30
 CFG_DTB_MAX_SIZE ?= (256 * 1024)
-CFG_CORE_HEAP_SIZE ?= 49152
 
 # Default disable RPC command shared memory allocation caching due to
 # side effect on TEE session release by the Linux tee & optee drivers.
@@ -317,6 +316,7 @@ CFG_TEE_CORE_DEBUG ?= n
 CFG_UNWIND ?= n
 CFG_LOCKDEP ?= n
 CFG_TA_BGET_TEST ?= n
+CFG_CORE_HEAP_SIZE ?= 49152
 endif
 
 # Default disable ASLR
