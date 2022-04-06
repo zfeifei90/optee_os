@@ -26,6 +26,21 @@ properties:
   clock-output-names:
     maxItems: 1
 
+  st,bypass:
+    description: configures the oscillator bypass mode (HSEBYP, LSEBYP)
+    type: boolean
+  st,digbypass:
+    description: configures the bypass mode as full-swing digital signal (DIGBYP)
+    type: boolean
+  st,css:
+    description: activates the clock security system (HSECSSON, LSECSSON)
+    type: boolean
+  st,drive:
+    description: |
+      only for LSE, contains the value of the drive for the oscillator
+      (see LSEDRV_ defined in the file dt-bindings/clock/stm32mp13-clksrc.h)
+    $ref: "/schemas/types.yaml#/definitions/uint32"
+
 required:
   - compatible
   - "#clock-cells"
@@ -35,10 +50,38 @@ additionalProperties: false
 
 examples:
   - |
+    #include <dt-bindings/clock/stm32mp13-clksrc.h>
     clock {
       compatible = "fixed-clock";
       #clock-cells = <0>;
       clock-frequency = <1000000000>;
       clock-accuracy = <100>;
+    };
+
+    // STM32MP13 examples
+    clk-hse {
+            #clock-cells = <0>;
+            compatible = "fixed-clock";
+            clock-frequency = <24000000>;
+            st,bypass;
+    };
+
+    clk-lse {
+            #clock-cells = <0>;
+            compatible = "fixed-clock";
+            clock-frequency = <32768>;
+            st,css;
+            st,drive = <LSEDRV_LOWEST>;
+    };
+
+    //Example with HSIDIV = /1
+    //clk-hsi is the clock after HSIDIV (clk_hsi in RCC doc).
+    //So this clock frequency is used to compute the expected HSI_DIV
+    //for the clock tree initialization.
+
+    clk-hsi {
+        #clock-cells = <0>;
+        compatible = "fixed-clock";
+        clock-frequency = <64000000>;
     };
 ...
