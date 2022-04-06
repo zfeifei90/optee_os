@@ -65,18 +65,12 @@ static bool pmic_is_secure(void)
 {
 	assert(pmic_status != -1);
 
-	if (IS_ENABLED(CFG_STM32MP13))
-		return pmic_status & DT_STATUS_OK_SEC;
-	else
-		return pmic_status == DT_STATUS_OK_SEC;
+	return pmic_status == DT_STATUS_OK_SEC;
 }
 
 bool stm32mp_with_pmic(void)
 {
-	if (pmic_status == -1)
-		return false;
-
-	return pmic_status & (DT_STATUS_OK_SEC | DT_STATUS_OK_NSEC);
+	return pmic_status != -1;
 }
 
 /* Return a libfdt compliant status value */
