@@ -1578,8 +1578,9 @@ static TEE_Result stm32_pka_probe(const void *fdt, int node,
 	if (stm32_pka_get_platdata(&pka_pdata))
 		return TEE_ERROR_NOT_SUPPORTED;
 
-	if (stm32_pka_parse_fdt(&pka_pdata, fdt, node))
-		return TEE_ERROR_NOT_SUPPORTED;
+	res = stm32_pka_parse_fdt(&pka_pdata, fdt, node);
+	if (res)
+		return res;
 
 	clk_enable(pka_pdata.clk);
 
