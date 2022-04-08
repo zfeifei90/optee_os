@@ -248,7 +248,7 @@ static TEE_Result wait_computation_completed(vaddr_t base)
 		return TEE_ERROR_BUSY;
 	}
 
-	return 0;
+	return TEE_SUCCESS;
 }
 
 static void clear_computation_completed(uintptr_t base)
@@ -1125,7 +1125,6 @@ out:
 static TEE_Result stm32_saes_parse_fdt(struct stm32_saes_platdata *pdata,
 				       const void *fdt, int node)
 {
-	TEE_Result res = TEE_ERROR_GENERIC;
 	struct dt_node_info dt_saes = { };
 
 	_fdt_fill_device_info(fdt, &dt_saes, node);
@@ -1142,11 +1141,7 @@ static TEE_Result stm32_saes_parse_fdt(struct stm32_saes_platdata *pdata,
 
 	pdata->reset_id = (unsigned int)dt_saes.reset;
 
-	res = clk_dt_get_by_index(fdt, node, 0, &pdata->clk);
-	if (res)
-		return res;
-
-	return 0;
+	return clk_dt_get_by_index(fdt, node, 0, &pdata->clk);
 }
 
 __weak
