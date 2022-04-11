@@ -49,6 +49,15 @@ unsigned int stm32mp1_cpu_opp_level(size_t opp_index)
 	return cpu_opp.dvfs[opp_index].freq_khz;
 }
 
+static TEE_Result _set_opp_clk_rate(unsigned int opp)
+{
+#ifdef CFG_STM32MP15
+	return stm32mp1_set_opp_khz(cpu_opp.dvfs[opp].freq_khz);
+#else
+	return clk_set_rate(cpu_opp.clock, cpu_opp.dvfs[opp].freq_khz * 1000UL);
+#endif
+}
+
 static TEE_Result opp_set_voltage(struct rdev *rdev, uint16_t volt_mv)
 {
 	TEE_Result res = TEE_ERROR_GENERIC;
@@ -77,7 +86,7 @@ static TEE_Result set_clock_then_voltage(unsigned int opp)
 {
 	TEE_Result res = TEE_ERROR_GENERIC;
 
-	if (clk_set_rate(cpu_opp.clock, cpu_opp.dvfs[opp].freq_khz * 1000UL)) {
+	if (_set_opp_clk_rate(opp)) {
 		EMSG("Failed to set clock to %ukHz",
 		     cpu_opp.dvfs[opp].freq_khz);
 		return TEE_ERROR_GENERIC;
@@ -95,8 +104,7 @@ static TEE_Result set_clock_then_voltage(unsigned int opp)
 		if (current_opp == cpu_opp.opp_count)
 			panic();
 
-		if (clk_set_rate(cpu_opp.clock,
-				 cpu_opp.dvfs[current_opp].freq_khz * 1000UL))
+		if (_set_opp_clk_rate(current_opp))
 			EMSG("Failed to restore clock");
 
 		return res;
@@ -118,7 +126,7 @@ static TEE_Result set_voltage_then_clock(unsigned int opp)
 		io_clrbits32(stm32_pwr_base(), PWR_CR1_MPU_RAM_LOW_SPEED);
 #endif
 
-	if (clk_set_rate(cpu_opp.clock, cpu_opp.dvfs[opp].freq_khz * 1000UL)) {
+	if (_set_opp_clk_rate(opp)) {
 		unsigned int current_opp = cpu_opp.current_opp;
 		unsigned int previous_volt = 0U;
 
@@ -314,10 +322,20 @@ stm32mp1_cpu_opp_init(const void *fdt, int node,
 		      const void *compat_data __unused)
 {
 	TEE_Result res = TEE_SUCCESS;
+	uint16_t cpu_voltage __maybe_unused = 0;
 
 	res = get_cpu_parent(fdt);
 	if (res)
 		return res;
+
+#ifdef CFG_STM32MP15
+	res = regulator_get_voltage(cpu_opp.rdev, &cpu_voltage);
+	if (res)
+		return res;
+
+	if (stm32mp1_clk_compute_all_pll1_settings(cpu_voltage))
+		panic();
+#endif
 
 	res = stm32mp1_cpu_opp_get_dt_subnode(fdt, node);
 
