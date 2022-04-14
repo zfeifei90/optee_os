@@ -136,6 +136,7 @@ void stm32mp1_clk_lp_save_opp_pll1_settings(uint8_t *data, size_t size);
 bool stm32mp1_clk_pll1_settings_are_valid(void);
 TEE_Result stm32mp1_set_opp_khz(uint32_t freq_khz);
 int stm32mp1_round_opp_khz(uint32_t *freq_khz);
+TEE_Result initialize_pll1_settings(void);
 
 /*
  * Util for reset signal assertion/desassertion for stm32 and platform drivers

@@ -173,47 +173,6 @@ static TEE_Result init_console_from_dt(void)
 
 /* Probe console from DT once clock inits (service init level) are completed */
 service_init_late(init_console_from_dt);
-
-#ifdef CFG_STM32MP15
-static TEE_Result initialize_pll1_settings(void)
-{
-	uint16_t cpu_voltage = 0U;
-	int ret = 0;
-	struct rdev *rdev = NULL;
-	int node = -1;
-	void *fdt = get_embedded_dt();
-
-	if (stm32mp1_clk_pll1_settings_are_valid())
-		return TEE_SUCCESS;
-
-	if (!fdt)
-		return TEE_ERROR_NOT_SUPPORTED;
-
-	node = fdt_node_offset_by_compatible(fdt, -1, "arm,cortex-a7");
-	if (node < 0)
-		return TEE_ERROR_ITEM_NOT_FOUND;
-
-	rdev = regulator_get_by_supply_name(fdt, node, "cpu");
-	if (!rdev)
-		return TEE_ERROR_DEFER_DRIVER_INIT;
-
-	ret = regulator_get_voltage(rdev, &cpu_voltage);
-	if (ret)
-		return TEE_ERROR_GENERIC;
-
-	if (regulator_set_voltage(rdev, cpu_voltage) ==
-	    TEE_ERROR_NOT_IMPLEMENTED)
-		return TEE_SUCCESS;
-
-	if (stm32mp1_clk_compute_all_pll1_settings(cpu_voltage))
-		panic();
-
-	return TEE_SUCCESS;
-}
-
-/* Compute PLL1 settings once PMIC init is completed */
-driver_init_late(initialize_pll1_settings);
-#endif
 #endif
 
 static uintptr_t stm32_dbgmcu_base(void)
