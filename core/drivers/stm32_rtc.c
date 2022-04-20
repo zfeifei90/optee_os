@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * Copyright (c) 2018-2021, STMicroelectronics - All Rights Reserved
+ * Copyright (c) 2018-2022, STMicroelectronics - All Rights Reserved
  *
  */
-
 #include <arm32.h>
 #include <drivers/clk.h>
 #include <drivers/clk_dt.h>
@@ -18,86 +17,103 @@
 #include <mm/core_memprot.h>
 #include <stm32_util.h>
 
-#define RTC_TR			0x00
-#define RTC_DR			0x04
-#define RTC_SSR			0x08
-#define RTC_ICSR		0x0C
-#define RTC_PRER		0x10
-#define RTC_WUTR		0x14
-#define RTC_CR			0x18
-#define RTC_SMCR		0x20
-#define RTC_WPR			0x24
-#define RTC_CALR		0x28
-#define RTC_SHIFTR		0x2C
-#define RTC_TSTR		0x30
-#define RTC_TSDR		0x34
-#define RTC_TSSSR		0x38
-#define RTC_ALRMAR		0x40
-#define RTC_ALRMASSR		0x44
-#define RTC_ALRMBR		0x48
-#define RTC_ALRMBSSR		0x4C
-#define RTC_SR			0x50
-#define RTC_SCR			0x5C
-#define RTC_OR			0x60
+#define RTC_TR				U(0x00)
+#define RTC_DR				U(0x04)
+#define RTC_SSR				U(0x08)
+#define RTC_ICSR			U(0x0C)
+#define RTC_PRER			U(0x10)
+#define RTC_WUTR			U(0x14)
+#define RTC_CR				U(0x18)
+#define RTC_PRIVCFGR			U(0x1C)
+/* RTC_SMCR is linked to RTC3v1_2 */
+#define RTC_SMCR			U(0x20)
+/* RTC_SECCFGR is linked to RTC3v3_2 and above */
+#define RTC_SECCFGR			U(0x20)
+#define RTC_WPR				U(0x24)
+#define RTC_CALR			U(0x28)
+#define RTC_SHIFTR			U(0x2C)
+#define RTC_TSTR			U(0x30)
+#define RTC_TSDR			U(0x34)
+#define RTC_TSSSR			U(0x38)
+#define RTC_ALRMAR			U(0x40)
+#define RTC_ALRMASSR			U(0x44)
+#define RTC_ALRMBR			U(0x48)
+#define RTC_ALRMBSSR			U(0x4C)
+#define RTC_SR				U(0x50)
+#define RTC_SCR				U(0x5C)
+#define RTC_OR				U(0x60)
 
-#define RTC_TR_SU_MASK		GENMASK_32(3, 0)
-#define RTC_TR_ST_MASK		GENMASK_32(6, 4)
-#define RTC_TR_ST_SHIFT		4
-#define RTC_TR_MNU_MASK		GENMASK_32(11, 8)
-#define RTC_TR_MNU_SHIFT	8
-#define RTC_TR_MNT_MASK		GENMASK_32(14, 12)
-#define RTC_TR_MNT_SHIFT	12
-#define RTC_TR_HU_MASK		GENMASK_32(19, 16)
-#define RTC_TR_HU_SHIFT		16
-#define RTC_TR_HT_MASK		GENMASK_32(21, 20)
-#define RTC_TR_HT_SHIFT		20
-#define RTC_TR_PM		BIT(22)
+#define RTC_TR_SU_MASK			GENMASK_32(3, 0)
+#define RTC_TR_ST_MASK			GENMASK_32(6, 4)
+#define RTC_TR_ST_SHIFT			U(4)
+#define RTC_TR_MNU_MASK			GENMASK_32(11, 8)
+#define RTC_TR_MNU_SHIFT		U(8)
+#define RTC_TR_MNT_MASK			GENMASK_32(14, 12)
+#define RTC_TR_MNT_SHIFT		U(12)
+#define RTC_TR_HU_MASK			GENMASK_32(19, 16)
+#define RTC_TR_HU_SHIFT			U(16)
+#define RTC_TR_HT_MASK			GENMASK_32(21, 20)
+#define RTC_TR_HT_SHIFT			U(20)
+#define RTC_TR_PM			BIT(22)
 
-#define RTC_DR_DU_MASK		GENMASK_32(3, 0)
-#define RTC_DR_DT_MASK		GENMASK_32(5, 4)
-#define RTC_DR_DT_SHIFT		4
-#define RTC_DR_MU_MASK		GENMASK_32(11, 8)
-#define RTC_DR_MU_SHIFT		8
-#define RTC_DR_MT		BIT(12)
-#define RTC_DR_MT_SHIFT		12
-#define RTC_DR_WDU_MASK		GENMASK_32(15, 13)
-#define RTC_DR_WDU_SHIFT	13
-#define RTC_DR_YU_MASK		GENMASK_32(19, 16)
-#define RTC_DR_YU_SHIFT		16
-#define RTC_DR_YT_MASK		GENMASK_32(23, 20)
-#define RTC_DR_YT_SHIFT		20
+#define RTC_DR_DU_MASK			GENMASK_32(3, 0)
+#define RTC_DR_DT_MASK			GENMASK_32(5, 4)
+#define RTC_DR_DT_SHIFT			U(4)
+#define RTC_DR_MU_MASK			GENMASK_32(11, 8)
+#define RTC_DR_MU_SHIFT			U(8)
+#define RTC_DR_MT			BIT(12)
+#define RTC_DR_MT_SHIFT			U(12)
+#define RTC_DR_WDU_MASK			GENMASK_32(15, 13)
+#define RTC_DR_WDU_SHIFT		U(13)
+#define RTC_DR_YU_MASK			GENMASK_32(19, 16)
+#define RTC_DR_YU_SHIFT			U(16)
+#define RTC_DR_YT_MASK			GENMASK_32(23, 20)
+#define RTC_DR_YT_SHIFT			U(20)
 
-#define RTC_SSR_SS_MASK		GENMASK_32(15, 0)
+#define RTC_SSR_SS_MASK			GENMASK_32(15, 0)
 
-#define RTC_ICSR_RSF		BIT(5)
+#define RTC_ICSR_RSF			BIT(5)
 
-#define RTC_PRER_PREDIV_S_MASK	GENMASK_32(14, 0)
+#define RTC_PRER_PREDIV_S_MASK		GENMASK_32(14, 0)
 
-#define RTC_CR_BYPSHAD		BIT(5)
-#define RTC_CR_BYPSHAD_SHIFT	5
-#define RTC_CR_TAMPTS		BIT(25)
+#define RTC_CR_BYPSHAD			BIT(5)
+#define RTC_CR_BYPSHAD_SHIFT		U(5)
+#define RTC_CR_TAMPTS			BIT(25)
 
-#define RTC_SMCR_TS_DPROT	BIT(3)
-#define RTC_SR_TSF		BIT(3)
-#define RTC_SCR_CTSF		BIT(3)
-#define RTC_SR_TSOVF		BIT(4)
-#define RTC_SCR_CTSOVF		BIT(4)
+#define RTC_SMCR_TS_DPROT		BIT(3)
+#define RTC_SR_TSF			BIT(3)
+#define RTC_SCR_CTSF			BIT(3)
+#define RTC_SR_TSOVF			BIT(4)
+#define RTC_SCR_CTSOVF			BIT(4)
 
-#define RTC_TSDR_MU_MASK	GENMASK_32(11, 8)
-#define RTC_TSDR_MU_SHIFT	8
-#define RTC_TSDR_DT_MASK	GENMASK_32(5, 4)
-#define RTC_TSDR_DT_SHIFT	4
-#define RTC_TSDR_DU_MASK	GENMASK_32(3, 0)
-#define RTC_TSDR_DU_SHIFT	0
+#define RTC_TSDR_MU_MASK		GENMASK_32(11, 8)
+#define RTC_TSDR_MU_SHIFT		U(8)
+#define RTC_TSDR_DT_MASK		GENMASK_32(5, 4)
+#define RTC_TSDR_DT_SHIFT		U(4)
+#define RTC_TSDR_DU_MASK		GENMASK_32(3, 0)
+#define RTC_TSDR_DU_SHIFT		U(0)
 
-#define RTC_WPR_KEY1		0xCA
-#define RTC_WPR_KEY2		0x53
-#define RTC_WPR_KEY_LOCK	0xFF
+#define RTC_WPR_KEY1			U(0xCA)
+#define RTC_WPR_KEY2			U(0x53)
+#define RTC_WPR_KEY_LOCK		U(0xFF)
 
-#define RTC_FLAGS_READ_TWICE	BIT(0)
-#define RTC_FLAGS_SECURE	BIT(1)
+#define RTC_PRIVCFGR_FULL_PRIV		BIT(15)
+#define RTC_PRIVCFGR_VALUES		GENMASK_32(3, 0)
+#define RTC_PRIVCFGR_VALUES_TO_SHIFT	GENMASK_32(5, 4)
+#define RTC_PRIVCFGR_SHIFT		U(9)
+#define RTC_PRIVCFGR_MASK		(GENMASK_32(14, 13) | GENMASK_32(3, 0))
 
-#define TIMEOUT_US_RTC_SHADOW	U(10000)
+#define RTC_SECCFGR_FULL_SEC		BIT(15)
+#define RTC_SECCFGR_VALUES		GENMASK_32(3, 0)
+#define RTC_SECCFGR_VALUES_TO_SHIFT	GENMASK_32(5, 4)
+#define RTC_SECCFGR_SHIFT		U(9)
+#define RTC_SECCFGR_TS_DPROT		BIT(3)
+#define RTC_SECCFGR_MASK		(GENMASK_32(14, 13) | GENMASK_32(3, 0))
+
+#define RTC_FLAGS_READ_TWICE		BIT(0)
+#define RTC_FLAGS_SECURE		BIT(1)
+
+#define TIMEOUT_US_RTC_SHADOW		U(10000)
 
 struct rtc_device {
 	struct io_pa_va base;
@@ -112,6 +128,7 @@ static struct rtc_device rtc_dev;
 static vaddr_t get_base(void)
 {
 	assert(rtc_dev.base.pa);
+
 	return io_pa_or_va(&rtc_dev.base, 1);
 }
 
@@ -400,11 +417,11 @@ bool stm32_rtc_is_timestamp_enable(void)
 	return ret;
 }
 
-static TEE_Result stm32_rtc_probe(const void *fdt, int node,
-				  const void *compat_data __unused)
+static TEE_Result parse_dt(const void *fdt, int node,
+			   const void *compat_data __maybe_unused)
 {
-	struct dt_node_info dt_info = { };
 	TEE_Result res = TEE_ERROR_GENERIC;
+	struct dt_node_info dt_info = { };
 
 	_fdt_fill_device_info(fdt, &dt_info, node);
 
@@ -415,22 +432,34 @@ static TEE_Result stm32_rtc_probe(const void *fdt, int node,
 
 	res = clk_dt_get_by_name(fdt, node, "pclk", &rtc_dev.pclk);
 	if (res)
-		goto err;
+		return res;
 
 	res = clk_dt_get_by_name(fdt, node, "rtc_ck", &rtc_dev.rtc_ck);
 	if (!rtc_dev.rtc_ck)
-		goto err;
+		return res;
+
+	return TEE_SUCCESS;
+}
+
+static TEE_Result stm32_rtc_probe(const void *fdt, int node,
+				  const void *compat_data __maybe_unused)
+{
+	TEE_Result res = TEE_ERROR_GENERIC;
+
+	res = parse_dt(fdt, node, compat_data);
+	if (res) {
+		memset(&rtc_dev, 0, sizeof(rtc_dev));
+		return res;
+	}
 
 	/* Unbalanced clock enable to ensure RTC core clock is always on */
-	clk_enable(rtc_dev.rtc_ck);
+	res = clk_enable(rtc_dev.rtc_ck);
+	if (res)
+		panic("Couldn't enable RTC clock");
 
 	if (clk_get_rate(rtc_dev.pclk) < (clk_get_rate(rtc_dev.rtc_ck) * 7))
 		rtc_dev.flags |= RTC_FLAGS_READ_TWICE;
 
-	return TEE_SUCCESS;
-
-err:
-	memset(&rtc_dev, 0, sizeof(rtc_dev));
 	return res;
 }
 
@@ -440,7 +469,7 @@ static const struct dt_device_match stm32_rtc_match_table[] = {
 };
 
 DEFINE_DT_DRIVER(stm32_rtc_dt_driver) = {
-	.name = "stm32mp1-rtc",
+	.name = "stm32-rtc",
 	.match_table = stm32_rtc_match_table,
 	.probe = stm32_rtc_probe,
 };
