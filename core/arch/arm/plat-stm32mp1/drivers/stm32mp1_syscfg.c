@@ -6,7 +6,7 @@
 #include <config.h>
 #include <drivers/clk.h>
 #include <drivers/regulator.h>
-#include <dt-bindings/clock/stm32mp1-clks.h>
+#include <drivers/stm32mp_dt_bindings.h>
 #include <config.h>
 #include <drivers/clk.h>
 #include <initcall.h>
