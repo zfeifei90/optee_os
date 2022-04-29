@@ -249,7 +249,7 @@
 		};
 
 		rtc: rtc@5c004000 {
-			compatible = "st,stm32mp1-rtc";
+			compatible = "st,stm32mp13-rtc";
 			reg = <0x5c004000 0x400>;
 			clocks = <&rcc RTCAPB>, <&rcc RTC>;
 			clock-names = "pclk", "rtc_ck";
