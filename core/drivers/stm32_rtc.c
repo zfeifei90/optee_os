@@ -107,7 +107,7 @@
 #define RTC_SECCFGR_VALUES		GENMASK_32(3, 0)
 #define RTC_SECCFGR_VALUES_TO_SHIFT	GENMASK_32(5, 4)
 #define RTC_SECCFGR_SHIFT		U(9)
-#define RTC_SECCFGR_TS_DPROT		BIT(3)
+#define RTC_SECCFGR_TS_SEC		BIT(3)
 #define RTC_SECCFGR_MASK		(GENMASK_32(14, 13) | GENMASK_32(3, 0))
 
 #define RTC_FLAGS_READ_TWICE		BIT(0)
@@ -115,8 +115,13 @@
 
 #define TIMEOUT_US_RTC_SHADOW		U(10000)
 
+struct rtc_compat {
+	bool has_seccfgr;
+};
+
 struct rtc_device {
 	struct io_pa_va base;
+	struct rtc_compat compat;
 	struct clk *pclk;
 	struct clk *rtc_ck;
 	uint8_t flags;
@@ -397,7 +402,12 @@ void stm32_rtc_set_tamper_timestamp(void)
 	io_setbits32(rtc_base + RTC_CR, RTC_CR_TAMPTS);
 
 	/* Secure Timestamp bit */
-	io_clrbits32(rtc_base + RTC_SMCR, RTC_SMCR_TS_DPROT);
+	if (!rtc_dev.compat.has_seccfgr) {
+		io_clrbits32(rtc_base + RTC_SMCR, RTC_SMCR_TS_DPROT);
+	} else {
+		/* Inverted logic */
+		io_setbits32(rtc_base + RTC_SECCFGR, RTC_SECCFGR_TS_SEC);
+	}
 
 	stm32_rtc_write_protect();
 
@@ -418,7 +428,7 @@ bool stm32_rtc_is_timestamp_enable(void)
 }
 
 static TEE_Result parse_dt(const void *fdt, int node,
-			   const void *compat_data __maybe_unused)
+			   const void *compat_data)
 {
 	TEE_Result res = TEE_ERROR_GENERIC;
 	struct dt_node_info dt_info = { };
@@ -438,11 +448,13 @@ static TEE_Result parse_dt(const void *fdt, int node,
 	if (!rtc_dev.rtc_ck)
 		return res;
 
+	rtc_dev.compat = *(struct rtc_compat *)compat_data;
+
 	return TEE_SUCCESS;
 }
 
 static TEE_Result stm32_rtc_probe(const void *fdt, int node,
-				  const void *compat_data __maybe_unused)
+				  const void *compat_data)
 {
 	TEE_Result res = TEE_ERROR_GENERIC;
 
@@ -463,8 +475,23 @@ static TEE_Result stm32_rtc_probe(const void *fdt, int node,
 	return res;
 }
 
+static struct rtc_compat mp15_compat = {
+	.has_seccfgr = false,
+};
+
+static struct rtc_compat mp13_compat = {
+	.has_seccfgr = true,
+};
+
 static const struct dt_device_match stm32_rtc_match_table[] = {
-	{ .compatible = "st,stm32mp1-rtc" },
+	{
+		.compatible = "st,stm32mp1-rtc",
+		.compat_data = &mp15_compat,
+	},
+	{
+		.compatible = "st,stm32mp13-rtc",
+		.compat_data = &mp13_compat,
+	},
 	{ }
 };
 
