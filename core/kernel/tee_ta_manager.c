@@ -767,7 +767,7 @@ TEE_Result tee_ta_open_session(TEE_ErrorOrigin *err,
 		*err = s->err_origin;
 
 	if (res != TEE_SUCCESS)
-		EMSG("Failed. Return error 0x%x", res);
+		EMSG("Failed. TA %pUl Return error 0x%x", uuid, res);
 
 	return res;
 }
