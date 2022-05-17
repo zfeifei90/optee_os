@@ -461,6 +461,9 @@ void __noreturn stm32_enter_cstop_shutdown(uint32_t mode)
 			stm32mp_get_pmic();
 			stpmic1_switch_off();
 			udelay(100);
+		} else {
+			for ( ; ; )
+				stm32_iwdg_refresh(IWDG2_INST);
 		}
 		break;
 	case STM32_PM_CSTOP_ALLOW_STANDBY_DDR_SR:
