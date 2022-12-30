@@ -1,5 +1,6 @@
 # 1GB and 512MB DDR targets do not locate secure DDR at the same place.
 flavor_dts_file-157A_DK1 = stm32mp157a-dk1.dts
+flavor_dts_file-157A_BEARPI = stm32mp157a-bearpi-mx.dts
 flavor_dts_file-157A_ED1 = stm32mp157a-ed1.dts
 flavor_dts_file-157A_EV1 = stm32mp157a-ev1.dts
 flavor_dts_file-157C_DK2 = stm32mp157c-dk2.dts
@@ -14,6 +15,7 @@ flavor_dts_file-157F_EV1 = stm32mp157f-ev1.dts
 flavor_dts_file-135F_DK = stm32mp135f-dk.dts
 
 flavorlist-512M = $(flavor_dts_file-157A_DK1) \
+		  $(flavor_dts_file-157A_BEARPI) \
 		  $(flavor_dts_file-157C_DK2) \
 		  $(flavor_dts_file-157D_DK1) \
 		  $(flavor_dts_file-157F_DK2) \
@@ -29,6 +31,7 @@ flavorlist-1G = $(flavor_dts_file-157A_ED1) \
 		$(flavor_dts_file-157F_EV1)
 
 flavorlist-MP15 = $(flavor_dts_file-157A_DK1) \
+		  $(flavor_dts_file-157A_BEARPI) \
 		  $(flavor_dts_file-157C_DK2) \
 		  $(flavor_dts_file-157D_DK1) \
 		  $(flavor_dts_file-157F_DK2) \
@@ -228,7 +231,7 @@ CFG_STM32_UART ?= y
 CFG_STM32_VREFBUF ?= y
 CFG_STM32MP1_CPU_OPP ?= y
 CFG_STM32MP1_REGULATOR_IOD ?= y
-CFG_STPMIC1 ?= y
+CFG_STPMIC1 ?= n
 CFG_SYSCFG ?= y
 CFG_TZC400 ?= y
 
